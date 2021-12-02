@@ -1,0 +1,45 @@
+[package]
+authors = ["ChiHai <ihciah@gmail.com>", "XuShuai <dyxushuai@gmail.com>"]
+categories = ["asynchronous", "network-programming"]
+description = "A thread per core runtime based on iouring."
+edition = "2021"
+keywords = ["runtime", "iouring", "async"]
+license = "MIT/Apache-2.0"
+name = "monoio"
+readme = "README.md"
+repository = "https://github.com/bytedance/monoio"
+version = "0.0.2"
+
+[dependencies]
+futures = "0.3"
+fxhash = "0.2"
+io-uring = {version = "0.5", features = ["unstable"]}
+libc = "0.2"
+os_socketaddr = "0.2"
+pin-project-lite = "0.2"
+pin-utils = "0.1"
+scoped-tls = "1"
+socket2 = {version = "0.4", features = ["all"]}
+
+bytes = {version = "1", optional = true}
+flume = {version = "0.10", optional = true}
+lazy_static = {version = "1", optional = true}
+monoio-macros = {version = "0.0.2", path = "../monoio-macros", optional = true}
+nix = {version = "0.23", optional = true}
+
+[features]
+# async-cancel will push a async-cancel entry into sq when op is canceled
+async-cancel = []
+# enanle zero copy(enable SOCK_ZEROCOPY + MSG_ZEROCOPY flag)
+# WARNING: this feature may cause performance degradation
+zero-copy = []
+# enable `async main` macros support
+macros = ["monoio-macros"]
+# allow waker to be sent across threads
+sync = ["lazy_static", "flume"]
+# enable bind cpu set
+utils = ["nix"]
+# enable debug if you want to know what runtime does
+debug = []
+
+default = ["async-cancel", "bytes", "macros", "utils"]

@@ -1,0 +1,22 @@
+[licenses]
+unlicensed = "deny"
+allow = [
+    "MIT",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "Zlib",
+    "Unlicense"
+]
+copyleft = "deny"
+default = "deny"
+confidence-threshold = 0.95
+private = { ignore = true }
+
+[advisories]
+vulnerability = "deny"
+unmaintained = "deny"
+notice = "deny"
+unsound = "deny"
+
+[bans]
+multiple-versions = "allow"
