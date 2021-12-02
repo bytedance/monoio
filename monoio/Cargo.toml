@@ -8,9 +8,11 @@ license = "MIT/Apache-2.0"
 name = "monoio"
 readme = "README.md"
 repository = "https://github.com/bytedance/monoio"
-version = "0.0.2"
+version = "0.0.3"
 
 [dependencies]
+monoio-macros = {version = "0.0.2", path = "../monoio-macros", optional = true}
+
 futures = "0.3"
 fxhash = "0.2"
 io-uring = {version = "0.5", features = ["unstable"]}
@@ -24,7 +26,6 @@ socket2 = {version = "0.4", features = ["all"]}
 bytes = {version = "1", optional = true}
 flume = {version = "0.10", optional = true}
 lazy_static = {version = "1", optional = true}
-monoio-macros = {version = "0.0.2", path = "../monoio-macros", optional = true}
 nix = {version = "0.23", optional = true}
 
 [features]

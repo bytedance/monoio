@@ -8,12 +8,12 @@ license = "MIT/Apache-2.0"
 name = "monoio-compat"
 readme = "README.md"
 repository = "https://github.com/bytedance/monoio"
-version = "0.0.2"
+version = "0.0.3"
 
 [dependencies]
-monoio = {version = "0.0.2", path = "../monoio", default-features = false}
+monoio = {version = "0.0.3", path = "../monoio", default-features = false}
 tokio = {version = "1", default-features = false, features = ["io-util"]}
 
 [dev-dependencies]
-monoio = {version = "0.0.2", path = "../monoio"}
-local-sync = "0.0.2"
+monoio = {version = "0.0.3", path = "../monoio", features = ["async-cancel", "macros"]}
+local-sync = "0.0.5"

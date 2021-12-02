@@ -27,7 +27,7 @@ pub unsafe trait IoVecBuf: Unpin + 'static {
 }
 
 /// A intermediate struct that impl IoVecBuf and IoVecBufMut.
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct VecBuf {
     iovecs: Vec<libc::iovec>,
     raw: Vec<Vec<u8>>,

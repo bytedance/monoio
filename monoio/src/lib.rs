@@ -15,6 +15,7 @@
 
 #[macro_use]
 pub mod macros;
+#[cfg(feature = "macros")]
 #[doc(hidden)]
 pub use monoio_macros::select_priv_declare_output_enum;
 #[macro_use]

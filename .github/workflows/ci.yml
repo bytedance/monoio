@@ -33,6 +33,16 @@ jobs:
         with:
           command: fmt
           args: --all -- --check
+      - name: Run cargo check with no default features
+        uses: actions-rs/cargo@v1
+        with:
+          command: check
+          args: --no-default-features
+      - name: Run cargo check with all features
+        uses: actions-rs/cargo@v1
+        with:
+          command: check
+          args: --all-features
       - name: Run cargo clippy
         uses: actions-rs/cargo@v1
         with:
