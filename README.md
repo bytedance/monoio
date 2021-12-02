@@ -10,7 +10,7 @@ A thread-per-core Rust runtime with io_uring.
 [crates-url]: https://crates.io/crates/monoio
 [mit-badge]: https://img.shields.io/badge/license-MIT-blue.svg
 [mit-url]: LICENSE-MIT
-[actions-badge]: https://github.com/bytedance/monoio/workflows/CI/badge.svg
+[actions-badge]: https://github.com/bytedance/monoio/actions/workflows/ci.yml/badge.svg
 [actions-url]: https://github.com/bytedance/monoio/actions
 [zh-readme-url]: README-zh.md
 

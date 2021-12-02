@@ -10,7 +10,7 @@
 [crates-url]: https://crates.io/crates/monoio
 [mit-badge]: https://img.shields.io/badge/license-MIT-blue.svg
 [mit-url]: LICENSE-MIT
-[actions-badge]: https://github.com/bytedance/monoio/workflows/CI/badge.svg
+[actions-badge]: https://github.com/bytedance/monoio/actions/workflows/ci.yml/badge.svg
 [actions-url]: https://github.com/bytedance/monoio/actions
 [en-readme-url]: README.md
 
@@ -29,10 +29,6 @@ Monoio 就是这样一个 Runtime：它并不像 Tokio 那样通过公平调度�
 要使用 Monoio，你需要最新的 nightly 工具链。如果你已经安装了 nightly 工具链，请确保是最新的版本。
 
 在项目中创建 `rust-toolchain` 文件并在其中写入 `nightly` 即可强制指定；也可以使用 `cargo +nightly` 来构建或运行。
-
-[![Crates.io][crates-badge]][crates-url]
-[![MIT licensed][mit-badge]][mit-url]
-[![Build Status][actions-badge]][actions-url]
 
 这是一个非常简单的例子，基于 Monoio 实现一个简单的 echo 服务。运行起来之后你可以通过 `nc 127.0.0.1 50002` 来连接它。
 
