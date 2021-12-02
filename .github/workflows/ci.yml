@@ -4,9 +4,11 @@ on:
   push:
     paths-ignore:
       - '**.md'
+      - '**.png'
   pull_request:
     paths-ignore:
       - '**.md'
+      - '**.png'
 
 env:
   RUST_TOOLCHAIN: nightly

@@ -2,14 +2,14 @@
 一个基于 io-uring 和 thread-per-core 模型 Rust Runtime。
 
 [![Crates.io][crates-badge]][crates-url]
-[![MIT licensed][mit-badge]][mit-url]
+[![MIT/Apache-2 licensed][license-badge]][license-url]
 [![Build Status][actions-badge]][actions-url]
 [English Readme][en-readme-url]
 
 [crates-badge]: https://img.shields.io/crates/v/monoio.svg
 [crates-url]: https://crates.io/crates/monoio
-[mit-badge]: https://img.shields.io/badge/license-MIT-blue.svg
-[mit-url]: LICENSE-MIT
+[license-badge]: https://img.shields.io/crates/l/monoio.svg
+[license-url]: LICENSE-MIT
 [actions-badge]: https://github.com/bytedance/monoio/actions/workflows/ci.yml/badge.svg
 [actions-url]: https://github.com/bytedance/monoio/actions
 [en-readme-url]: README.md

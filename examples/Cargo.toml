@@ -10,7 +10,7 @@ version = "0.0.0"
 [dev-dependencies]
 monoio = {path = "../monoio", features=["sync", "utils", "bytes", "macros"]}
 
-local-sync = "0.0.4"
+local-sync = "0.0.5"
 pin-project-lite = "0.2"
 futures = "0.3"
 
