@@ -174,7 +174,7 @@ impl IoUringDriver {
         let (waker_sender, waker_receiver) = flume::unbounded::<std::task::Waker>();
 
         let inner = Rc::new(UnsafeCell::new(Inner {
-            ops: Ops::with_capacity(5120),
+            ops: Ops::with_capacity(10 * entries as usize),
             uring,
             shared_waker: std::sync::Arc::new(EventWaker::new(waker)),
             eventfd_installed: false,
