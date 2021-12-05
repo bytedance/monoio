@@ -134,9 +134,16 @@ impl<D> Runtime<D> {
                 set_poll();
                 loop {
                     loop {
-                        // Consume all tasks
+                        // Consume all tasks(with max round to prevent io starvation)
+                        let mut max_round = self.context.tasks.len() * 2;
                         while let Some(t) = self.context.tasks.pop() {
                             t.run();
+                            if max_round == 0 {
+                                // maybe there's a looping task
+                                break;
+                            } else {
+                                max_round -= 1;
+                            }
                         }
 
                         // Check main future
@@ -145,9 +152,16 @@ impl<D> Runtime<D> {
                             if let std::task::Poll::Ready(t) = join.as_mut().poll(cx) {
                                 return t;
                             }
-                        } else {
+                        }
+
+                        if self.context.tasks.is_empty() {
+                            // No task to execute, we should wait for io blockingly
+                            // Hot path
                             break;
                         }
+
+                        // Cold path
+                        let _ = self.driver.submit();
                     }
 
                     // Wait and Process CQ

@@ -72,6 +72,7 @@ impl Unpark for std::sync::Arc<dyn Unpark> {
 
 pub trait Driver {
     fn with<R>(&self, f: impl FnOnce() -> R) -> R;
+    fn submit(&self) -> io::Result<()>;
     fn park(&self) -> io::Result<()>;
     fn park_timeout(&self, duration: Duration) -> io::Result<()>;
 
@@ -315,6 +316,13 @@ impl Driver for IoUringDriver {
     /// Enter the driver context. This enables using uring types.
     fn with<R>(&self, f: impl FnOnce() -> R) -> R {
         CURRENT.set(&self.inner, f)
+    }
+
+    fn submit(&self) -> io::Result<()> {
+        let inner = unsafe { &mut *self.inner.get() };
+        inner.submit()?;
+        inner.tick();
+        Ok(())
     }
 
     fn park(&self) -> io::Result<()> {
