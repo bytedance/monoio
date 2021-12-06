@@ -46,12 +46,14 @@ impl AsyncRead for TcpStreamCompat {
         });
         match fut.as_mut().poll(cx) {
             std::task::Poll::Ready((r, owned_buf)) => {
-                if let Err(e) = r {
+                let ret = if let Err(e) = r {
                     std::task::Poll::Ready(Err(e))
                 } else {
                     buf.put_slice(&owned_buf);
                     std::task::Poll::Ready(Ok(()))
-                }
+                };
+                this.read_owned_buf = Some(owned_buf);
+                ret
             }
             std::task::Poll::Pending => {
                 this.read_fut = Some(fut);

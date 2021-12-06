@@ -8,11 +8,16 @@ version = "0.0.0"
 # [dependencies] instead. In additional, if you want to know how runtime
 # works, you can enable "debug" feature.
 [dev-dependencies]
-monoio = {path = "../monoio", features=["sync", "utils", "bytes", "macros"]}
+monoio = {path = "../monoio", features = ["sync", "utils", "bytes", "macros"]}
 
+# For hyper example
+hyper = {version = "0.14", features = ["full"]}
+monoio-compat = {path = "../monoio-compat"}
+tokio = {version = "1", default-features = false, features = ["io-util"]}
+
+futures = "0.3"
 local-sync = "0.0.5"
 pin-project-lite = "0.2"
-futures = "0.3"
 
 [[example]]
 name = "builder"
@@ -53,3 +58,7 @@ path = "channel.rs"
 [[example]]
 name = "proxy"
 path = "proxy.rs"
+
+[[example]]
+name = "hyper"
+path = "hyper.rs"
