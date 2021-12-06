@@ -323,20 +323,24 @@ impl<D> Driver for TimeDriver<D>
 where
     D: Driver + 'static,
 {
-    fn park(&self) -> io::Result<()> {
-        self.park_internal(None)
-    }
-
-    fn park_timeout(&self, duration: Duration) -> io::Result<()> {
-        self.park_internal(Some(duration))
-    }
-
     fn with<R>(&self, f: impl FnOnce() -> R) -> R {
         self.park.with(f)
     }
 
+    fn submit(&self) -> io::Result<()> {
+        self.park.submit()
+    }
+
+    fn park(&self) -> io::Result<()> {
+        self.park_internal(None)
+    }
+
     #[cfg(feature = "sync")]
     type Unpark = D::Unpark;
+
+    fn park_timeout(&self, duration: Duration) -> io::Result<()> {
+        self.park_internal(Some(duration))
+    }
 
     #[cfg(feature = "sync")]
     fn unpark(&self) -> Self::Unpark {

@@ -38,6 +38,14 @@ impl TaskQueue {
         }
     }
 
+    pub(crate) fn len(&self) -> usize {
+        unsafe { (*self.queue.get()).len() }
+    }
+
+    pub(crate) fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
     pub(crate) fn push(&self, runnable: Task<LocalScheduler>) {
         unsafe {
             (*self.queue.get()).push_back(runnable);
