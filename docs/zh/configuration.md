@@ -9,7 +9,7 @@ author: ihciah
 本节将介绍 Monoio 内部的可配置选项和一些默认行为。
 
 ## 运行时配置
-目前版本下，在运行时你可以改动的主要有 2 个配置：
+目前版本下，在运行时你可以改动的主要有 3 个配置：
 1. entries
 
     entries 指 io-uring 的 ring 大小，默认是 `1024`，你可以在创建 runtime 时指定该值。注意，为了保证性能，当设定小于 256 时会设置为 256。当你的 QPS 较高时，设置较大的 entries 可以增大 ring 的大小，减少 submit 次数，这样会显著降低 syscall 占用，但也会带来一定内存占用，请合理设置。
@@ -40,7 +40,21 @@ author: ihciah
     ```
     通过宏指定：
     ```rust
-    #[monoio::main(timer_enabled)]
+    #[monoio::main(timer_enabled = true)]
+    async main() {
+        // ...
+    }
+    ```
+
+3. worker_threads
+
+    要充分利用多核心性能，只能启动多个线程。通常情况下，你可以通过宏来隐式地做这件事。
+
+    在宏中，使用 `worker_threads` 可以手动指定线程数（不指定的时候会以单线程运行）。指定为 `n` 的时候会启动 `n - 1` 个线程并在每个线程创建 Runtime 并执行；之后在主线程也创建 Runtime 并执行，执行完毕等待其他线程。
+
+    宏的功能实现较为简单，如果你需要在创建线程时做一些自定义行为，如绑定 cpu，你就只能手动创建线程和 Runtime 啦。
+    ```rust
+    #[monoio::main(worker_threads = 2)]
     async main() {
         // ...
     }

@@ -9,7 +9,7 @@ author: ihciah
 This section describes the configurable options and some of the default behavior inside Monoio.
 
 ## Runtime Configuration
-With the current version, there are 2 main configurations that you can change at runtime.
+With the current version, there are 3 main configurations that you can change at runtime.
 1. entries
 
     entries refers to the ring size of the io-uring, the default is `1024`, you can specify this value when creating the runtime. Note that for performance, the setting is set to 256 when it is less than 256. When your QPS is high, setting larger entries can increase the ring size and reduce the number of submits, which will significantly reduce the syscall usage, but also bring some memory usage, please set it reasonably.
@@ -40,7 +40,21 @@ With the current version, there are 2 main configurations that you can change at
     ```
     Specified via macro:
     ```rust
-    #[monoio::main(timer_enabled)]
+    #[monoio::main(timer_enabled = true)]
+    async main() {
+        // ...
+    }
+    ```
+
+3. worker_threads
+
+    To take full advantage of multi-core performance, you can only start multiple threads. Normally, you can do this implicitly through a macro.
+
+    In the macro, use `worker_threads` to manually specify the number of threads (when not specified, it will run as a single thread). When specified as `n`, it will start `n-1` threads and create Runtime in each thread and execute it; after that, Runtime is also created and executed in the main thread, and the execution is completed and waiting for other threads.
+
+    The macro function is relatively simple to implement. If you need to do some custom behaviors when creating threads, such as binding cpu, you can only create threads and Runtimes manually.
+    ```rust
+    #[monoio::main(worker_threads = 2)]
     async main() {
         // ...
     }
