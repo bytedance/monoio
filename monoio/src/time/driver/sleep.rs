@@ -26,7 +26,7 @@ use std::task::{self, Poll};
 /// ```
 /// use monoio::time::{sleep_until, Instant, Duration};
 ///
-/// #[monoio::main]
+/// #[monoio::main(timer_enabled = true)]
 /// async fn main() {
 ///     sleep_until(Instant::now() + Duration::from_millis(100)).await;
 ///     println!("100 ms have elapsed");
@@ -68,7 +68,7 @@ pub fn sleep_until(deadline: Instant) -> Sleep {
 /// ```
 /// use monoio::time::{sleep, Duration};
 ///
-/// #[monoio::main]
+/// #[monoio::main(timer_enabled = true)]
 /// async fn main() {
 ///     sleep(Duration::from_millis(100)).await;
 ///     println!("100 ms have elapsed");
@@ -103,7 +103,7 @@ pin_project! {
     /// ```
     /// use monoio::time::{sleep, Duration};
     ///
-    /// #[monoio::main]
+    /// #[monoio::main(timer_enabled = true)]
     /// async fn main() {
     ///     sleep(Duration::from_millis(100)).await;
     ///     println!("100 ms have elapsed");
@@ -115,7 +115,7 @@ pin_project! {
     /// ```no_run
     /// use monoio::time::{self, Duration, Instant};
     ///
-    /// #[monoio::main]
+    /// #[monoio::main(timer_enabled = true)]
     /// async fn main() {
     ///     let sleep = time::sleep(Duration::from_millis(10));
     ///     monoio::pin!(sleep);
@@ -231,7 +231,7 @@ impl Sleep {
     /// ```
     /// use monoio::time::{Duration, Instant};
     ///
-    /// # #[monoio::main]
+    /// # #[monoio::main(timer_enabled = true)]
     /// # async fn main() {
     /// let sleep = monoio::time::sleep(Duration::from_millis(10));
     /// monoio::pin!(sleep);

@@ -84,7 +84,7 @@ impl Instant {
     /// ```
     /// use monoio::time::{Duration, Instant, sleep};
     ///
-    /// #[monoio::main]
+    /// #[monoio::main(timer_enabled = true)]
     /// async fn main() {
     ///     let now = Instant::now();
     ///     sleep(Duration::new(0, 50)).await;
@@ -105,7 +105,7 @@ impl Instant {
     /// ```
     /// use monoio::time::{Duration, Instant, sleep};
     ///
-    /// #[monoio::main]
+    /// #[monoio::main(timer_enabled = true)]
     /// async fn main() {
     ///     let now = Instant::now();
     ///     sleep(Duration::new(0, 10)).await;
@@ -131,7 +131,7 @@ impl Instant {
     /// ```
     /// use monoio::time::{Duration, Instant, sleep};
     ///
-    /// #[monoio::main]
+    /// #[monoio::main(timer_enabled = true)]
     /// async fn main() {
     ///     let instant = Instant::now();
     ///     let three_secs = Duration::from_millis(30);

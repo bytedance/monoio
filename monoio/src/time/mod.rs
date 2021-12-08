@@ -27,7 +27,7 @@
 //! use std::time::Duration;
 //! use monoio::time::sleep;
 //!
-//! #[monoio::main]
+//! #[monoio::main(timer_enabled = true)]
 //! async fn main() {
 //!     sleep(Duration::from_millis(100)).await;
 //!     println!("100 ms have elapsed");
@@ -71,7 +71,7 @@
 //!     time::sleep(time::Duration::from_secs(1)).await
 //! }
 //!
-//! #[monoio::main]
+//! #[monoio::main(timer_enabled = true)]
 //! async fn main() {
 //!     let mut interval = time::interval(time::Duration::from_secs(2));
 //!     for _i in 0..5 {

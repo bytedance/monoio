@@ -8,11 +8,13 @@ use quote::{quote, quote_spanned, ToTokens};
 struct FinalConfig {
     entries: Option<u32>,
     timer_enabled: Option<bool>,
+    threads: Option<u32>,
 }
 
 struct Configuration {
     entries: Option<(u32, Span)>,
     timer_enabled: Option<(bool, Span)>,
+    threads: Option<(u32, Span)>,
 }
 
 impl Configuration {
@@ -20,7 +22,21 @@ impl Configuration {
         Configuration {
             entries: None,
             timer_enabled: None,
+            threads: None,
         }
+    }
+
+    fn set_threads(&mut self, threads: syn::Lit, span: Span) -> Result<(), syn::Error> {
+        if self.threads.is_some() {
+            return Err(syn::Error::new(span, "`threads` set multiple times."));
+        }
+
+        let threads = parse_int(threads, span, "threads")? as u32;
+        if threads == 0 {
+            return Err(syn::Error::new(span, "`threads` may not be 0."));
+        }
+        self.threads = Some((threads, span));
+        Ok(())
     }
 
     fn set_entries(&mut self, entries: syn::Lit, span: Span) -> Result<(), syn::Error> {
@@ -50,6 +66,7 @@ impl Configuration {
         Ok(FinalConfig {
             entries: self.entries.map(|(e, _)| e),
             timer_enabled: self.timer_enabled.map(|(e, _)| e),
+            threads: self.threads.map(|(e, _)| e),
         })
     }
 }
@@ -118,13 +135,15 @@ fn parse_knobs(
                     .to_string()
                     .to_lowercase();
                 match ident.as_str() {
-                    "entries" => {
-                        config.set_entries(
-                            namevalue.lit.clone(),
-                            syn::spanned::Spanned::span(&namevalue.lit),
-                        )?;
-                    }
-                    "timer_enabled" | "timer" => config.set_timer_enabled(
+                    "entries" => config.set_entries(
+                        namevalue.lit.clone(),
+                        syn::spanned::Spanned::span(&namevalue.lit),
+                    )?,
+                    "timer_enabled" | "enable_timer" | "timer" => config.set_timer_enabled(
+                        namevalue.lit.clone(),
+                        syn::spanned::Spanned::span(&namevalue.lit),
+                    )?,
+                    "worker_threads" | "workers" | "threads" => config.set_threads(
                         namevalue.lit.clone(),
                         syn::spanned::Spanned::span(&namevalue.lit),
                     )?,
@@ -180,7 +199,7 @@ fn parse_knobs(
     if let Some(entries) = config.entries {
         rt = quote! { #rt.with_entries(#entries) }
     }
-    if Some(false) != config.timer_enabled {
+    if Some(true) == config.timer_enabled {
         rt = quote! { #rt.enable_timer() }
     }
 
@@ -198,17 +217,57 @@ fn parse_knobs(
         ),
         _ => (quote! {}, quote! {}),
     };
-    input.block = syn::parse2(quote_spanned! {last_stmt_end_span=>
-        {
-            let body = async #body;
-            #[allow(clippy::expect_used)]
-            #tail_return #rt
-                .build()
-                .expect("Failed building the Runtime")
-                .block_on(body)#tail_semicolon
+
+    if config.threads == None || config.threads == Some(1) {
+        input.block = syn::parse2(quote_spanned! {last_stmt_end_span=>
+            {
+                let body = async #body;
+                #[allow(clippy::expect_used)]
+                #tail_return #rt
+                    .build()
+                    .expect("Failed building the Runtime")
+                    .block_on(body)#tail_semicolon
+            }
+        })
+        .expect("Parsing failure");
+    } else {
+        // Function must return `()` since it will be swallowed.
+        if !matches!(input.sig.output, syn::ReturnType::Default) {
+            return Err(syn::Error::new(
+                last_stmt_end_span,
+                "With multi-thread function can not have a return value",
+            ));
         }
-    })
-    .expect("Parsing failure");
+
+        let threads = config.threads.unwrap() - 1;
+        input.block = syn::parse2(quote_spanned! {last_stmt_end_span=>
+            {
+                let body = async #body;
+
+                #[allow(clippy::needless_collect)]
+                let threads: Vec<_> = (0 .. #threads)
+                    .map(|_| {
+                        ::std::thread::spawn(|| {
+                            #rt.build()
+                                .expect("Failed building the Runtime")
+                                .block_on(async #body);
+                        })
+                    })
+                    .collect();
+                // Run on main threads
+                #rt.build()
+                    .expect("Failed building the Runtime")
+                    .block_on(body);
+
+                // Wait for other threads
+                threads.into_iter().for_each(|t| {
+                    let _ = t.join();
+                });
+            }
+        })
+        .expect("Parsing failure");
+    }
+
     input.block.brace_token = brace_token;
 
     let header = if is_test {

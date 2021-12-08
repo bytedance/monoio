@@ -25,7 +25,7 @@ use std::{convert::TryInto, future::Future};
 /// ```
 /// use monoio::time::{self, Duration};
 ///
-/// #[monoio::main]
+/// #[monoio::main(timer_enabled = true)]
 /// async fn main() {
 ///     let mut interval = time::interval(Duration::from_millis(10));
 ///
@@ -56,7 +56,7 @@ use std::{convert::TryInto, future::Future};
 ///     time::sleep(time::Duration::from_secs(1)).await
 /// }
 ///
-/// #[monoio::main]
+/// #[monoio::main(timer_enabled = true)]
 /// async fn main() {
 ///     let mut interval = time::interval(time::Duration::from_secs(2));
 ///     for _i in 0..5 {
@@ -91,7 +91,7 @@ pub fn interval(period: Duration) -> Interval {
 /// ```
 /// use monoio::time::{interval_at, Duration, Instant};
 ///
-/// #[monoio::main]
+/// #[monoio::main(timer_enabled = true)]
 /// async fn main() {
 ///     let start = Instant::now() + Duration::from_millis(50);
 ///     let mut interval = interval_at(start, Duration::from_millis(10));
@@ -122,7 +122,7 @@ pub fn interval_at(start: Instant, period: Duration) -> Interval {
 /// use monoio::time::{self, Duration};
 /// # async fn task_that_takes_one_to_three_millis() {}
 ///
-/// #[monoio::main]
+/// #[monoio::main(timer_enabled = true)]
 /// async fn main() {
 ///     // ticks every 2 seconds
 ///     let mut interval = time::interval(Duration::from_millis(2));
@@ -170,7 +170,7 @@ pub enum MissedTickBehavior {
     /// use monoio::time::{interval, Duration};
     /// # async fn task_that_takes_200_millis() {}
     ///
-    /// # #[monoio::main]
+    /// # #[monoio::main(timer_enabled = true)]
     /// # async fn main() {
     /// let mut interval = interval(Duration::from_millis(50));
     ///
@@ -226,7 +226,7 @@ pub enum MissedTickBehavior {
     /// use monoio::time::{interval, Duration, MissedTickBehavior};
     /// # async fn task_that_takes_more_than_50_millis() {}
     ///
-    /// # #[monoio::main]
+    /// # #[monoio::main(timer_enabled = true)]
     /// # async fn main() {
     /// let mut interval = interval(Duration::from_millis(50));
     /// interval.set_missed_tick_behavior(MissedTickBehavior::Delay);
@@ -277,7 +277,7 @@ pub enum MissedTickBehavior {
     /// use monoio::time::{interval, Duration, MissedTickBehavior};
     /// # async fn task_that_takes_75_millis() {}
     ///
-    /// # #[monoio::main]
+    /// # #[monoio::main(timer_enabled = true)]
     /// # async fn main() {
     /// let mut interval = interval(Duration::from_millis(50));
     /// interval.set_missed_tick_behavior(MissedTickBehavior::Skip);
@@ -369,7 +369,7 @@ impl Interval {
     ///
     /// use std::time::Duration;
     ///
-    /// #[monoio::main]
+    /// #[monoio::main(timer_enabled = true)]
     /// async fn main() {
     ///     let mut interval = time::interval(Duration::from_millis(10));
     ///

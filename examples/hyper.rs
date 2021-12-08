@@ -52,9 +52,9 @@ async fn hyper_handler(req: Request<Body>) -> Result<Response<Body>, std::conver
     }
 }
 
-#[monoio::main]
+#[monoio::main(threads = 2)]
 async fn main() {
-    println!("Running http server on 0.0.0.0:23300 with single thread");
+    println!("Running http server on 0.0.0.0:23300");
     let _ = serve_http(([0, 0, 0, 0], 23300), hyper_handler).await;
     println!("Http server stopped");
 }
