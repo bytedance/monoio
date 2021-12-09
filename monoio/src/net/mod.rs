@@ -1,10 +1,10 @@
 //! Network related
 
-mod listenr_config;
+mod listener_config;
 mod tcp;
 pub mod unix;
 
-pub use listenr_config::ListenerConfig;
+pub use listener_config::ListenerConfig;
 pub use tcp::{
     TcpListener, TcpOwnedReadHalf, TcpOwnedWriteHalf, TcpReadHalf, TcpStream, TcpWriteHalf,
 };
