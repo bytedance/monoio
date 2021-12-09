@@ -15,7 +15,7 @@ A thread-per-core Rust runtime with io_uring.
 [zh-readme-url]: README-zh.md
 
 ## Design Goal
-As a runtime based on io-uring, Monoio is designed to be the most efficient and performant Rust runtime.
+As a runtime based on io_uring, Monoio is designed to be the most efficient and performant Rust runtime.
 
 For some use cases, it is not necessary to make task schedulable between threads. For example, if we want to implement a load balancer like nginx, we may want to write it in a thread-per-core way. The thread local data need not to be shared between threads, so the `Sync` and `Send` will not have to be implemented.
 
@@ -80,7 +80,7 @@ async fn echo(stream: TcpStream) -> std::io::Result<()> {
 ```
 
 ## Limitations
-1. Since we rely on io-uring, currently monoio depends on Linux 5.6 or later. Epoll or other multiplex I/O will be supported soon.
+1. Since we rely on io_uring, currently monoio depends on Linux 5.6 or later. Epoll or other multiplex I/O will be supported soon.
 2. Monoio can not solve all problems. If the workload is very unbalanced, it may cause performance degradation than Tokio since CPU cores may not be fully utilized.
 
 ## Contributors
