@@ -28,7 +28,7 @@ To use monoio, you need the latest nightly rust toolchain. If you already instal
 
 To force using nightly, create a file named `rust-toolchain` and write `nightly` in it. Also, you can use `cargo +nightly` to build or run.
 
-Here is a basic exmaple of how to use Monoio.
+Here is a basic example of how to use Monoio.
 
 ```rust
 /// A echo example.

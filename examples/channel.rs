@@ -1,5 +1,5 @@
 /// You can use async channel between threads(with `sync` feature).
-/// Remember: it is not efficient. You should rely thread local for hot pathes.
+/// Remember: it is not efficient. You should rely thread local for hot paths.
 use std::time::Duration;
 
 use futures::channel::oneshot;
