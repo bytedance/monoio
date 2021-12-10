@@ -22,7 +22,7 @@ impl Default for RuntimeBuilder<IoUringDriver> {
 }
 
 impl RuntimeBuilder<IoUringDriver> {
-    /// Creater a default runtime builder
+    /// Create a default runtime builder
     pub fn new() -> Self {
         Self {
             entries: None,

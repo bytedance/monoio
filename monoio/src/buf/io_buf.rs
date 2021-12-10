@@ -12,7 +12,7 @@ use std::ops;
 ///
 /// Because buffers are passed by ownership to the runtime, Rust's slice API
 /// (`&buf[..]`) cannot be used. Instead, `monoio` provides an owned slice
-/// API: [`slice()`]. The method takes ownership fo the buffer and returns a
+/// API: [`slice()`]. The method takes ownership of the buffer and returns a
 /// `Slice<Self>` type that tracks the requested offset.
 ///
 /// # Implementation notes

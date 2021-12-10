@@ -126,7 +126,7 @@ impl Inner {
                     Poll::Pending
                 }
                 State::Closing(op) => {
-                    // Nothing to do if the close opeation failed.
+                    // Nothing to do if the close operation failed.
                     let _ = ready!(Pin::new(op).poll(cx));
                     *state = State::Closed;
                     Poll::Ready(())
