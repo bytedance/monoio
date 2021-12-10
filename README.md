@@ -84,7 +84,7 @@ async fn echo(stream: TcpStream) -> std::io::Result<()> {
 2. Monoio can not solve all problems. If the workload is very unbalanced, it may cause performance degradation than Tokio since CPU cores may not be fully utilized.
 
 ## Contributors
-![GitHub Contributors Image](https://contrib.rocks/image?repo=bytedance/monoio)
+<a href="https://github.com/bytedance/monoio/graphs/contributors"><img src="https://opencollective.com/monoio/contributors.svg?width=890&button=false" /></a>
 
 Thanks for their contributions!
 

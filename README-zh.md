@@ -86,7 +86,7 @@ async fn echo(stream: TcpStream) -> std::io::Result<()> {
 2. Monoio 这种 thread per core 的 runtime 并不适用于任意场景。如果负载并非常不均衡，相比公平调度模型的 Tokio 它可能会性能变差，因为 CPU 利用可能不均衡，不能充分利用可用核心。
 
 ## 贡献者
-![GitHub Contributors Image](https://contrib.rocks/image?repo=bytedance/monoio)
+<a href="https://github.com/bytedance/monoio/graphs/contributors"><img src="https://opencollective.com/monoio/contributors.svg?width=890&button=false" /></a>
 
 在此表示感谢！
 
