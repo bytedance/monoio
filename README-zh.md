@@ -30,6 +30,8 @@ Monoio 就是这样一个 Runtime：它并不像 Tokio 那样通过公平调度�
 
 在项目中创建 `rust-toolchain` 文件并在其中写入 `nightly` 即可强制指定；也可以使用 `cargo +nightly` 来构建或运行。
 
+同时，由于使用了 io_uring，你必须确保你当前的内核版本是较新的([5.6+](docs/zh/platform-support.md))；并且 memlock 是一个[合适的配置](docs/zh/memlock.md)。
+
 这是一个非常简单的例子，基于 Monoio 实现一个简单的 echo 服务。运行起来之后你可以通过 `nc 127.0.0.1 50002` 来连接它。
 
 ```rust
@@ -81,12 +83,14 @@ async fn echo(stream: TcpStream) -> std::io::Result<()> {
 }
 ```
 
+在本仓库的 `examples` 目录中有更多的例子。
+
 ## 限制
 1. 因为我们依赖 io-uring，所以目前 Monoio 依赖 Linux 5.6 或更新版本。epoll 或其他多路复用兼容会在后续版本中支持。
 2. Monoio 这种 thread per core 的 runtime 并不适用于任意场景。如果负载并非常不均衡，相比公平调度模型的 Tokio 它可能会性能变差，因为 CPU 利用可能不均衡，不能充分利用可用核心。
 
 ## 贡献者
-![GitHub Contributors Image](https://contrib.rocks/image?repo=bytedance/monoio)
+<a href="https://github.com/bytedance/monoio/graphs/contributors"><img src="https://opencollective.com/monoio/contributors.svg?width=890&button=false" /></a>
 
 在此表示感谢！
 

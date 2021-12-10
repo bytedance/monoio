@@ -24,4 +24,4 @@ However, it still use epoll as notification of uring\'s fd, which is not necessa
 Glommio is a complex library to support common applications based on io-uring. For compatibility, Glommio copies the data, which is unnecessary. Also, we found part of Glommio implementation is not efficient.
 
 # Performance
-We compared the performance in multiple scenarios with Tokio and Glommio. Detailed comparison data can be seen [here](/docs/en/benchmark.md).
+We compared the performance in multiple scenarios with Tokio and Glommio. Detailed comparison data can be seen [here](/docs/en/benchmark.md). Although we are superior to other runtimes in terms of benchmark data, this does not mean that others are "bad" design. It is just the difference in trade-offs brought about by different target scenarios.
