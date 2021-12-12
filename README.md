@@ -28,6 +28,8 @@ To use monoio, you need the latest nightly rust toolchain. If you already instal
 
 To force using nightly, create a file named `rust-toolchain` and write `nightly` in it. Also, you can use `cargo +nightly` to build or run.
 
+Also, since we use io_uring, you must make sure your kernel supports it([5.6+](docs/en/platform-support.md)). And, memlock is [configured as a proper number](docs/en/memlock.md).
+
 Here is a basic example of how to use Monoio.
 
 ```rust
@@ -79,12 +81,14 @@ async fn echo(stream: TcpStream) -> std::io::Result<()> {
 }
 ```
 
+You can find more example code in `examples` of this repository.
+
 ## Limitations
 1. Since we rely on io_uring, currently monoio depends on Linux 5.6 or later. Epoll or other multiplex I/O will be supported soon.
 2. Monoio can not solve all problems. If the workload is very unbalanced, it may cause performance degradation than Tokio since CPU cores may not be fully utilized.
 
 ## Contributors
-![GitHub Contributors Image](https://contrib.rocks/image?repo=bytedance/monoio)
+<a href="https://github.com/bytedance/monoio/graphs/contributors"><img src="https://opencollective.com/monoio/contributors.svg?width=890&button=false" /></a>
 
 Thanks for their contributions!
 

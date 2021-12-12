@@ -27,4 +27,4 @@ Glommio 是一个复杂的基于 io-uring 的库。内部有多个 ring，设计
 Monoio 设计上以性能为最优先。它也不是银弹，如果你的业务场景中任务不太均匀，那么很可能会导致不同核心的利用率出现差别。对于合适的场景，如常规的代理场景，Monoio 的性能是要好于其他 Runtime 的。详细的数据可以 Monoio Benchmark。
 
 # 性能对比
-我们与 Tokio 和 Glommio 对比了多个场景下的性能。详细的对比数据可以看 [对比数据](/docs/zh/benchmark.md)。
+我们与 Tokio 和 Glommio 对比了多个场景下的性能，详细的对比数据可以看 [对比数据](/docs/zh/benchmark.md)。虽然我们在测试数据上要优于其他 Runtime，但这并不意味着其他 Runtime 是个“坏”的设计，只是面向目标场景不同带来的取舍上的差别。
