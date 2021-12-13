@@ -10,10 +10,11 @@ version = "0.0.0"
 [dev-dependencies]
 monoio = {path = "../monoio", features = ["sync", "utils", "bytes", "macros"]}
 
-# For hyper example
-hyper = {version = "0.14", features = ["full"]}
+# For hyper examples
+hyper = {version = "0.14", features = ["http1", "client", "server", "stream"]}
 monoio-compat = {path = "../monoio-compat"}
 tokio = {version = "1", default-features = false, features = ["io-util"]}
+tower-service = "0.3"
 
 futures = "0.3"
 local-sync = "0.0.5"
@@ -60,5 +61,9 @@ name = "proxy"
 path = "proxy.rs"
 
 [[example]]
-name = "hyper"
-path = "hyper.rs"
+name = "hyper-server"
+path = "hyper_server.rs"
+
+[[example]]
+name = "hyper-client"
+path = "hyper_client.rs"
