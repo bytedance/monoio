@@ -156,6 +156,11 @@ impl<T> Slab<T> {
         self.try_remove(key).expect("invalid key")
     }
 
+    /// Return `true` if a value is associated with the given key.
+    pub fn contains(&self, key: usize) -> bool {
+        matches!(self.entries.get(key), Some(&Entry::Occupied(_)))
+    }
+
     /// Execute f and return.
     ///
     /// # Safety
@@ -212,5 +217,118 @@ where
             .field("len", &self.len)
             .field("cap", &self.capacity())
             .finish()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn insert_get_remove_one() {
+        let mut slab = Slab::default();
+        assert!(slab.is_empty());
+
+        let key = slab.insert(10);
+
+        assert_eq!(slab[key], 10);
+        assert_eq!(slab.get(key), Some(&10));
+        assert!(!slab.is_empty());
+        assert!(slab.contains(key));
+
+        assert_eq!(slab.remove(key), 10);
+        assert!(!slab.contains(key));
+        assert!(slab.get(key).is_none());
+    }
+
+    #[test]
+    fn insert_get_many() {
+        let mut slab = Slab::with_capacity(10);
+        assert_eq!(slab.capacity(), 10);
+
+        for i in 0..10 {
+            let key = slab.insert(i + 10);
+            assert_eq!(slab[key], i + 10);
+        }
+    }
+
+    #[test]
+    fn insert_get_remove_many() {
+        let mut slab = Slab::new();
+        let mut keys = vec![];
+
+        for i in 0..10 {
+            for j in 0..10 {
+                let val = (i * 10) + j;
+
+                let key = slab.insert(val);
+                keys.push((key, val));
+                assert_eq!(slab[key], val);
+            }
+
+            for (key, val) in keys.drain(..) {
+                assert_eq!(val, slab.remove(key));
+            }
+        }
+    }
+
+    #[test]
+    fn clone_and_clear_slab() {
+        let mut slab = Slab::new();
+        slab.insert(10);
+        let mut slab = slab.clone();
+        assert_eq!(slab.len(), 1);
+        slab.clear();
+        assert_eq!(slab.len(), 0);
+        assert!(slab.is_empty());
+    }
+
+    #[test]
+    fn get_unchecked() {
+        let mut slab = Slab::new();
+        let id = slab.insert(10);
+        unsafe {
+            assert_eq!(slab.get_unchecked(id), &10);
+            *slab.get_unchecked_mut(id) = 20;
+        }
+        assert_eq!(*slab.get(id).unwrap(), 20);
+    }
+
+    #[test]
+    fn try_remove() {
+        let mut slab = Slab::new();
+        let id = slab.insert(10);
+        assert!(slab.try_remove(10000).is_none());
+        assert!(slab.try_remove(id).is_some());
+    }
+
+    #[test]
+    fn get_index() {
+        let mut slab = Slab::new();
+        let id = slab.insert(10);
+        assert_eq!(slab[id], 10);
+        slab[id] = 20;
+        assert_eq!(slab[id], 20);
+    }
+
+    #[test]
+    #[should_panic(expected = "invalid key")]
+    fn get_index_panic() {
+        let slab = Slab::<i32>::new();
+        let _ = &slab[10000];
+    }
+
+    #[test]
+    #[should_panic(expected = "invalid key")]
+    fn get_index_mut_panic() {
+        let mut slab = Slab::<i32>::new();
+        slab[10000] = 20;
+    }
+
+    #[test]
+    fn test_debug() {
+        let mut slab = Slab::new();
+        slab.insert(10);
+        assert!(format!("{:?}", slab).contains("Slab"));
     }
 }

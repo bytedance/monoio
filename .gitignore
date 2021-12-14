@@ -1,3 +1,6 @@
 /target
 Cargo.lock
 coredump*
+*.profraw
+/lcov.info
+/coverage

@@ -234,3 +234,39 @@ where
     });
     join
 }
+
+#[cfg(test)]
+mod tests {
+    #[cfg(feature = "sync")]
+    #[test]
+    fn across_thread() {
+        use futures::channel::oneshot;
+        let (tx1, rx1) = oneshot::channel::<u8>();
+        let (tx2, rx2) = oneshot::channel::<u8>();
+
+        std::thread::spawn(move || {
+            let mut rt = crate::RuntimeBuilder::new().build().unwrap();
+            rt.block_on(async move {
+                let n = rx1.await.expect("unable to receive rx1");
+                assert!(tx2.send(n).is_ok());
+            });
+        });
+
+        let mut rt = crate::RuntimeBuilder::new().build().unwrap();
+        rt.block_on(async move {
+            assert!(tx1.send(24).is_ok());
+            assert_eq!(rx2.await.expect("unable to receive rx2"), 24);
+        });
+    }
+
+    #[test]
+    fn timer() {
+        let mut rt = crate::RuntimeBuilder::new().enable_timer().build().unwrap();
+        let instant = std::time::Instant::now();
+        rt.block_on(async {
+            crate::time::sleep(std::time::Duration::from_millis(200)).await;
+        });
+        let eps = instant.elapsed().subsec_millis();
+        assert!((eps as i32 - 200).abs() < 50);
+    }
+}

@@ -4,6 +4,7 @@ A thread-per-core Rust runtime with io_uring.
 [![Crates.io][crates-badge]][crates-url]
 [![MIT/Apache-2 licensed][license-badge]][license-url]
 [![Build Status][actions-badge]][actions-url]
+[![Codecov][codecov-badge]][codecov-url]
 [中文说明][zh-readme-url]
 
 [crates-badge]: https://img.shields.io/crates/v/monoio.svg
@@ -12,6 +13,8 @@ A thread-per-core Rust runtime with io_uring.
 [license-url]: LICENSE-MIT
 [actions-badge]: https://github.com/bytedance/monoio/actions/workflows/ci.yml/badge.svg
 [actions-url]: https://github.com/bytedance/monoio/actions
+[codecov-badge]: https://codecov.io/gh/bytedance/monoio/branch/master/graph/badge.svg?token=3MSAMJ6X3E
+[codecov-url]: https://codecov.io/gh/bytedance/monoio
 [zh-readme-url]: README-zh.md
 
 ## Design Goal

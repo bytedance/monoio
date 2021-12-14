@@ -4,6 +4,7 @@
 [![Crates.io][crates-badge]][crates-url]
 [![MIT/Apache-2 licensed][license-badge]][license-url]
 [![Build Status][actions-badge]][actions-url]
+[![Codecov][codecov-badge]][codecov-url]
 [English Readme][en-readme-url]
 
 [crates-badge]: https://img.shields.io/crates/v/monoio.svg
@@ -12,6 +13,8 @@
 [license-url]: LICENSE-MIT
 [actions-badge]: https://github.com/bytedance/monoio/actions/workflows/ci.yml/badge.svg
 [actions-url]: https://github.com/bytedance/monoio/actions
+[codecov-badge]: https://codecov.io/gh/bytedance/monoio/branch/master/graph/badge.svg?token=3MSAMJ6X3E
+[codecov-url]: https://codecov.io/gh/bytedance/monoio
 [en-readme-url]: README.md
 
 ## 设计目标

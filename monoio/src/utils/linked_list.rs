@@ -5,7 +5,6 @@
 //! The data structure supports tracking pinned nodes. Most of the data
 //! structure's APIs are `unsafe` as they require the caller to ensure the
 //! specified node is actually contained by the list.
-
 // Heavily borrowed from tokio.
 // Copyright (c) 2021 Tokio Contributors, licensed under the MIT license.
 #![allow(unused)]
