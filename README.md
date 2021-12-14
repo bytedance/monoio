@@ -4,7 +4,7 @@ A thread-per-core Rust runtime with io_uring.
 [![Crates.io][crates-badge]][crates-url]
 [![MIT/Apache-2 licensed][license-badge]][license-url]
 [![Build Status][actions-badge]][actions-url]
-[![codecov][codecov-badge]][codecov-url]
+[![Codecov][codecov-badge]][codecov-url]
 [中文说明][zh-readme-url]
 
 [crates-badge]: https://img.shields.io/crates/v/monoio.svg

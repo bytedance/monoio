@@ -3,7 +3,7 @@ name: Code Coverage
 on:
   push:
     branches:
-      - coverage-test
+      - master
     paths-ignore:
       - '**.md'
       - '**.png'

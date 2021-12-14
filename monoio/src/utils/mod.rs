@@ -13,4 +13,4 @@ pub(crate) mod thread_id;
 #[cfg(feature = "utils")]
 mod bind_to_cpu_set;
 #[cfg(feature = "utils")]
-pub use bind_to_cpu_set::bind_to_cpu_set;
+pub use bind_to_cpu_set::{bind_to_cpu_set, BindError};
