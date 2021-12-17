@@ -35,3 +35,16 @@ async fn main() {
     monoio::join!(client, server);
 }
 ```
+
+Please read the following note before using this crate.
+
+## Important Note
+Even with this wrapper, `TcpStreamCompat` is still not fully compatible with the Tokio IO interface.
+
+The user must ensure that once a slice of data is sent using `poll_write` and `poll_read`, it will continue to be used until the call returns `Ready`. Otherwise, the old data will be send.
+
+We implement a simple checking mechanism to ensure that the data is the same between `poll_write`. But for the sake of performance, we only check the data length, which is not enough. It may cause unsoundness.
+
+For example, running `h2` server based on this wrapper will fail. Inside the `h2`, it will try to send a data frame with `poll_write`, and if it get `Pending`, it will assume the data not be sent yet. If there is another data frame with a higher priority, it will `poll_write` the new frame instead. But the old data frame will be sent with our wrapper.
+
+The core problem is caused by incompatible between `poll`-like interface and asynchronous system call.

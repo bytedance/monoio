@@ -35,7 +35,7 @@ where
         monoio::spawn(
             Http::new()
                 .with_executor(HyperExecutor)
-                .serve_connection(TcpStreamCompat::from(stream), service_fn(service)),
+                .serve_connection(unsafe { TcpStreamCompat::new(stream) }, service_fn(service)),
         );
     }
 }
