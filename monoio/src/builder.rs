@@ -23,6 +23,7 @@ impl Default for RuntimeBuilder<IoUringDriver> {
 
 impl RuntimeBuilder<IoUringDriver> {
     /// Create a default runtime builder
+    #[must_use]
     pub fn new() -> Self {
         Self {
             entries: None,
@@ -31,11 +32,13 @@ impl RuntimeBuilder<IoUringDriver> {
     }
 
     /// Enable all(currently only timer)
+    #[must_use]
     pub fn enable_all(self) -> RuntimeBuilder<TimeDriver<IoUringDriver>> {
         self.enable_timer()
     }
 
     /// Enable timer
+    #[must_use]
     pub fn enable_timer(self) -> RuntimeBuilder<TimeDriver<IoUringDriver>> {
         let Self { entries, .. } = self;
         RuntimeBuilder {
@@ -89,6 +92,7 @@ impl<D> RuntimeBuilder<D> {
     const MIN_ENTRIES: u32 = 256;
 
     /// Set io_uring entries, min size is 256 and the default size is 1024.
+    #[must_use]
     pub fn with_entries(mut self, entries: u32) -> Self {
         // If entries is less than 256, it will be 256.
         if entries < Self::MIN_ENTRIES {
