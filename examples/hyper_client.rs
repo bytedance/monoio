@@ -54,7 +54,7 @@ impl tower_service::Service<hyper::Uri> for HyperConnector {
         let b: Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>>>> =
             Box::pin(async move {
                 let conn = monoio::net::TcpStream::connect(address).await?;
-                let hyper_conn = HyperConnection(conn.into());
+                let hyper_conn = HyperConnection(unsafe { TcpStreamCompat::new(conn) });
                 Ok(hyper_conn)
             });
         unsafe { std::mem::transmute(b) }

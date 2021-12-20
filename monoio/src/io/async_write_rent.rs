@@ -18,11 +18,19 @@ pub trait AsyncWriteRent {
         Self: 'a,
         T: 'a;
 
+    /// The future of shutdown
+    type ShutdownFuture<'a>: Future<Output = Result<(), std::io::Error>>
+    where
+        Self: 'a;
+
     /// Same as write(2)
     fn write<T: IoBuf>(&self, buf: T) -> Self::WriteFuture<'_, T>;
 
     /// Same as writev(2)
     fn writev<T: IoVecBuf>(&self, buf_vec: T) -> Self::WritevFuture<'_, T>;
+
+    /// Same as shutdown
+    fn shutdown(&self) -> Self::ShutdownFuture<'_>;
 }
 
 /// AsyncWriteRentAt: async write with a ownership of a buffer and a position

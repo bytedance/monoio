@@ -128,6 +128,7 @@ impl AsyncWriteRent for TcpStream {
     where
         B: 'a,
     = impl std::future::Future<Output = crate::BufResult<usize, B>>;
+    type ShutdownFuture<'a> = impl std::future::Future<Output = Result<(), std::io::Error>>;
 
     fn write<T: IoBuf>(&self, buf: T) -> Self::WriteFuture<'_, T> {
         // Submit the write operation
@@ -138,6 +139,18 @@ impl AsyncWriteRent for TcpStream {
     fn writev<T: IoVecBuf>(&self, buf_vec: T) -> Self::WritevFuture<'_, T> {
         let op = Op::writev(&self.fd, buf_vec).unwrap();
         op.write()
+    }
+
+    fn shutdown(&self) -> Self::ShutdownFuture<'_> {
+        // We could use shutdown op here, which requires kernel 5.11+.
+        // However, for simplicity, we just close the socket using direct syscall.
+        let fd = self.as_raw_fd();
+        async move {
+            match unsafe { libc::shutdown(fd, libc::SHUT_WR) } {
+                -1 => Err(io::Error::last_os_error()),
+                _ => Ok(()),
+            }
+        }
     }
 }
 

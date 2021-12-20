@@ -53,6 +53,10 @@ impl<'t> AsyncWriteRent for WriteHalf<'t> {
         't: 'a,
         B: 'a,
     = impl std::future::Future<Output = crate::BufResult<usize, B>>;
+    type ShutdownFuture<'a>
+    where
+        't: 'a,
+    = impl std::future::Future<Output = Result<(), std::io::Error>>;
 
     fn write<T: IoBuf>(&self, buf: T) -> Self::WriteFuture<'_, T> {
         // Submit the write operation
@@ -61,6 +65,10 @@ impl<'t> AsyncWriteRent for WriteHalf<'t> {
 
     fn writev<T: IoVecBuf>(&self, buf_vec: T) -> Self::WritevFuture<'_, T> {
         self.0.writev(buf_vec)
+    }
+
+    fn shutdown(&self) -> Self::ShutdownFuture<'_> {
+        self.0.shutdown()
     }
 }
 
@@ -110,6 +118,7 @@ impl AsyncWriteRent for OwnedWriteHalf {
     where
         B: 'a,
     = impl std::future::Future<Output = crate::BufResult<usize, B>>;
+    type ShutdownFuture<'a> = impl std::future::Future<Output = Result<(), std::io::Error>>;
 
     fn write<T: IoBuf>(&self, buf: T) -> Self::WriteFuture<'_, T> {
         // Submit the write operation
@@ -118,5 +127,9 @@ impl AsyncWriteRent for OwnedWriteHalf {
 
     fn writev<T: IoVecBuf>(&self, buf_vec: T) -> Self::WritevFuture<'_, T> {
         self.0.writev(buf_vec)
+    }
+
+    fn shutdown(&self) -> Self::ShutdownFuture<'_> {
+        self.0.shutdown()
     }
 }
