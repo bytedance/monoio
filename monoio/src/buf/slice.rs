@@ -132,21 +132,25 @@ impl<T: IoBuf> ops::Deref for Slice<T> {
 
     #[inline]
     fn deref(&self) -> &[u8] {
-        &super::deref(&self.buf)[self.begin..self.end]
+        let buf_bytes = super::deref(&self.buf);
+        let end = std::cmp::min(self.end, buf_bytes.len());
+        &buf_bytes[self.begin..end]
     }
 }
 
 impl<T: IoBufMut> ops::DerefMut for Slice<T> {
     #[inline]
     fn deref_mut(&mut self) -> &mut [u8] {
-        &mut super::deref_mut(&mut self.buf)[self.begin..self.end]
+        let buf_bytes = super::deref_mut(&mut self.buf);
+        let end = std::cmp::min(self.end, buf_bytes.len());
+        &mut buf_bytes[self.begin..end]
     }
 }
 
 unsafe impl<T: IoBuf> IoBuf for Slice<T> {
     #[inline]
     fn stable_ptr(&self) -> *const u8 {
-        ops::Deref::deref(self).as_ptr()
+        super::deref(&self.buf)[self.begin..].as_ptr()
     }
 
     #[inline]
@@ -163,7 +167,7 @@ unsafe impl<T: IoBuf> IoBuf for Slice<T> {
 unsafe impl<T: IoBufMut> IoBufMut for Slice<T> {
     #[inline]
     fn stable_mut_ptr(&mut self) -> *mut u8 {
-        ops::DerefMut::deref_mut(self).as_mut_ptr()
+        super::deref_mut(&mut self.buf)[self.begin..].as_mut_ptr()
     }
 
     #[inline]
