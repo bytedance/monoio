@@ -167,7 +167,7 @@ impl File {
     pub async fn read_at<T: IoBufMut>(&self, buf: T, pos: u64) -> crate::BufResult<usize, T> {
         // Submit the read operation
         let op = Op::read_at(&self.fd, buf, pos).unwrap();
-        op.read(pos as _).await
+        op.read().await
     }
 
     /// Write a buffer into this file at the specified offset, returning how

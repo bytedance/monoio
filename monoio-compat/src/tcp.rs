@@ -20,15 +20,15 @@ unsafe impl IoBuf for LimitedBuffer {
     fn bytes_init(&self) -> usize {
         self.buf.len().min(self.limit)
     }
-
-    fn bytes_total(&self) -> usize {
-        self.buf.capacity().min(self.limit)
-    }
 }
 
 unsafe impl IoBufMut for LimitedBuffer {
     fn stable_mut_ptr(&mut self) -> *mut u8 {
         self.buf.as_mut_ptr()
+    }
+
+    fn bytes_total(&self) -> usize {
+        self.buf.capacity().min(self.limit)
     }
 
     unsafe fn set_init(&mut self, pos: usize) {
