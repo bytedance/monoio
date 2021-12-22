@@ -29,7 +29,7 @@ where
             let len = buf.bytes_init();
             let mut written = 0;
             while written < len {
-                let slice = buf.slice(written..len);
+                let slice = unsafe { buf.slice_unchecked(written..len) };
                 let (r, slice_) = self.write(slice).await;
                 buf = slice_.into_inner();
                 match r {

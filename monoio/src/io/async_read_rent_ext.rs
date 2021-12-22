@@ -29,7 +29,7 @@ where
             let len = buf.bytes_total();
             let mut read = 0;
             while read < len {
-                let slice = buf.slice(read..len);
+                let slice = unsafe { buf.slice_mut_unchecked(read..len) };
                 let (r, slice_) = self.read(slice).await;
                 buf = slice_.into_inner();
                 match r {

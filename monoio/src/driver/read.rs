@@ -35,7 +35,7 @@ impl<T: IoBufMut> Op<Read<T>> {
         )
     }
 
-    pub(crate) async fn read(self, offset: usize) -> BufResult<usize, T> {
+    pub(crate) async fn read(self) -> BufResult<usize, T> {
         let complete = self.await;
 
         // Convert the operation result to `usize`
@@ -45,12 +45,9 @@ impl<T: IoBufMut> Op<Read<T>> {
 
         // If the operation was successful, advance the initialized cursor.
         if let Ok(n) = res {
-            let new_len = offset + n;
-            if new_len > buf.bytes_init() {
-                // Safety: the kernel wrote `n` bytes to the buffer.
-                unsafe {
-                    buf.set_init(new_len);
-                }
+            // Safety: the kernel wrote `n` bytes to the buffer.
+            unsafe {
+                buf.set_init(n);
             }
         }
 
