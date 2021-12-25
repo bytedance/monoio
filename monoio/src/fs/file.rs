@@ -170,6 +170,88 @@ impl File {
         op.read().await
     }
 
+    /// Read the exact number of bytes required to fill `buf` at the specified
+    /// offset from the file.
+    ///
+    /// This function reads as many as bytes as necessary to completely fill the
+    /// specified buffer `buf`.
+    ///
+    /// # Return
+    ///
+    /// The method returns the operation result and the same buffer value passed
+    /// as an argument.
+    ///
+    /// If the method returns [`Ok(())`], then the read was successful.
+    ///
+    /// # Errors
+    ///
+    /// If this function encounters an error of the kind [`ErrorKind::Interrupted`]
+    /// then the error is ignored and the operation will continue.
+    ///
+    /// If this function encounters an "end of file" before completely filling
+    /// the buffer, it returns an error of the kind [`ErrorKind::UnexpectedEof`].
+    /// The buffer is returned on error.
+    ///
+    /// If this function encounters any form of I/O or other error, an error
+    /// variant will be returned. The buffer is returned on error.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use monoio::fs::File;
+    ///
+    /// fn main() -> Result<(), Box<dyn std::error::Error>> {
+    ///     monoio::start(async {
+    ///         let f = File::open("foo.txt").await?;
+    ///         let buffer = vec![0; 10];
+    ///
+    ///         // Read up to 10 bytes
+    ///         let (res, buffer) = f.read_exact_at(buffer, 0).await;
+    ///         res?;
+    ///
+    ///         println!("The bytes: {:?}", buffer);
+    ///
+    ///         // Close the file
+    ///         f.close().await?;
+    ///         Ok(())
+    ///     })
+    /// }
+    /// ```
+    ///
+    /// [`ErrorKind::Interrupted`]: std::io::ErrorKind::Interrupted
+    /// [`ErrorKind::UnexpectedEof`]: std::io::ErrorKind::UnexpectedEof
+    pub async fn read_exact_at<T: IoBufMut>(
+        &self,
+        mut buf: T,
+        pos: u64,
+    ) -> crate::BufResult<(), T> {
+        let len = buf.bytes_total();
+        let mut read = 0;
+        while read < len {
+            let slice = unsafe { buf.slice_mut_unchecked(read..len) };
+            let (res, slice) = self.read_at(slice, pos + read as u64).await;
+            buf = slice.into_inner();
+            match res {
+                Ok(0) => {
+                    return (
+                        Err(io::Error::new(
+                            io::ErrorKind::UnexpectedEof,
+                            "failed to fill whole buffer",
+                        )),
+                        buf,
+                    )
+                }
+                Ok(n) => {
+                    read += n;
+                }
+                Err(ref e) if e.kind() == io::ErrorKind::Interrupted => {}
+                Err(e) => return (Err(e), buf),
+            };
+        }
+
+        (Ok(()), buf)
+    }
+
     /// Write a buffer into this file at the specified offset, returning how
     /// many bytes were written.
     ///
@@ -219,6 +301,75 @@ impl File {
     pub async fn write_at<T: IoBuf>(&self, buf: T, pos: u64) -> crate::BufResult<usize, T> {
         let op = Op::write_at(&self.fd, buf, pos).unwrap();
         op.write().await
+    }
+
+    /// Attempts to write an entire buffer into this file at the specified offset.
+    ///
+    /// This method will continuously call [`write_at`] until there is no more data
+    /// to be written or an error of non-[`ErrorKind::Interrupted`] kind is returned.
+    /// This method will not return until the entire buffer has been successfully
+    /// written or such an error occurs.
+    ///
+    /// If the buffer contains no data, this will never call [`write_at`].
+    ///
+    /// # Return
+    ///
+    /// The method returns the operation result and the same buffer value passed
+    /// in as an argument.
+    ///
+    /// # Errors
+    ///
+    /// This function will return the first error of
+    /// non-[`ErrorKind::Interrupted`] kind that [`write_at`] returns.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use monoio::fs::File;
+    ///
+    /// fn main() -> Result<(), Box<dyn std::error::Error>> {
+    ///     monoio::start(async {
+    ///         let file = File::create("foo.txt").await?;
+    ///
+    ///         // Writes some prefix of the byte string, not necessarily all of it.
+    ///         let (res, _) = file.write_all_at(&b"some bytes"[..], 0).await;
+    ///         res?;
+    ///
+    ///         println!("wrote all bytes");
+    ///
+    ///         // Close the file
+    ///         file.close().await?;
+    ///         Ok(())
+    ///     })
+    /// }
+    /// ```
+    ///
+    /// [`write_at`]: File::write_at
+    /// [`ErrorKind::Interrupted`]: std::io::ErrorKind::Interrupted
+    pub async fn write_all_at<T: IoBuf>(&self, mut buf: T, pos: u64) -> crate::BufResult<(), T> {
+        let len = buf.bytes_init();
+        let mut written = 0;
+        while written < len {
+            let slice = unsafe { buf.slice_unchecked(written..len) };
+            let (res, slice) = self.write_at(slice, pos + written as u64).await;
+            buf = slice.into_inner();
+            match res {
+                Ok(0) => {
+                    return (
+                        Err(io::Error::new(
+                            io::ErrorKind::WriteZero,
+                            "failed to write whole buffer",
+                        )),
+                        buf,
+                    )
+                }
+                Ok(n) => written += n,
+                Err(ref e) if e.kind() == io::ErrorKind::Interrupted => {}
+                Err(e) => return (Err(e), buf),
+            };
+        }
+
+        (Ok(()), buf)
     }
 
     /// Attempts to sync all OS-internal metadata to disk.
