@@ -30,15 +30,20 @@ where
             let mut written = 0;
             while written < len {
                 let slice = unsafe { buf.slice_unchecked(written..len) };
-                let (r, slice_) = self.write(slice).await;
-                buf = slice_.into_inner();
-                match r {
-                    Ok(r) => {
-                        written += r;
-                        if r == 0 {
-                            return (Err(std::io::ErrorKind::WriteZero.into()), buf);
-                        }
+                let (res, slice) = self.write(slice).await;
+                buf = slice.into_inner();
+                match res {
+                    Ok(0) => {
+                        return (
+                            Err(std::io::Error::new(
+                                std::io::ErrorKind::WriteZero,
+                                "failed to write whole buffer",
+                            )),
+                            buf,
+                        )
                     }
+                    Ok(n) => written += n,
+                    Err(ref e) if e.kind() == std::io::ErrorKind::Interrupted => {}
                     Err(e) => return (Err(e), buf),
                 }
             }
