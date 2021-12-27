@@ -30,15 +30,20 @@ where
             let mut read = 0;
             while read < len {
                 let slice = unsafe { buf.slice_mut_unchecked(read..len) };
-                let (r, slice_) = self.read(slice).await;
-                buf = slice_.into_inner();
-                match r {
-                    Ok(r) => {
-                        read += r;
-                        if r == 0 {
-                            return (Err(std::io::ErrorKind::UnexpectedEof.into()), buf);
-                        }
+                let (res, slice) = self.read(slice).await;
+                buf = slice.into_inner();
+                match res {
+                    Ok(0) => {
+                        return (
+                            Err(std::io::Error::new(
+                                std::io::ErrorKind::UnexpectedEof,
+                                "failed to fill whole buffer",
+                            )),
+                            buf,
+                        )
                     }
+                    Ok(n) => read += n,
+                    Err(ref e) if e.kind() == std::io::ErrorKind::Interrupted => {}
                     Err(e) => return (Err(e), buf),
                 }
             }
