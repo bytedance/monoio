@@ -7,6 +7,7 @@ use monoio::net::{TcpListener, TcpStream};
 
 #[monoio::main]
 async fn main() {
+    // tracing_subscriber::fmt().with_max_level(tracing::Level::TRACE).init();
     let listener = TcpListener::bind("127.0.0.1:50002").unwrap();
     println!("listening");
     loop {
