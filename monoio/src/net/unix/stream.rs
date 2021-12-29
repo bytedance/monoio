@@ -10,7 +10,10 @@ use crate::{
     io::{AsyncReadRent, AsyncWriteRent},
 };
 
-use super::socket_addr::{local_addr, pair, peer_addr, socket_addr, SocketAddr};
+use super::{
+    socket_addr::{local_addr, pair, peer_addr, socket_addr, SocketAddr},
+    split::{split, split_owned, OwnedReadHalf, OwnedWriteHalf, ReadHalf, WriteHalf},
+};
 
 /// UnixStream
 pub struct UnixStream {
@@ -25,22 +28,33 @@ impl UnixStream {
     /// Connect UnixStream to a path.
     pub async fn connect<P: AsRef<Path>>(path: P) -> io::Result<Self> {
         let (addr, addr_len) = socket_addr(path.as_ref())?;
+        Self::inner_connect(addr, addr_len).await
+    }
 
-        let op = Op::connect_unix(addr, addr_len)?;
+    /// Connects the socket to an address.
+    pub async fn connect_addr(addr: SocketAddr) -> io::Result<Self> {
+        let (addr, addr_len) = addr.into_parts();
+        Self::inner_connect(addr, addr_len).await
+    }
+
+    #[inline(always)]
+    async fn inner_connect(
+        sockaddr: libc::sockaddr_un,
+        socklen: libc::socklen_t,
+    ) -> io::Result<Self> {
+        let op = Op::connect_unix(sockaddr, socklen)?;
         let completion = op.await;
         completion.result?;
 
-        let stream = UnixStream::from_shared_fd(completion.data.fd);
+        let stream = Self::from_shared_fd(completion.data.fd);
         Ok(stream)
     }
 
     /// Creates an unnamed pair of connected sockets.
     ///
     /// Returns two `UnixStream`s which are connected to each other.
-    pub fn pair() -> io::Result<(UnixStream, UnixStream)> {
-        pair(libc::SOCK_STREAM).map(|(stream1, stream2)| {
-            (UnixStream::from_std(stream1), UnixStream::from_std(stream2))
-        })
+    pub fn pair() -> io::Result<(Self, Self)> {
+        pair(libc::SOCK_STREAM).map(|(a, b)| (Self::from_std(a), Self::from_std(b)))
     }
 
     /// Creates new `UnixStream` from a `std::os::unix::net::UnixStream`.
@@ -58,9 +72,20 @@ impl UnixStream {
     pub fn peer_addr(&self) -> io::Result<SocketAddr> {
         peer_addr(self.as_raw_fd())
     }
+
+    /// Split stream into read and write halves.
+    #[allow(clippy::needless_lifetimes)]
+    pub fn split<'a>(&'a mut self) -> (ReadHalf<'a>, WriteHalf<'a>) {
+        split(self)
+    }
+
+    /// Split stream into read and write halves with ownership.
+    pub fn into_split(self) -> (OwnedReadHalf, OwnedWriteHalf) {
+        split_owned(self)
+    }
 }
 
-impl std::os::unix::io::FromRawFd for UnixStream {
+impl FromRawFd for UnixStream {
     unsafe fn from_raw_fd(fd: RawFd) -> Self {
         Self::from_shared_fd(SharedFd::new(fd))
     }
@@ -69,6 +94,12 @@ impl std::os::unix::io::FromRawFd for UnixStream {
 impl AsRawFd for UnixStream {
     fn as_raw_fd(&self) -> RawFd {
         self.fd.raw_fd()
+    }
+}
+
+impl std::fmt::Debug for UnixStream {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("UnixStream").field("fd", &self.fd).finish()
     }
 }
 
@@ -127,11 +158,5 @@ impl AsyncReadRent for UnixStream {
         // Submit the read operation
         let op = Op::readv(&self.fd, buf).unwrap();
         op.read()
-    }
-}
-
-impl std::fmt::Debug for UnixStream {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("UnixStream").field("fd", &self.fd).finish()
     }
 }

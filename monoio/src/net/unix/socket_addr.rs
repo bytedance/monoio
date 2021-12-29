@@ -68,6 +68,10 @@ impl SocketAddr {
         SocketAddr { sockaddr, socklen }
     }
 
+    pub(crate) fn into_parts(self) -> (libc::sockaddr_un, libc::socklen_t) {
+        (self.sockaddr, self.socklen)
+    }
+
     /// Returns `true` if the address is unnamed.
     ///
     /// Documentation reflected in [`SocketAddr`]

@@ -1,11 +1,10 @@
 //! Network related
+//! Currently, TCP/UnixStream/UnixDatagram are implemented.
 
 mod listener_config;
-mod tcp;
+pub mod tcp;
 pub mod unix;
 
 pub use listener_config::ListenerConfig;
-pub use tcp::{
-    TcpListener, TcpOwnedReadHalf, TcpOwnedWriteHalf, TcpReadHalf, TcpStream, TcpWriteHalf,
-};
-pub use unix::{UnixListener, UnixStream};
+pub use tcp::{TcpListener, TcpStream};
+pub use unix::{UnixDatagram, UnixListener, UnixStream};
