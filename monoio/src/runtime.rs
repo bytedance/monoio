@@ -164,8 +164,14 @@ impl<D> Runtime<D> {
                         let _ = self.driver.submit();
                     }
 
-                    // Wait and Process CQ
+                    // Wait and Process CQ(the error is ignored for not debug mode)
+                    #[cfg(not(all(debug_assertions, feature = "debug")))]
                     let _ = self.driver.park();
+
+                    #[cfg(all(debug_assertions, feature = "debug"))]
+                    if let Err(e) = self.driver.park() {
+                        tracing!("park error: {:?}", e);
+                    }
                 }
             })
         })

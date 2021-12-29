@@ -143,7 +143,7 @@ impl State {
     pub(super) fn drop_join_handle_fast(&self) -> Result<(), ()> {
         if *self.load() == INITIAL_STATE {
             self.store(Snapshot((INITIAL_STATE - REF_ONE) & !JOIN_INTEREST));
-            debug_eprintln!("MONOIO DEBUG[State]: drop_join_handle_fast");
+            tracing!("MONOIO DEBUG[State]: drop_join_handle_fast");
             Ok(())
         } else {
             Err(())
@@ -217,7 +217,7 @@ impl State {
         val.add(REF_ONE);
         self.store(val);
 
-        debug_eprintln!(
+        tracing!(
             "MONOIO DEBUG[State]: ref_inc {}, ptr: {:p}",
             val.ref_count(),
             self
@@ -239,7 +239,7 @@ impl State {
         // New state
         val.sub(REF_ONE);
         self.store(val);
-        debug_eprintln!(
+        tracing!(
             "MONOIO DEBUG[State]: ref_dec {}, ptr: {:p}",
             val.ref_count(),
             self

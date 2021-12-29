@@ -27,6 +27,7 @@ bytes = {version = "1", optional = true}
 flume = {version = "0.10", optional = true}
 lazy_static = {version = "1", optional = true}
 nix = {version = "0.23", optional = true}
+tracing = { version = "0.1", default-features = false, features = ["std"], optional = true }
 
 [dev-dependencies]
 tempfile = "3.2"
@@ -44,6 +45,6 @@ sync = ["lazy_static", "flume"]
 # enable bind cpu set
 utils = ["nix"]
 # enable debug if you want to know what runtime does
-debug = []
+debug = ["tracing"]
 
 default = ["async-cancel", "bytes", "macros", "utils"]

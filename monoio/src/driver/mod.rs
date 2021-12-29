@@ -437,7 +437,7 @@ impl AsRawFd for IoUringDriver {
 
 impl Drop for IoUringDriver {
     fn drop(&mut self) {
-        debug_eprintln!("MONOIO DEBUG[IoUringDriver]: drop");
+        tracing!("MONOIO DEBUG[IoUringDriver]: drop");
 
         // Dealloc leaked memory
         unsafe { std::ptr::drop_in_place(self.timespec) };

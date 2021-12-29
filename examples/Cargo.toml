@@ -10,6 +10,11 @@ version = "0.0.0"
 [dev-dependencies]
 monoio = {path = "../monoio", features = ["sync", "utils", "bytes", "macros"]}
 
+# Enable tracing and tracing-subscriber for print out runtime debug
+# tracing information. Add these only when you enable "debug" feature.
+# tracing = "0.1"
+# tracing-subscriber = "0.3"
+
 # For hyper examples
 hyper = {version = "0.14", features = ["http1", "client", "server", "stream"]}
 monoio-compat = {path = "../monoio-compat"}

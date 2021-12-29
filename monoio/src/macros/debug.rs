@@ -1,9 +1,9 @@
 #[cfg(all(debug_assertions, feature = "debug"))]
-macro_rules! debug_eprintln {
-    ($( $args:expr ),*) => { eprintln!( $( $args ),* ); }
+macro_rules! tracing {
+    ($( $args:expr ),*) => { tracing::trace!( $( $args ),* ); }
 }
 
 #[cfg(not(all(debug_assertions, feature = "debug")))]
-macro_rules! debug_eprintln {
+macro_rules! tracing {
     ($( $args:expr ),*) => {};
 }
