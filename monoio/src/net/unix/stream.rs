@@ -13,6 +13,7 @@ use crate::{
 use super::{
     socket_addr::{local_addr, pair, peer_addr, socket_addr, SocketAddr},
     split::{split, split_owned, OwnedReadHalf, OwnedWriteHalf, ReadHalf, WriteHalf},
+    ucred::UCred,
 };
 
 /// UnixStream
@@ -55,6 +56,11 @@ impl UnixStream {
     /// Returns two `UnixStream`s which are connected to each other.
     pub fn pair() -> io::Result<(Self, Self)> {
         pair(libc::SOCK_STREAM).map(|(a, b)| (Self::from_std(a), Self::from_std(b)))
+    }
+
+    /// Returns effective credentials of the process which called `connect` or `pair`.
+    pub fn peer_cred(&self) -> io::Result<UCred> {
+        super::ucred::get_peer_cred(self)
     }
 
     /// Creates new `UnixStream` from a `std::os::unix::net::UnixStream`.
