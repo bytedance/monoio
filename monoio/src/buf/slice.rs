@@ -156,7 +156,7 @@ impl<T: IoBuf> ops::Deref for SliceMut<T> {
 
 unsafe impl<T: IoBuf> IoBuf for SliceMut<T> {
     #[inline]
-    fn stable_ptr(&self) -> *const u8 {
+    fn read_ptr(&self) -> *const u8 {
         super::deref(&self.buf)[self.begin..].as_ptr()
     }
 
@@ -168,8 +168,8 @@ unsafe impl<T: IoBuf> IoBuf for SliceMut<T> {
 
 unsafe impl<T: IoBufMut> IoBufMut for SliceMut<T> {
     #[inline]
-    fn stable_mut_ptr(&mut self) -> *mut u8 {
-        unsafe { self.buf.stable_mut_ptr().add(self.begin) }
+    fn write_ptr(&mut self) -> *mut u8 {
+        unsafe { self.buf.write_ptr().add(self.begin) }
     }
 
     #[inline]
@@ -244,8 +244,8 @@ impl<T> Slice<T> {
 
 unsafe impl<T: IoBuf> IoBuf for Slice<T> {
     #[inline]
-    fn stable_ptr(&self) -> *const u8 {
-        unsafe { self.buf.stable_ptr().add(self.begin) }
+    fn read_ptr(&self) -> *const u8 {
+        unsafe { self.buf.read_ptr().add(self.begin) }
     }
 
     #[inline]

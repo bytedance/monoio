@@ -33,7 +33,7 @@ impl<T: IoBuf> Op<Send<T>> {
             |send| {
                 opcode::Send::new(
                     types::Fd(fd.raw_fd()),
-                    send.buf.stable_ptr(),
+                    send.buf.read_ptr(),
                     send.buf.bytes_init() as _,
                 )
                 .flags(FLAGS)

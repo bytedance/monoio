@@ -25,7 +25,7 @@ impl<T: IoBuf> Op<Write<T>> {
             |write| {
                 opcode::Write::new(
                     types::Fd(fd.raw_fd()),
-                    write.buf.stable_ptr(),
+                    write.buf.read_ptr(),
                     write.buf.bytes_init() as _,
                 )
                 .offset(offset as _)

@@ -26,7 +26,7 @@ impl<T: IoBufMut> Op<Read<T>> {
             |read| {
                 opcode::Read::new(
                     types::Fd(fd.raw_fd()),
-                    read.buf.stable_mut_ptr(),
+                    read.buf.write_ptr(),
                     read.buf.bytes_total() as _,
                 )
                 .offset(offset as _)
