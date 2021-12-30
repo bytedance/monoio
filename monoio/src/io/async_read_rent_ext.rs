@@ -16,7 +16,7 @@ pub trait AsyncReadRentExt<T: 'static> {
 
 impl<A, T> AsyncReadRentExt<T> for A
 where
-    A: AsyncReadRent,
+    A: AsyncReadRent + ?Sized,
     T: 'static + IoBufMut,
 {
     type Future<'a>
