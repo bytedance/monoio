@@ -13,7 +13,7 @@ struct LimitedBuffer {
 }
 
 unsafe impl IoBuf for LimitedBuffer {
-    fn stable_ptr(&self) -> *const u8 {
+    fn read_ptr(&self) -> *const u8 {
         self.buf.as_ptr()
     }
 
@@ -23,7 +23,7 @@ unsafe impl IoBuf for LimitedBuffer {
 }
 
 unsafe impl IoBufMut for LimitedBuffer {
-    fn stable_mut_ptr(&mut self) -> *mut u8 {
+    fn write_ptr(&mut self) -> *mut u8 {
         self.buf.as_mut_ptr()
     }
 

@@ -21,5 +21,5 @@ pub use shared_buf::{Shared, SharedBuf};
 pub(crate) fn deref(buf: &impl IoBuf) -> &[u8] {
     // Safety: the `IoBuf` trait is marked as unsafe and is expected to be
     // implemented correctly.
-    unsafe { std::slice::from_raw_parts(buf.stable_ptr(), buf.bytes_init()) }
+    unsafe { std::slice::from_raw_parts(buf.read_ptr(), buf.bytes_init()) }
 }

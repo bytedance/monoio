@@ -17,12 +17,6 @@ use super::Slice;
 /// API: [`slice()`]. The method takes ownership of the buffer and returns a
 /// `Slice<Self>` type that tracks the requested offset.
 ///
-/// # Implementation notes
-///
-/// Buffers passed to `io-uring` operations must reference a stable memory
-/// region. While the runtime holds ownership to a buffer, the pointer returned
-/// by `stable_ptr` must remain valid even if the `IoBuf` value is moved.
-///
 /// [`slice()`]: IoBuf::slice
 /// # Safety
 /// impl it safely
@@ -32,10 +26,11 @@ pub unsafe trait IoBuf: Unpin + 'static {
     /// This method is to be used by the `monoio` runtime and it is not
     /// expected for users to call it directly.
     ///
-    /// The implementation must ensure that, while the `monoio` runtime
-    /// owns the value, the pointer returned by `stable_ptr` **does not**
-    /// change.
-    fn stable_ptr(&self) -> *const u8;
+    /// `monoio` Runtime will `Box::pin` the buffer. Runtime makes sure
+    /// the buffer will not be moved, and the implement must ensure
+    /// `as_ptr` returns the same valid address.
+    /// Kernel will read `bytes_init`-length data from the pointer.
+    fn read_ptr(&self) -> *const u8;
 
     /// Number of initialized bytes.
     ///
@@ -73,7 +68,7 @@ pub unsafe trait IoBuf: Unpin + 'static {
 
 unsafe impl IoBuf for Vec<u8> {
     #[inline]
-    fn stable_ptr(&self) -> *const u8 {
+    fn read_ptr(&self) -> *const u8 {
         self.as_ptr()
     }
 
@@ -85,7 +80,7 @@ unsafe impl IoBuf for Vec<u8> {
 
 unsafe impl IoBuf for Box<[u8]> {
     #[inline]
-    fn stable_ptr(&self) -> *const u8 {
+    fn read_ptr(&self) -> *const u8 {
         self.as_ptr()
     }
 
@@ -97,7 +92,7 @@ unsafe impl IoBuf for Box<[u8]> {
 
 unsafe impl IoBuf for &'static [u8] {
     #[inline]
-    fn stable_ptr(&self) -> *const u8 {
+    fn read_ptr(&self) -> *const u8 {
         self.as_ptr()
     }
 
@@ -107,9 +102,57 @@ unsafe impl IoBuf for &'static [u8] {
     }
 }
 
+unsafe impl<const N: usize> IoBuf for Box<[u8; N]> {
+    #[inline]
+    fn read_ptr(&self) -> *const u8 {
+        self.as_ptr()
+    }
+
+    #[inline]
+    fn bytes_init(&self) -> usize {
+        self.len()
+    }
+}
+
+unsafe impl<const N: usize> IoBuf for [u8; N] {
+    #[inline]
+    fn read_ptr(&self) -> *const u8 {
+        self.as_ptr()
+    }
+
+    #[inline]
+    fn bytes_init(&self) -> usize {
+        self.len()
+    }
+}
+
+unsafe impl<const N: usize> IoBuf for &'static [u8; N] {
+    #[inline]
+    fn read_ptr(&self) -> *const u8 {
+        self.as_ptr()
+    }
+
+    #[inline]
+    fn bytes_init(&self) -> usize {
+        self.len()
+    }
+}
+
+unsafe impl<const N: usize> IoBuf for &'static mut [u8; N] {
+    #[inline]
+    fn read_ptr(&self) -> *const u8 {
+        self.as_ptr()
+    }
+
+    #[inline]
+    fn bytes_init(&self) -> usize {
+        self.len()
+    }
+}
+
 unsafe impl IoBuf for &'static str {
     #[inline]
-    fn stable_ptr(&self) -> *const u8 {
+    fn read_ptr(&self) -> *const u8 {
         self.as_ptr()
     }
 
@@ -122,7 +165,7 @@ unsafe impl IoBuf for &'static str {
 #[cfg(feature = "bytes")]
 unsafe impl IoBuf for bytes::Bytes {
     #[inline]
-    fn stable_ptr(&self) -> *const u8 {
+    fn read_ptr(&self) -> *const u8 {
         self.as_ptr()
     }
 
@@ -135,7 +178,7 @@ unsafe impl IoBuf for bytes::Bytes {
 #[cfg(feature = "bytes")]
 unsafe impl IoBuf for bytes::BytesMut {
     #[inline]
-    fn stable_ptr(&self) -> *const u8 {
+    fn read_ptr(&self) -> *const u8 {
         self.as_ptr()
     }
 
@@ -150,24 +193,16 @@ unsafe impl IoBuf for bytes::BytesMut {
 /// The `IoBufMut` trait is implemented by buffer types that can be passed to
 /// io-uring operations. Users will not need to use this trait directly.
 ///
-/// # Implementation notes
-///
-/// Buffers passed to `io-uring` operations must reference a stable memory
-/// region. While the runtime holds ownership to a buffer, the pointer returned
-/// by `stable_mut_ptr` must remain valid even if the `IoBufMut` value is moved.
 /// # Safety
 /// See the safety note of the methods.
 pub unsafe trait IoBufMut: Unpin + 'static {
     /// Returns a raw mutable pointer to the vector’s buffer.
     ///
-    /// This method is to be used by the `monoio` runtime and it is not
-    /// expected for users to call it directly.
-    ///
-    /// # Safety
-    ///
-    /// The implementation must ensure that, while the runtime owns the value,
-    /// the pointer returned by `stable_mut_ptr` **does not** change.
-    fn stable_mut_ptr(&mut self) -> *mut u8;
+    /// `monoio` Runtime will `Box::pin` the buffer. Runtime makes sure
+    /// the buffer will not be moved, and the implement must ensure
+    /// `as_ptr` returns the same valid address.
+    /// Kernel will write `bytes_init`-length data to the pointer.
+    fn write_ptr(&mut self) -> *mut u8;
 
     /// Total size of the buffer, including uninitialized memory, if any.
     ///
@@ -227,7 +262,7 @@ pub unsafe trait IoBufMut: Unpin + 'static {
 
 unsafe impl IoBufMut for Vec<u8> {
     #[inline]
-    fn stable_mut_ptr(&mut self) -> *mut u8 {
+    fn write_ptr(&mut self) -> *mut u8 {
         self.as_mut_ptr()
     }
 
@@ -244,7 +279,52 @@ unsafe impl IoBufMut for Vec<u8> {
 
 unsafe impl IoBufMut for Box<[u8]> {
     #[inline]
-    fn stable_mut_ptr(&mut self) -> *mut u8 {
+    fn write_ptr(&mut self) -> *mut u8 {
+        self.as_mut_ptr()
+    }
+
+    #[inline]
+    fn bytes_total(&self) -> usize {
+        self.len()
+    }
+
+    #[inline]
+    unsafe fn set_init(&mut self, _: usize) {}
+}
+
+unsafe impl<const N: usize> IoBufMut for Box<[u8; N]> {
+    #[inline]
+    fn write_ptr(&mut self) -> *mut u8 {
+        self.as_mut_ptr()
+    }
+
+    #[inline]
+    fn bytes_total(&self) -> usize {
+        self.len()
+    }
+
+    #[inline]
+    unsafe fn set_init(&mut self, _: usize) {}
+}
+
+unsafe impl<const N: usize> IoBufMut for [u8; N] {
+    #[inline]
+    fn write_ptr(&mut self) -> *mut u8 {
+        self.as_mut_ptr()
+    }
+
+    #[inline]
+    fn bytes_total(&self) -> usize {
+        self.len()
+    }
+
+    #[inline]
+    unsafe fn set_init(&mut self, _: usize) {}
+}
+
+unsafe impl<const N: usize> IoBufMut for &'static mut [u8; N] {
+    #[inline]
+    fn write_ptr(&mut self) -> *mut u8 {
         self.as_mut_ptr()
     }
 
@@ -260,7 +340,7 @@ unsafe impl IoBufMut for Box<[u8]> {
 #[cfg(feature = "bytes")]
 unsafe impl IoBufMut for bytes::BytesMut {
     #[inline]
-    fn stable_mut_ptr(&mut self) -> *mut u8 {
+    fn write_ptr(&mut self) -> *mut u8 {
         self.as_mut_ptr()
     }
 
@@ -304,10 +384,10 @@ mod tests {
         buf.extend_from_slice(b"0123");
         let ptr = buf.as_mut_ptr();
 
-        assert_eq!(buf.stable_ptr(), ptr);
+        assert_eq!(buf.read_ptr(), ptr);
         assert_eq!(buf.bytes_init(), 4);
 
-        assert_eq!(buf.stable_mut_ptr(), ptr);
+        assert_eq!(buf.write_ptr(), ptr);
         assert_eq!(buf.bytes_total(), 10);
 
         unsafe { buf.set_init(8) };
@@ -320,8 +400,50 @@ mod tests {
         let s = "hello world";
         let ptr = s.as_ptr();
 
-        assert_eq!(s.stable_ptr(), ptr);
+        assert_eq!(s.read_ptr(), ptr);
         assert_eq!(s.bytes_init(), 11);
+    }
+
+    #[test]
+    fn io_buf_n() {
+        let mut buf = Box::new([1, 2, 3, 4, 5]);
+        let ptr = buf.as_mut_ptr();
+
+        assert_eq!(buf.read_ptr(), ptr);
+        assert_eq!(buf.bytes_init(), 5);
+        assert_eq!(buf.write_ptr(), ptr);
+        assert_eq!(buf.bytes_total(), 5);
+    }
+
+    #[test]
+    fn io_buf_n_boxed() {
+        let mut buf = Box::new([1, 2, 3, 4, 5]);
+        let ptr = buf.as_mut_ptr();
+
+        assert_eq!(buf.read_ptr(), ptr);
+        assert_eq!(buf.bytes_init(), 5);
+        assert_eq!(buf.write_ptr(), ptr);
+        assert_eq!(buf.bytes_total(), 5);
+    }
+
+    #[test]
+    fn io_buf_n_static() {
+        let buf = &*Box::leak(Box::new([1, 2, 3, 4, 5]));
+        let ptr = buf.as_ptr();
+
+        assert_eq!(buf.read_ptr(), ptr);
+        assert_eq!(buf.bytes_init(), 5);
+    }
+
+    #[test]
+    fn io_buf_n_mut_static() {
+        let buf = Box::leak(Box::new([1, 2, 3, 4, 5]));
+        let ptr = buf.as_mut_ptr();
+
+        assert_eq!(buf.read_ptr(), ptr);
+        assert_eq!(buf.bytes_init(), 5);
+        assert_eq!(buf.write_ptr(), ptr);
+        assert_eq!(buf.bytes_total(), 5);
     }
 
     #[test]
@@ -329,7 +451,7 @@ mod tests {
         let s: &[u8] = &[1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
         let ptr = s.as_ptr();
 
-        assert_eq!(s.stable_ptr(), ptr);
+        assert_eq!(s.read_ptr(), ptr);
         assert_eq!(s.bytes_init(), 10);
     }
 
@@ -341,13 +463,13 @@ mod tests {
 
         let slice = buf.slice(1..3);
         assert_eq!((slice.begin(), slice.end()), (1, 3));
-        assert_eq!(slice.stable_ptr(), unsafe { ptr.add(1) });
+        assert_eq!(slice.read_ptr(), unsafe { ptr.add(1) });
         assert_eq!(slice.bytes_init(), 2);
         let buf = slice.into_inner();
 
         let mut slice = buf.slice_mut(1..8);
         assert_eq!((slice.begin(), slice.end()), (1, 8));
-        assert_eq!(slice.stable_mut_ptr(), unsafe { ptr.add(1) });
+        assert_eq!(slice.write_ptr(), unsafe { ptr.add(1) });
         assert_eq!(slice.bytes_total(), 7);
         unsafe { slice.set_init(5) };
         assert_eq!(slice.bytes_init(), 5);

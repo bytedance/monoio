@@ -26,7 +26,7 @@ impl<T: IoBufMut> Op<Recv<T>> {
             |recv| {
                 opcode::Recv::new(
                     types::Fd(fd.raw_fd()),
-                    recv.buf.stable_mut_ptr(),
+                    recv.buf.write_ptr(),
                     recv.buf.bytes_total() as _,
                 )
                 .build()
