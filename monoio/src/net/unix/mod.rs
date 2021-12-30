@@ -5,6 +5,7 @@ mod listener;
 mod socket_addr;
 mod split;
 mod stream;
+mod ucred;
 
 pub mod datagram;
 
@@ -13,7 +14,7 @@ pub use listener::UnixListener;
 pub use socket_addr::SocketAddr;
 pub use split::{
     OwnedReadHalf as UnixOwnedReadHalf, OwnedWriteHalf as UnixOwnedWriteHalf,
-    ReadHalf as UnixReadHalf, WriteHalf as UnixWriteHalf,
+    ReadHalf as UnixReadHalf, ReuniteError as UnixReuniteError, WriteHalf as UnixWriteHalf,
 };
 pub use stream::UnixStream;
 

@@ -1,11 +1,11 @@
-use std::rc::Rc;
+use std::{error::Error, fmt, io, rc::Rc};
 
 use crate::{
     buf::{IoBuf, IoBufMut, IoVecBuf, IoVecBufMut},
     io::{AsyncReadRent, AsyncWriteRent},
 };
 
-use super::UnixStream;
+use super::{SocketAddr, UnixStream};
 
 /// ReadHalf.
 #[derive(Debug)]
@@ -86,6 +86,57 @@ pub(crate) fn split_owned(stream: UnixStream) -> (OwnedReadHalf, OwnedWriteHalf)
         OwnedReadHalf(stream_shared.clone()),
         OwnedWriteHalf(stream_shared),
     )
+}
+
+pub(crate) fn reunite(
+    read: OwnedReadHalf,
+    write: OwnedWriteHalf,
+) -> Result<UnixStream, ReuniteError> {
+    if Rc::ptr_eq(&read.0, &write.0) {
+        drop(write);
+        // This unwrap cannot fail as the api does not allow creating more than two Arcs,
+        // and we just dropped the other half.
+        Ok(Rc::try_unwrap(read.0).expect("UnixStream: try_unwrap failed in reunite"))
+    } else {
+        Err(ReuniteError(read, write))
+    }
+}
+
+/// Error indicating that two halves were not from the same socket, and thus could
+/// not be reunited.
+#[derive(Debug)]
+pub struct ReuniteError(pub OwnedReadHalf, pub OwnedWriteHalf);
+
+impl fmt::Display for ReuniteError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "tried to reunite halves that are not from the same socket"
+        )
+    }
+}
+
+impl Error for ReuniteError {}
+
+impl OwnedReadHalf {
+    /// Attempts to put the two halves of a `TcpStream` back together and
+    /// recover the original socket. Succeeds only if the two halves
+    /// originated from the same call to [`into_split`].
+    ///
+    /// [`into_split`]: TcpStream::into_split()
+    pub fn reunite(self, other: OwnedWriteHalf) -> Result<UnixStream, ReuniteError> {
+        reunite(self, other)
+    }
+
+    /// Returns the remote address that this stream is connected to.
+    pub fn peer_addr(&self) -> io::Result<SocketAddr> {
+        self.0.peer_addr()
+    }
+
+    /// Returns the local address that this stream is bound to.
+    pub fn local_addr(&self) -> io::Result<SocketAddr> {
+        self.0.local_addr()
+    }
 }
 
 impl AsyncReadRent for OwnedReadHalf {

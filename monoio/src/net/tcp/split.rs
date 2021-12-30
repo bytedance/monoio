@@ -1,4 +1,4 @@
-use std::rc::Rc;
+use std::{error::Error, fmt, io, net::SocketAddr, os::unix::prelude::AsRawFd, rc::Rc};
 
 use crate::{
     buf::{IoBuf, IoBufMut, IoVecBuf, IoVecBufMut},
@@ -88,6 +88,57 @@ pub(crate) fn split_owned(stream: TcpStream) -> (OwnedReadHalf, OwnedWriteHalf) 
     )
 }
 
+pub(crate) fn reunite(
+    read: OwnedReadHalf,
+    write: OwnedWriteHalf,
+) -> Result<TcpStream, ReuniteError> {
+    if Rc::ptr_eq(&read.0, &write.0) {
+        drop(write);
+        // This unwrap cannot fail as the api does not allow creating more than two Arcs,
+        // and we just dropped the other half.
+        Ok(Rc::try_unwrap(read.0).expect("TcpStream: try_unwrap failed in reunite"))
+    } else {
+        Err(ReuniteError(read, write))
+    }
+}
+
+/// Error indicating that two halves were not from the same socket, and thus could
+/// not be reunited.
+#[derive(Debug)]
+pub struct ReuniteError(pub OwnedReadHalf, pub OwnedWriteHalf);
+
+impl fmt::Display for ReuniteError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "tried to reunite halves that are not from the same socket"
+        )
+    }
+}
+
+impl Error for ReuniteError {}
+
+impl OwnedReadHalf {
+    /// Attempts to put the two halves of a `TcpStream` back together and
+    /// recover the original socket. Succeeds only if the two halves
+    /// originated from the same call to [`into_split`].
+    ///
+    /// [`into_split`]: TcpStream::into_split()
+    pub fn reunite(self, other: OwnedWriteHalf) -> Result<TcpStream, ReuniteError> {
+        reunite(self, other)
+    }
+
+    /// Returns the remote address that this stream is connected to.
+    pub fn peer_addr(&self) -> io::Result<SocketAddr> {
+        self.0.peer_addr()
+    }
+
+    /// Returns the local address that this stream is bound to.
+    pub fn local_addr(&self) -> io::Result<SocketAddr> {
+        self.0.local_addr()
+    }
+}
+
 impl AsyncReadRent for OwnedReadHalf {
     type ReadFuture<'a, B>
     where
@@ -106,6 +157,27 @@ impl AsyncReadRent for OwnedReadHalf {
     fn readv<T: IoVecBufMut>(&self, buf: T) -> Self::ReadvFuture<'_, T> {
         // Submit the read operation
         self.0.readv(buf)
+    }
+}
+
+impl OwnedWriteHalf {
+    /// Attempts to put the two halves of a `TcpStream` back together and
+    /// recover the original socket. Succeeds only if the two halves
+    /// originated from the same call to [`into_split`].
+    ///
+    /// [`into_split`]: TcpStream::into_split()
+    pub fn reunite(self, other: OwnedReadHalf) -> Result<TcpStream, ReuniteError> {
+        reunite(other, self)
+    }
+
+    /// Returns the remote address that this stream is connected to.
+    pub fn peer_addr(&self) -> io::Result<SocketAddr> {
+        self.0.peer_addr()
+    }
+
+    /// Returns the local address that this stream is bound to.
+    pub fn local_addr(&self) -> io::Result<SocketAddr> {
+        self.0.local_addr()
     }
 }
 
@@ -131,5 +203,12 @@ impl AsyncWriteRent for OwnedWriteHalf {
 
     fn shutdown(&self) -> Self::ShutdownFuture<'_> {
         self.0.shutdown()
+    }
+}
+
+impl Drop for OwnedWriteHalf {
+    fn drop(&mut self) {
+        let fd = self.0.as_raw_fd();
+        unsafe { libc::shutdown(fd, libc::SHUT_WR) };
     }
 }
