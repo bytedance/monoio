@@ -16,7 +16,7 @@ pub trait AsyncWriteRentExt<T: 'static> {
 
 impl<A, T> AsyncWriteRentExt<T> for A
 where
-    A: AsyncWriteRent,
+    A: AsyncWriteRent + ?Sized,
     T: 'static + IoBuf,
 {
     type Future<'a>

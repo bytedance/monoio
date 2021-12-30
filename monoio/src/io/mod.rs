@@ -13,3 +13,6 @@ pub use async_write_rent::{AsyncWriteRent, AsyncWriteRentAt};
 pub use async_write_rent_ext::AsyncWriteRentExt;
 
 pub use async_buf_read::{AsyncBufRead, BufReader};
+
+mod util;
+pub use util::copy;
