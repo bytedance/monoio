@@ -30,7 +30,7 @@ impl TcpStream {
         Self { fd, meta }
     }
 
-    /// Opens a TCP connection to a remote host.
+    /// Open a TCP connection to a remote host.
     /// Note: This function may block the current thread while resolution is
     /// performed.
     // TODO(chihai): Fix it, maybe spawn_blocking like tokio.
@@ -41,15 +41,10 @@ impl TcpStream {
             .next()
             .ok_or_else(|| io::Error::new(io::ErrorKind::Other, "empty address"))?;
 
-        let op = Op::connect(libc::SOCK_STREAM, addr)?;
-        let completion = op.await;
-        completion.result?;
-
-        let stream = TcpStream::from_shared_fd(completion.data.fd);
-        Ok(stream)
+        Self::connect_addr(addr).await
     }
 
-    /// Establishes a connection to the specified `addr`.
+    /// Establishe a connection to the specified `addr`.
     pub async fn connect_addr(addr: SocketAddr) -> io::Result<Self> {
         let op = Op::connect(libc::SOCK_STREAM, addr)?;
         let completion = op.await;
@@ -59,33 +54,33 @@ impl TcpStream {
         Ok(stream)
     }
 
-    /// Creates new `TcpStream` from a `std::net::TcpStream`.
+    /// Create new `TcpStream` from a `std::net::TcpStream`.
     pub fn from_std(stream: std::net::TcpStream) -> Self {
         let fd = stream.into_raw_fd();
         unsafe { Self::from_raw_fd(fd) }
     }
 
-    /// Returns the local address that this stream is bound to.
+    /// Return the local address that this stream is bound to.
     pub fn local_addr(&self) -> io::Result<SocketAddr> {
         self.meta.local_addr()
     }
 
-    /// Returns the remote address that this stream is connected to.
+    /// Return the remote address that this stream is connected to.
     pub fn peer_addr(&self) -> io::Result<SocketAddr> {
         self.meta.peer_addr()
     }
 
-    /// Gets the value of the `TCP_NODELAY` option on this socket.
+    /// Get the value of the `TCP_NODELAY` option on this socket.
     pub fn nodelay(&self) -> io::Result<bool> {
         self.meta.no_delay()
     }
 
-    /// Sets the value of the `TCP_NODELAY` option on this socket.
+    /// Set the value of the `TCP_NODELAY` option on this socket.
     pub fn set_nodelay(&self, nodelay: bool) -> io::Result<()> {
         self.meta.set_no_delay(nodelay)
     }
 
-    /// Sets the value of the `SO_KEEPALIVE` option on this socket.
+    /// Set the value of the `SO_KEEPALIVE` option on this socket.
     pub fn set_tcp_keepalive(
         &self,
         time: Option<Duration>,
@@ -107,7 +102,7 @@ impl TcpStream {
     }
 }
 
-impl std::os::unix::io::FromRawFd for TcpStream {
+impl FromRawFd for TcpStream {
     unsafe fn from_raw_fd(fd: RawFd) -> Self {
         Self::from_shared_fd(SharedFd::new(fd))
     }
@@ -116,6 +111,12 @@ impl std::os::unix::io::FromRawFd for TcpStream {
 impl AsRawFd for TcpStream {
     fn as_raw_fd(&self) -> RawFd {
         self.fd.raw_fd()
+    }
+}
+
+impl std::fmt::Debug for TcpStream {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("TcpStream").field("fd", &self.fd).finish()
     }
 }
 
@@ -174,12 +175,6 @@ impl AsyncReadRent for TcpStream {
         // Submit the read operation
         let op = Op::readv(&self.fd, buf).unwrap();
         op.read()
-    }
-}
-
-impl std::fmt::Debug for TcpStream {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("TcpStream").field("fd", &self.fd).finish()
     }
 }
 

@@ -1,4 +1,5 @@
 #![allow(unreachable_pub)]
+//! TCP related.
 
 mod listener;
 mod split;

@@ -17,7 +17,7 @@ impl Default for ListenerConfig {
     fn default() -> Self {
         Self {
             reuse_port: true,
-            reuse_addr: false,
+            reuse_addr: true,
             backlog: 1024,
             send_buf_size: None,
             recv_buf_size: None,

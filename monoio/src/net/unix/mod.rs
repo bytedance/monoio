@@ -3,10 +3,18 @@
 
 mod listener;
 mod socket_addr;
+mod split;
 mod stream;
 
+pub mod datagram;
+
+pub use datagram::UnixDatagram;
 pub use listener::UnixListener;
 pub use socket_addr::SocketAddr;
+pub use split::{
+    OwnedReadHalf as UnixOwnedReadHalf, OwnedWriteHalf as UnixOwnedWriteHalf,
+    ReadHalf as UnixReadHalf, WriteHalf as UnixWriteHalf,
+};
 pub use stream::UnixStream;
 
 pub(crate) fn path_offset(sockaddr: &libc::sockaddr_un) -> usize {
