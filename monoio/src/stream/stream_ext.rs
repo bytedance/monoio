@@ -33,7 +33,7 @@ pub trait StreamExt: Stream {
     {
         async move {
             while let Some(item) = self.next().await {
-                (f)(item);
+                (f)(item).await;
             }
         }
     }
@@ -41,7 +41,7 @@ pub trait StreamExt: Stream {
 
 impl<T> StreamExt for T where T: Stream {}
 
-type ForEachFut<T, Fut, F> = impl Future<Output = ()>;
+type ForEachFut<T: Stream, Fut, F> = impl Future<Output = ()>;
 
 #[must_use = "streams do nothing unless polled"]
 pub struct Map<St, F> {

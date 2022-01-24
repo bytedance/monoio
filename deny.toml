@@ -5,6 +5,7 @@ allow = [
     "Apache-2.0",
     "Apache-2.0 WITH LLVM-exception",
     "Zlib",
+    "BSD-3-Clause",
     "Unlicense"
 ]
 copyleft = "deny"
