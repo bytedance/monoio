@@ -59,12 +59,9 @@ impl<T: IoVecBuf> Op<WriteVec<T>> {
                 buf_vec,
             },
             |writev| {
-                opcode::Writev::new(
-                    types::Fd(fd.raw_fd()),
-                    writev.buf_vec.stable_iovec_ptr(),
-                    writev.buf_vec.iovec_len() as _,
-                )
-                .build()
+                let ptr = writev.buf_vec.read_iovec_ptr() as *const _;
+                let len = writev.buf_vec.read_iovec_len() as _;
+                opcode::Writev::new(types::Fd(fd.raw_fd()), ptr, len).build()
             },
         )
     }

@@ -75,12 +75,9 @@ impl<T: IoVecBufMut> Op<ReadVec<T>> {
                 buf_vec,
             },
             |read_vec| {
-                opcode::Readv::new(
-                    types::Fd(fd.raw_fd()),
-                    read_vec.buf_vec.stable_mut_iovec_ptr(),
-                    read_vec.buf_vec.iovec_len() as _,
-                )
-                .build()
+                let ptr = read_vec.buf_vec.write_iovec_ptr() as _;
+                let len = read_vec.buf_vec.write_iovec_len() as _;
+                opcode::Readv::new(types::Fd(fd.raw_fd()), ptr, len).build()
             },
         )
     }

@@ -17,13 +17,13 @@ pub unsafe trait IoVecBuf: Unpin + 'static {
     /// The implementation must ensure that, while the runtime owns the value,
     /// the pointer returned by `stable_mut_ptr` **does not** change.
     /// Also, the value pointed must be a valid iovec struct.
-    fn stable_iovec_ptr(&self) -> *const libc::iovec;
+    fn read_iovec_ptr(&self) -> *const libc::iovec;
 
     /// Returns the count of iovec struct behind the pointer.
     ///
     /// # Safety
     /// There must be really that number of iovec here.
-    fn iovec_len(&self) -> usize;
+    fn read_iovec_len(&self) -> usize;
 }
 
 /// A intermediate struct that impl IoVecBuf and IoVecBufMut.
@@ -34,21 +34,21 @@ pub struct VecBuf {
 }
 
 unsafe impl IoVecBuf for VecBuf {
-    fn stable_iovec_ptr(&self) -> *const libc::iovec {
-        self.iovecs.stable_iovec_ptr()
+    fn read_iovec_ptr(&self) -> *const libc::iovec {
+        self.iovecs.read_iovec_ptr()
     }
 
-    fn iovec_len(&self) -> usize {
-        self.iovecs.iovec_len()
+    fn read_iovec_len(&self) -> usize {
+        self.iovecs.read_iovec_len()
     }
 }
 
 unsafe impl IoVecBuf for Vec<libc::iovec> {
-    fn stable_iovec_ptr(&self) -> *const libc::iovec {
+    fn read_iovec_ptr(&self) -> *const libc::iovec {
         self.as_ptr()
     }
 
-    fn iovec_len(&self) -> usize {
+    fn read_iovec_len(&self) -> usize {
         self.len()
     }
 }
@@ -133,7 +133,7 @@ impl From<VecBuf> for Vec<Vec<u8>> {
 ///
 /// # Safety
 /// See the safety note of the methods.
-pub unsafe trait IoVecBufMut: IoVecBuf {
+pub unsafe trait IoVecBufMut: Unpin + 'static {
     /// Returns a raw mutable pointer to iovec struct.
     /// struct iovec {
     ///     void  *iov_base;    /* Starting address */
@@ -144,9 +144,12 @@ pub unsafe trait IoVecBufMut: IoVecBuf {
     ///
     /// # Safety
     /// The implementation must ensure that, while the runtime owns the value,
-    /// the pointer returned by `stable_mut_ptr` **does not** change.
+    /// the pointer returned by `write_iovec_ptr` **does not** change.
     /// Also, the value pointed must be a valid iovec struct.
-    fn stable_mut_iovec_ptr(&mut self) -> *mut libc::iovec;
+    fn write_iovec_ptr(&mut self) -> *mut libc::iovec;
+
+    /// Returns the count of iovec struct behind the pointer.
+    fn write_iovec_len(&self) -> usize;
 
     /// Updates the number of initialized bytes.
     ///
@@ -160,8 +163,12 @@ pub unsafe trait IoVecBufMut: IoVecBuf {
 }
 
 unsafe impl IoVecBufMut for VecBuf {
-    fn stable_mut_iovec_ptr(&mut self) -> *mut libc::iovec {
-        self.stable_iovec_ptr() as *mut libc::iovec
+    fn write_iovec_ptr(&mut self) -> *mut libc::iovec {
+        self.read_iovec_ptr() as *mut _
+    }
+
+    fn write_iovec_len(&self) -> usize {
+        self.read_iovec_len()
     }
 
     unsafe fn set_init(&mut self, mut len: usize) {
