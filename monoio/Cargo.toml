@@ -8,7 +8,7 @@ license = "MIT/Apache-2.0"
 name = "monoio"
 readme = "README.md"
 repository = "https://github.com/bytedance/monoio"
-version = "0.0.3"
+version = "0.0.4"
 
 [dependencies]
 monoio-macros = {version = "0.0.2", path = "../monoio-macros", optional = true}
@@ -31,7 +31,7 @@ tracing = { version = "0.1", default-features = false, features = ["std"], optio
 
 [dev-dependencies]
 tempfile = "3.2"
-local-sync = "*"
+local-sync = "0.0.5"
 
 [features]
 # async-cancel will push a async-cancel entry into sq when op is canceled
