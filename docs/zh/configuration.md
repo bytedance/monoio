@@ -12,7 +12,7 @@ author: ihciah
 目前版本下，在运行时你可以改动的主要有 3 个配置：
 1. entries
 
-    entries 指 io-uring 的 ring 大小，默认是 `1024`，你可以在创建 runtime 时指定该值。注意，为了保证性能，当设定小于 256 时会设置为 256。当你的 QPS 较高时，设置较大的 entries 可以增大 ring 的大小，减少 submit 次数，这样会显著降低 syscall 占用，但也会带来一定内存占用，请合理设置。
+    entries 指 io_uring 的 ring 大小，默认是 `1024`，你可以在创建 runtime 时指定该值。注意，为了保证性能，当设定小于 256 时会设置为 256。当你的 QPS 较高时，设置较大的 entries 可以增大 ring 的大小，减少 submit 次数，这样会显著降低 syscall 占用，但也会带来一定内存占用，请合理设置。
 
     这个 entries 也会影响 inflight op 缓存的初始大小，默认为 `10 * entries`，目前不提供自定义接口。同样，为了避免这个缓存频繁扩容，请合理设置 entries。
 
@@ -64,7 +64,7 @@ author: ihciah
 在编译期也有一些 feature 会影响 runtime 行为。
 1. async-cancel
 
-    async-cancel 默认开启。开启该 feature 后会在 Future 被 Drop 时向 io-uring 推入一个 CancelOp 来试图取消对应 Op，可能有一定的性能提升。注意，即便如此我们也并不能保证这个 Op 一定被取消。所以如果你有类似 select {读，超时} 的行为，如果你后续仍需要继续读取，请务必保存这个 Future。
+    async-cancel 默认开启。开启该 feature 后会在 Future 被 Drop 时向 io_uring 推入一个 CancelOp 来试图取消对应 Op，可能有一定的性能提升。注意，即便如此我们也并不能保证这个 Op 一定被取消。所以如果你有类似 select {读，超时} 的行为，如果你后续仍需要继续读取，请务必保存这个 Future。
 
 2. zero-copy
 

@@ -19,7 +19,6 @@ io-uring = {version = "0.5", features = ["unstable"]}
 libc = "0.2"
 os_socketaddr = "0.2"
 pin-project-lite = "0.2"
-pin-utils = "0.1"
 scoped-tls = "1"
 socket2 = {version = "0.4", features = ["all"]}
 

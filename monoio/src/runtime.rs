@@ -130,7 +130,7 @@ impl<D> Runtime<D> {
                 #[cfg(not(feature = "sync"))]
                 let join = future;
 
-                pin_utils::pin_mut!(join);
+                pin!(join);
                 set_poll();
                 loop {
                     loop {

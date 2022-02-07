@@ -1,8 +1,8 @@
 //! Utilities for working with buffers.
 //!
-//! `io-uring` APIs require passing ownership of buffers to the runtime. The
+//! `io_uring` APIs require passing ownership of buffers to the runtime. The
 //! crate defines [`IoBuf`] and [`IoBufMut`] traits which are implemented by buffer
-//! types that respect the `io-uring` contract.
+//! types that respect the `io_uring` contract.
 // Heavily borrowed from tokio-uring.
 // Copyright (c) 2021 Tokio-uring Contributors, licensed under the MIT license.
 

@@ -45,7 +45,7 @@ const REF_ONE: usize = 1 << REF_COUNT_SHIFT;
 
 /// State a task is initialized with
 ///
-/// A task is initialized with three references:
+/// A task is initialized with two references:
 ///
 ///  * A reference for Task.
 ///  * A reference for the JoinHandle.

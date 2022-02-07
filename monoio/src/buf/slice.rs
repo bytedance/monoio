@@ -6,7 +6,7 @@ use std::ops;
 /// SliceMut implements IoBuf and IoBufMut.
 ///
 /// This is similar to Rust slices (`&buf[..]`) but owns the underlying buffer.
-/// This type is useful for performing io-uring read and write operations using
+/// This type is useful for performing io_uring read and write operations using
 /// a subset of a buffer.
 ///
 /// Slices are created using [`IoBuf::slice`].

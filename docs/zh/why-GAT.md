@@ -17,7 +17,7 @@ author: ihciah
 
 ## 生成 Future
 除了使用 `async` 块外，常规的方式就是手动构造一个实现了 `Future` 的结构体。这种 Future 有两种：
-1. 带有所有权的额 Future，不需要额外写生命周期标记。这种 `Future` 和其他所有结构体都没有关联，如果你需要让它依赖一些不 `Copy` 的数据，那你可以考虑使用 `Rc` 或 `Arc` 之类的共享所有权的结构。
+1. 带有所有权的 Future，不需要额外写生命周期标记。这种 `Future` 和其他所有结构体都没有关联，如果你需要让它依赖一些不 `Copy` 的数据，那你可以考虑使用 `Rc` 或 `Arc` 之类的共享所有权的结构。
 2. 带有引用的 Future，这种结构体本身上就带有生命周期标记。例如，Tokio 中的 `AsyncReadExt`，`read` 的签名是 `fn read<'a>(&'a mut self, buf: &'a mut [u8]) -> Read<'a, Self>`。这里构造的 `Read<'a, Self>` 捕获了 self 和 buf 的引用，相比共享所有权，这是没有运行时开销的。但是这种 Future 不好作为 trait 的 type alias，只能开启 `generic_associated_types` 和 `type_alias_impl_trait`，然后使用 opaque type。
 
 ## 定义 IO trait

@@ -163,13 +163,12 @@ impl IoUringDriver {
         let uring = ManuallyDrop::new(IoUring::new(entries)?);
 
         // Create eventfd and register it to the ring.
-        let waker = unsafe {
-            let fd = libc::eventfd(0, libc::EFD_CLOEXEC | libc::EFD_NONBLOCK);
-            if fd == -1 {
-                return Err(io::Error::last_os_error());
+        let waker = {
+            let fd = syscall!(eventfd(0, libc::EFD_CLOEXEC | libc::EFD_NONBLOCK))?;
+            unsafe {
+                use std::os::unix::io::FromRawFd;
+                std::fs::File::from_raw_fd(fd)
             }
-            use std::os::unix::io::FromRawFd;
-            std::fs::File::from_raw_fd(fd)
         };
 
         let (waker_sender, waker_receiver) = flume::unbounded::<std::task::Waker>();

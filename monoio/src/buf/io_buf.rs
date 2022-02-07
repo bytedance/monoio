@@ -4,10 +4,10 @@ use std::ops;
 
 use super::Slice;
 
-/// An `io-uring` compatible buffer.
+/// An `io_uring` compatible buffer.
 ///
 /// The `IoBuf` trait is implemented by buffer types that can be passed to
-/// io-uring operations. Users will not need to use this trait directly, except
+/// io_uring operations. Users will not need to use this trait directly, except
 /// for the [`slice`] method.
 ///
 /// # Slicing
@@ -45,7 +45,6 @@ pub unsafe trait IoBuf: Unpin + 'static {
     fn slice(self, range: impl ops::RangeBounds<usize>) -> Slice<Self>
     where
         Self: Sized,
-        Self: IoBuf,
     {
         let (begin, end) = parse_range(range, self.bytes_init());
         Slice::new(self, begin, end)
@@ -59,7 +58,6 @@ pub unsafe trait IoBuf: Unpin + 'static {
     unsafe fn slice_unchecked(self, range: impl ops::RangeBounds<usize>) -> Slice<Self>
     where
         Self: Sized,
-        Self: IoBuf,
     {
         let (begin, end) = parse_range(range, self.bytes_init());
         Slice::new_unchecked(self, begin, end)
@@ -188,10 +186,10 @@ unsafe impl IoBuf for bytes::BytesMut {
     }
 }
 
-/// A mutable `io-uring` compatible buffer.
+/// A mutable `io_uring` compatible buffer.
 ///
 /// The `IoBufMut` trait is implemented by buffer types that can be passed to
-/// io-uring operations. Users will not need to use this trait directly.
+/// io_uring operations. Users will not need to use this trait directly.
 ///
 /// # Safety
 /// See the safety note of the methods.

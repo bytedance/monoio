@@ -8,7 +8,7 @@ author: ihciah
 
 We use async rent as our core IO abstraction.
 
-## The need of io-uring
+## The need of io_uring
 1. Address of the buffer being fixed.
 
     Since we only submit the buffer to the kernel, we don't know when the buffer will be read or written. We must make sure the address is fixed, so it can be valid when operated.
@@ -25,7 +25,7 @@ We use async rent as our core IO abstraction.
 
 So, we want to make sure the buffer is fixed and valid during the operation. We found no way to do this if not take ownership of the buffer.
 
-Why Tokio AsyncIO do not require buffer ownership? Answer in a simple way: Because we can cancel it instantly. We do async read or async write with the borrow of the buffer, then we can generate future with the borrow, and the rust compiler know their relation. Once the future is done or dropped, the borrow is dropped, and the kernel will not operate on the buffer(because with epoll+syscall, syscall is executed synchronously). In another word, if we can do async drop, we can do async IO with the reference of the buffer with io-uring instead of ownership.
+Why Tokio AsyncIO do not require buffer ownership? Answer in a simple way: Because we can cancel it instantly. We do async read or async write with the borrow of the buffer, then we can generate future with the borrow, and the rust compiler know their relation. Once the future is done or dropped, the borrow is dropped, and the kernel will not operate on the buffer(because with epoll+syscall, syscall is executed synchronously). In another word, if we can do async drop, we can do async IO with the reference of the buffer with io_uring instead of ownership.
 
 ## Ecology Problem
 The biggest problem is the compatibility with the current async ecology.

@@ -38,7 +38,7 @@ In this test we will start a fixed number of connections on the client side. The
 :-------------------------:|:-------------------------:
 ![8cores](/.github/resources/benchmark/monoio-bench-8C.png)  |  ![16cores](/.github/resources/benchmark/monoio-bench-16C.png)
 
-In the case of a single core and very few connections, Monoio's latency will be higher than Tokio, resulting in lower throughput than Tokio. This latency difference is due to the difference between io-uring and epoll.
+In the case of a single core and very few connections, Monoio's latency will be higher than Tokio, resulting in lower throughput than Tokio. This latency difference is due to the difference between io_uring and epoll.
 
 Except for the previous scenario, Monoio performance is better than Tokio and Glommio. Tokio will decrease the average peak performance of a single core as the number of cores increases; Monoio's peak performance has the best horizontal scalability.
 
