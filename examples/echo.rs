@@ -1,4 +1,4 @@
-/// A echo example.
+/// An echo example.
 ///
 /// Run the example and `nc 127.0.0.1 50002` in another shell.
 /// All your input will be echoed out.

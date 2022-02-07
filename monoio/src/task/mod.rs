@@ -76,14 +76,7 @@ where
     T: Future + 'static,
     T::Output: 'static,
 {
-    let raw = RawTask::new::<T, S>(task, scheduler);
-    let task = Task {
-        raw,
-        _p: PhantomData,
-    };
-    let join = JoinHandle::new(raw);
-
-    (task, join)
+    unsafe { new_task_holding(owner_id, task, scheduler) }
 }
 
 #[cfg(feature = "sync")]
@@ -97,14 +90,7 @@ where
     T: Future + 'static,
     T::Output: 'static,
 {
-    let raw = RawTask::new::<T, S>(owner_id, task, scheduler);
-    let task = Task {
-        raw,
-        _p: PhantomData,
-    };
-    let join = JoinHandle::new(raw);
-
-    (task, join)
+    unsafe { new_task_holding(owner_id, task, scheduler) }
 }
 
 #[allow(unused)]

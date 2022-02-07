@@ -1,5 +1,5 @@
 # Monoio
-一个基于 io-uring 和 thread-per-core 模型 Rust Runtime。
+一个基于 io_uring 和 thread-per-core 模型 Rust Runtime。
 
 [![Crates.io][crates-badge]][crates-url]
 [![MIT/Apache-2 licensed][license-badge]][license-url]
@@ -18,9 +18,9 @@
 [en-readme-url]: README.md
 
 ## 设计目标
-作为一个基于 io-uring 的 Runtime，Monoio 目标是成为最高效、性能最优的 Rust Runtime。
+作为一个基于 io_uring 的 Runtime，Monoio 目标是成为最高效、性能最优的 Rust Runtime。
 
-我们的出发点很简单：跨线程任务调度会带来额外开销，且对 Task 本身有 `Send` 和 `Sync` 约束，导致无法很好地使用 thread local storage。而很多场景并不需要跨线程调度。如 `nginx` 这种负载均衡代理，我们往往可以以 thread-per-core 的模式编写。这样可以减少跨线程通信的开销，提高性能；也可以尽可能地利用 thread local 来做极低成本的任务间通信。当任务不需要被跨线程调度时，它就没有了实现 `Send` 和 `Sync` 的约束。另一点是 io-uring 相比 epoll 在性能上有很大提升，我们也希望能够尽可能利用它达到最佳性能。所以基于 io-uring 做一套 thread-per-core 的 Runtime 理论上可以获得一些场景下的最佳性能。
+我们的出发点很简单：跨线程任务调度会带来额外开销，且对 Task 本身有 `Send` 和 `Sync` 约束，导致无法很好地使用 thread local storage。而很多场景并不需要跨线程调度。如 `nginx` 这种负载均衡代理，我们往往可以以 thread-per-core 的模式编写。这样可以减少跨线程通信的开销，提高性能；也可以尽可能地利用 thread local 来做极低成本的任务间通信。当任务不需要被跨线程调度时，它就没有了实现 `Send` 和 `Sync` 的约束。另一点是 io_uring 相比 epoll 在性能上有很大提升，我们也希望能够尽可能利用它达到最佳性能。所以基于 io_uring 做一套 thread-per-core 的 Runtime 理论上可以获得一些场景下的最佳性能。
 
 Monoio 就是这样一个 Runtime：它并不像 Tokio 那样通过公平调度保证通用性，它的目标是在**特定场景下**(thread per core 模型并不适用于所有场景)提供最好的性能。为了性能，Monoio 还开启了 GAT 等一系列的 unstable feature；同时也提供了全新的无拷贝的 IO 抽象。
 
@@ -89,7 +89,7 @@ async fn echo(stream: TcpStream) -> std::io::Result<()> {
 在本仓库的 `examples` 目录中有更多的例子。
 
 ## 限制
-1. 因为我们依赖 io-uring，所以目前 Monoio 依赖 Linux 5.6 或更新版本。epoll 或其他多路复用兼容会在后续版本中支持。
+1. 因为我们依赖 io_uring，所以目前 Monoio 依赖 Linux 5.6 或更新版本。epoll 或其他多路复用兼容会在后续版本中支持。
 2. Monoio 这种 thread per core 的 runtime 并不适用于任意场景。如果负载并非常不均衡，相比公平调度模型的 Tokio 它可能会性能变差，因为 CPU 利用可能不均衡，不能充分利用可用核心。
 
 ## 贡献者

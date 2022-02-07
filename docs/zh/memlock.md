@@ -5,7 +5,7 @@ author: ihciah
 ---
 
 # 设置 memlock 限制
-io-uring 需要在用户态和内核态共享内存，如 ring 或 registered buffer。
+io_uring 需要在用户态和内核态共享内存，如 ring 或 registered buffer。
 
 很多内核的默认配置会带一个数值较小的 memlock 限制，如 64（指 64 KiB）。我们需要更大的 memlock 才能正常工作（如果你手动指定了 ring 的大小，你可能需要确保它的大小是合法的）。
 

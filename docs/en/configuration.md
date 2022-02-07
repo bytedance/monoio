@@ -12,7 +12,7 @@ This section describes the configurable options and some of the default behavior
 With the current version, there are 3 main configurations that you can change at runtime.
 1. entries
 
-    entries refers to the ring size of the io-uring, the default is `1024`, you can specify this value when creating the runtime. Note that for performance, the setting is set to 256 when it is less than 256. When your QPS is high, setting larger entries can increase the ring size and reduce the number of submits, which will significantly reduce the syscall usage, but also bring some memory usage, please set it reasonably.
+    entries refers to the ring size of the io_uring, the default is `1024`, you can specify this value when creating the runtime. Note that for performance, the setting is set to 256 when it is less than 256. When your QPS is high, setting larger entries can increase the ring size and reduce the number of submits, which will significantly reduce the syscall usage, but also bring some memory usage, please set it reasonably.
 
     The entries also affects the initial size of the inflight op cache, which defaults to `10 * entries` and currently does not provide a custom interface. Again, to avoid frequent expansion of this cache, please set entries wisely.
 
@@ -64,7 +64,7 @@ With the current version, there are 3 main configurations that you can change at
 There are also some features that affect runtime behavior during compile time.
 1. async-cancel
 
-    async-cancel is enabled by default. Turning this feature on pushes a CancelOp into the io-uring to try to cancel the corresponding Op when the Future is dropped, which may have some performance improvements. Note that even then we can't guarantee that the Op will be cancelled. So if you have something like select {read, timeout}, be sure to save the Future if you still need to read it later.
+    async-cancel is enabled by default. Turning this feature on pushes a CancelOp into the io_uring to try to cancel the corresponding Op when the Future is dropped, which may have some performance improvements. Note that even then we can't guarantee that the Op will be cancelled. So if you have something like select {read, timeout}, be sure to save the Future if you still need to read it later.
 
 2. zero-copy
 

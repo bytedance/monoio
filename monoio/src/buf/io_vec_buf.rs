@@ -1,6 +1,6 @@
 // use super::shared_buf::Shared;
 
-/// An `io-uring` compatible iovec buffer.
+/// An `io_uring` compatible iovec buffer.
 ///
 /// # Safety
 /// See the safety note of the methods.
@@ -129,7 +129,7 @@ impl From<VecBuf> for Vec<Vec<u8>> {
 //     }
 // }
 
-/// A mutable `io-uring` compatible iovec buffer.
+/// A mutable `io_uring` compatible iovec buffer.
 ///
 /// # Safety
 /// See the safety note of the methods.
