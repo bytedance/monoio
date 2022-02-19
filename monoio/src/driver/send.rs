@@ -18,12 +18,24 @@ impl<T: IoBuf> Op<Send<T>> {
         use io_uring::{opcode, types};
 
         #[cfg(feature = "zero-copy")]
-        // TODO: use libc const after supported.
-        const MSG_ZEROCOPY: libc::c_int = 0x4000000;
+        fn zero_copy_flag_guard<T: IoBuf>(buf: &T) -> i32 {
+            // TODO: use libc const after supported.
+            const MSG_ZEROCOPY: libc::c_int = 0x4000000;
+            // According to Linux's documentation, zero copy introduces extra overhead and
+            // is only considered effective for at writes over around 10 KB.
+            // see also: https://www.kernel.org/doc/html/v4.16/networking/msg_zerocopy.html
+            const MSG_ZEROCOPY_THRESHOLD: usize = 10 * 1024 * 1024;
+            if buf.bytes_init() >= MSG_ZEROCOPY_THRESHOLD {
+                libc::MSG_NOSIGNAL | MSG_ZEROCOPY
+            } else {
+                libc::MSG_NOSIGNAL
+            }
+        }
+
         #[cfg(feature = "zero-copy")]
-        const FLAGS: i32 = libc::MSG_NOSIGNAL | MSG_ZEROCOPY;
+        let flags = zero_copy_flag_guard(&buf);
         #[cfg(not(feature = "zero-copy"))]
-        const FLAGS: i32 = libc::MSG_NOSIGNAL;
+        let flags = libc::MSG_NOSIGNAL;
 
         Op::submit_with(
             Send {
@@ -36,7 +48,7 @@ impl<T: IoBuf> Op<Send<T>> {
                     send.buf.read_ptr(),
                     send.buf.bytes_init() as _,
                 )
-                .flags(FLAGS)
+                .flags(flags)
                 .build()
             },
         )
