@@ -35,6 +35,7 @@ pub mod stream;
 pub mod task;
 pub mod utils;
 
+pub use driver::IoUringDriver;
 pub use builder::RuntimeBuilder;
 pub use runtime::{spawn, Runtime};
 
