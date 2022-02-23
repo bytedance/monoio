@@ -76,7 +76,7 @@ where
     T: Future + 'static,
     T::Output: 'static,
 {
-    unsafe { new_task_holding(owner_id, task, scheduler) }
+    unsafe { new_task_holding(task, scheduler) }
 }
 
 #[cfg(feature = "sync")]
