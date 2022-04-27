@@ -9,23 +9,20 @@ macro_rules! syscall {
     }};
 }
 
-mod close;
-pub(crate) use close::Close;
-mod fsync;
-mod op;
-pub(crate) use op::Op;
-mod accept;
-mod open;
-mod read;
-mod recv;
-mod shared_fd;
-pub(crate) use shared_fd::SharedFd;
-mod connect;
-mod consts;
-mod send;
+#[allow(unused)]
+pub(crate) const CANCEL_USERDATA: u64 = u64::MAX;
+pub(crate) const TIMEOUT_USERDATA: u64 = u64::MAX - 1;
+#[allow(unused)]
+pub(crate) const EVENTFD_USERDATA: u64 = u64::MAX - 2;
+
+pub(crate) const MIN_REVERSED_USERDATA: u64 = u64::MAX - 2;
+
+pub(crate) mod op;
+pub(crate) mod shared_fd;
 mod util;
-mod write;
+
 use crate::utils::slab::Slab;
+
 use io_uring::{cqueue, IoUring};
 use io_uring::{opcode, types::Timespec};
 use scoped_tls::scoped_thread_local;
@@ -40,8 +37,6 @@ use std::time::Duration;
 pub(crate) mod thread;
 
 use self::util::timespec;
-
-use self::consts::{MIN_REVERSED_USERDATA, TIMEOUT_USERDATA};
 
 #[allow(unreachable_pub)]
 pub trait Unpark: Sync + Send + 'static {
@@ -216,7 +211,7 @@ impl IoUringDriver {
     fn install_eventfd(&self, inner: &mut Inner, fd: RawFd) {
         let entry = opcode::Read::new(io_uring::types::Fd(fd), self.eventfd_read_dst, 8)
             .build()
-            .user_data(crate::driver::consts::EVENTFD_USERDATA);
+            .user_data(EVENTFD_USERDATA);
 
         let mut sq = inner.uring.submission();
         let _ = unsafe { sq.push(&entry) };
@@ -397,7 +392,7 @@ impl Inner {
         for cqe in cq {
             if cqe.user_data() >= MIN_REVERSED_USERDATA {
                 #[cfg(feature = "sync")]
-                if cqe.user_data() == self::consts::EVENTFD_USERDATA {
+                if cqe.user_data() == EVENTFD_USERDATA {
                     self.eventfd_installed = false;
                 }
                 continue;

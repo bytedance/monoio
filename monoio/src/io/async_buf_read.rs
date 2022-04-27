@@ -47,10 +47,7 @@ impl<R> AsyncBufRead for BufReader<R>
 where
     R: AsyncReadRent,
 {
-    type FillBufFuture<'a>
-    where
-        Self: 'a,
-    = impl Future<Output = std::io::Result<&'a [u8]>>;
+    type FillBufFuture<'a> = impl Future<Output = std::io::Result<&'a [u8]>> where Self: 'a;
 
     fn fill_buf(&mut self) -> Self::FillBufFuture<'_> {
         async {

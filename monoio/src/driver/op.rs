@@ -8,6 +8,17 @@ use std::pin::Pin;
 use std::rc::Rc;
 use std::task::{Context, Poll, Waker};
 
+pub(crate) mod close;
+
+mod accept;
+mod connect;
+mod fsync;
+mod open;
+mod read;
+mod recv;
+mod send;
+mod write;
+
 /// In-flight operation
 pub(crate) struct Op<T: 'static> {
     // Driver running the operation

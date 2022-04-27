@@ -62,11 +62,8 @@ where
 {
     type Item = Item;
 
-    type Future<'a>
-    where
-        F: 'a,
-        St: 'a,
-    = impl Future<Output = Option<Self::Item>>;
+    type Future<'a> = impl Future<Output = Option<Self::Item>> where
+        F: 'a, St: 'a;
 
     fn next(&mut self) -> Self::Future<'_> {
         async move { self.stream.next().await.map(&mut self.f) }
@@ -96,11 +93,8 @@ where
 {
     type Item = Fut::Output;
 
-    type Future<'a>
-    where
-        F: 'a,
-        St: 'a,
-    = impl Future<Output = Option<Self::Item>>;
+    type Future<'a> = impl Future<Output = Option<Self::Item>> where
+        F: 'a, St: 'a,;
 
     fn next(&mut self) -> Self::Future<'_> {
         async move {

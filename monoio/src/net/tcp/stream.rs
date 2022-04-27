@@ -1,3 +1,10 @@
+use super::split::{split, split_owned, OwnedReadHalf, OwnedWriteHalf, ReadHalf, WriteHalf};
+use crate::{
+    buf::{IoBuf, IoBufMut, IoVecBuf, IoVecBufMut},
+    driver::{op::Op, shared_fd::SharedFd},
+    io::{AsyncReadRent, AsyncWriteRent},
+};
+
 use std::{
     cell::UnsafeCell,
     io,
@@ -5,14 +12,6 @@ use std::{
     os::unix::prelude::{AsRawFd, FromRawFd, IntoRawFd, RawFd},
     time::Duration,
 };
-
-use crate::{
-    buf::{IoBuf, IoBufMut, IoVecBuf, IoVecBufMut},
-    driver::{Op, SharedFd},
-    io::{AsyncReadRent, AsyncWriteRent},
-};
-
-use super::split::{split, split_owned, OwnedReadHalf, OwnedWriteHalf, ReadHalf, WriteHalf};
 
 /// TcpStream
 pub struct TcpStream {
@@ -121,14 +120,10 @@ impl std::fmt::Debug for TcpStream {
 }
 
 impl AsyncWriteRent for TcpStream {
-    type WriteFuture<'a, B>
-    where
-        B: 'a,
-    = impl std::future::Future<Output = crate::BufResult<usize, B>>;
-    type WritevFuture<'a, B>
-    where
-        B: 'a,
-    = impl std::future::Future<Output = crate::BufResult<usize, B>>;
+    type WriteFuture<'a, B> = impl std::future::Future<Output = crate::BufResult<usize, B>> where
+        B: 'a;
+    type WritevFuture<'a, B> = impl std::future::Future<Output = crate::BufResult<usize, B>> where
+        B: 'a;
     type ShutdownFuture<'a> = impl std::future::Future<Output = Result<(), std::io::Error>>;
 
     fn write<T: IoBuf>(&self, buf: T) -> Self::WriteFuture<'_, T> {
@@ -156,14 +151,10 @@ impl AsyncWriteRent for TcpStream {
 }
 
 impl AsyncReadRent for TcpStream {
-    type ReadFuture<'a, B>
-    where
-        B: 'a,
-    = impl std::future::Future<Output = crate::BufResult<usize, B>>;
-    type ReadvFuture<'a, B>
-    where
-        B: 'a,
-    = impl std::future::Future<Output = crate::BufResult<usize, B>>;
+    type ReadFuture<'a, B> = impl std::future::Future<Output = crate::BufResult<usize, B>> where
+        B: 'a;
+    type ReadvFuture<'a, B> = impl std::future::Future<Output = crate::BufResult<usize, B>> where
+        B: 'a;
 
     fn read<T: IoBufMut>(&self, buf: T) -> Self::ReadFuture<'_, T> {
         // Submit the read operation

@@ -1,4 +1,4 @@
-use crate::driver::{Op, SharedFd};
+use crate::driver::{op::Op, shared_fd::SharedFd};
 use crate::fs::File;
 
 use std::io;

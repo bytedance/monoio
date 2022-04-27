@@ -1,18 +1,15 @@
+use super::{socket_addr::SocketAddr, UnixStream};
+use crate::{
+    driver::{op::Op, shared_fd::SharedFd},
+    net::ListenerConfig,
+    stream::Stream,
+};
+use futures::Future;
 use std::{
     io,
     os::unix::prelude::{AsRawFd, FromRawFd, IntoRawFd, RawFd},
     path::Path,
 };
-
-use futures::Future;
-
-use crate::{
-    driver::{Op, SharedFd},
-    net::ListenerConfig,
-    stream::Stream,
-};
-
-use super::{socket_addr::SocketAddr, UnixStream};
 
 /// UnixListener
 pub struct UnixListener {
