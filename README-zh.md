@@ -90,7 +90,7 @@ async fn echo(stream: TcpStream) -> std::io::Result<()> {
 
 ## 限制
 1. 因为我们依赖 io_uring，所以目前 Monoio 依赖 Linux 5.6 或更新版本。epoll 或其他多路复用兼容会在后续版本中支持。
-2. Monoio 这种 thread per core 的 runtime 并不适用于任意场景。如果负载并非常不均衡，相比公平调度模型的 Tokio 它可能会性能变差，因为 CPU 利用可能不均衡，不能充分利用可用核心。
+2. Monoio 这种 thread per core 的 runtime 并不适用于任意场景。如果负载非常不均衡，相比公平调度模型的 Tokio 它可能会性能变差，因为 CPU 利用可能不均衡，不能充分利用可用核心。
 
 ## 贡献者
 <a href="https://github.com/bytedance/monoio/graphs/contributors"><img src="https://opencollective.com/monoio/contributors.svg?width=890&button=false" /></a>
