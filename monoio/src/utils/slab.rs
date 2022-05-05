@@ -1,222 +1,282 @@
-//! Slab
-// Forked from https://github.com/tokio-rs/slab/blob/master/src/lib.rs
-// Copyright (c) 2021 Tokio Contributors, licensed under the MIT license.
+//! Slab.
+//! Part of code and design forked from tokio.
+
+use std::mem::MaybeUninit;
 
 /// Pre-allocated storage for a uniform data type
-#[derive(Clone)]
-pub struct Slab<T> {
-    // Chunk of memory
-    entries: Vec<Entry<T>>,
-
-    // Number of Filled elements currently in the slab
-    len: usize,
-
-    // Offset of the next available slot in the slab. Set to the slab's
-    // capacity when the slab is full.
-    next: usize,
+#[derive(Default)]
+pub(crate) struct Slab<T> {
+    // pages of continued memory
+    pages: [Option<Page<T>>; NUM_PAGES],
+    // cached write page id
+    w_page_id: usize,
+    // current generation
+    generation: u32,
 }
 
-impl<T> Default for Slab<T> {
-    fn default() -> Self {
-        Slab::new()
-    }
-}
-
-#[derive(Clone)]
-enum Entry<T> {
-    Vacant(usize),
-    Occupied(Option<T>),
-}
+const NUM_PAGES: usize = 26;
+const PAGE_INITIAL_SIZE: usize = 64;
+const COMPACT_INTERVAL: u32 = 2048;
 
 impl<T> Slab<T> {
-    /// Construct a new, empty `Slab`.
-    pub fn new() -> Slab<T> {
-        Slab::with_capacity(0)
-    }
-
-    /// Construct a new, empty `Slab` with the specified capacity.
-    pub fn with_capacity(capacity: usize) -> Slab<T> {
+    /// Create a new slab.
+    pub(crate) const fn new() -> Slab<T> {
         Slab {
-            entries: Vec::with_capacity(capacity),
-            next: 0,
-            len: 0,
+            pages: [
+                None, None, None, None, None, None, None, None, None, None, None, None, None, None,
+                None, None, None, None, None, None, None, None, None, None, None, None,
+            ],
+            w_page_id: 0,
+            generation: 0,
         }
     }
 
-    /// Return the number of values the slab can store without reallocating.
-    pub fn capacity(&self) -> usize {
-        self.entries.capacity()
+    /// Get slab len.
+    pub(crate) fn len(&self) -> usize {
+        self.pages.iter().fold(0, |acc, page| match page {
+            Some(page) => acc + page.used,
+            None => acc,
+        })
     }
 
-    /// Clear the slab of all values.
-    pub fn clear(&mut self) {
-        self.entries.clear();
-        self.len = 0;
-        self.next = 0;
-    }
-
-    /// Return the number of stored values.
-    pub fn len(&self) -> usize {
-        self.len
-    }
-
-    /// Return `true` if there are no values stored in the slab.
-    pub fn is_empty(&self) -> bool {
-        self.len == 0
-    }
-
-    /// Return a reference to the value associated with the given key.
-    pub fn get(&self, key: usize) -> Option<&T> {
-        match self.entries.get(key) {
-            Some(&Entry::Occupied(ref val)) => Some(val.as_ref().unwrap()),
-            _ => None,
-        }
-    }
-
-    /// Return a mutable reference to the value associated with the given key.
-    pub fn get_mut(&mut self, key: usize) -> Option<&mut T> {
-        match self.entries.get_mut(key) {
-            Some(&mut Entry::Occupied(ref mut val)) => {
-                Some(unsafe { val.as_mut().unwrap_unchecked() })
-            }
-            _ => None,
-        }
-    }
-
-    /// Return a reference to the value associated with the given key without
-    /// performing bounds checking.
-    ///
-    /// # Safety
-    ///
-    /// The key must be within bounds.
-    pub unsafe fn get_unchecked(&self, key: usize) -> &T {
-        match *self.entries.get_unchecked(key) {
-            Entry::Occupied(ref val) => val.as_ref().unwrap_unchecked(),
-            _ => std::hint::unreachable_unchecked(),
-        }
-    }
-
-    /// Return a mutable reference to the value associated with the given key
-    /// without performing bounds checking.
-    ///
-    /// # Safety
-    ///
-    /// The key must be within bounds.
-    pub unsafe fn get_unchecked_mut(&mut self, key: usize) -> &mut T {
-        match *self.entries.get_unchecked_mut(key) {
-            Entry::Occupied(ref mut val) => val.as_mut().unwrap_unchecked(),
-            _ => std::hint::unreachable_unchecked(),
-        }
-    }
-
-    /// Insert a value in the slab, returning key assigned to the value.
-    pub fn insert(&mut self, val: T) -> usize {
-        let key = self.next;
-
-        self.len += 1;
-
-        if key == self.entries.len() {
-            self.entries.push(Entry::Occupied(Some(val)));
-            self.next = key + 1;
-        } else {
-            self.next = match self.entries.get(key) {
-                Some(&Entry::Vacant(next)) => next,
-                _ => unsafe { std::hint::unreachable_unchecked() },
-            };
-            self.entries[key] = Entry::Occupied(Some(val));
-        }
-
-        key
-    }
-
-    /// Tries to remove the value associated with the given key,
-    /// returning the value if the key existed.
-    pub fn try_remove(&mut self, key: usize) -> Option<T> {
-        if let Some(entry) = self.entries.get_mut(key) {
-            // Swap the entry at the provided value
-            let prev = std::mem::replace(entry, Entry::Vacant(self.next));
-
-            match prev {
-                Entry::Occupied(val) => {
-                    self.len -= 1;
-                    self.next = key;
-                    return val;
-                }
-                _ => {
-                    // Woops, the entry is actually vacant, restore the state
-                    *entry = prev;
-                }
-            }
-        }
-        None
-    }
-
-    /// Remove and return the value associated with the given key.
-    pub fn remove(&mut self, key: usize) -> T {
-        self.try_remove(key).expect("invalid key")
-    }
-
-    /// Return `true` if a value is associated with the given key.
-    pub fn contains(&self, key: usize) -> bool {
-        matches!(self.entries.get(key), Some(&Entry::Occupied(_)))
-    }
-
-    /// Execute f and return.
-    ///
-    /// # Safety
-    /// very unsafe! :)
-    pub unsafe fn do_action_unchecked<F, O>(&mut self, key: usize, f: F) -> O
-    where
-        F: FnOnce(&mut Option<T>) -> O,
-    {
-        // Find the slot first.
-        let slot = self.entries.get_unchecked_mut(key);
-        // Get its value.
-        let val = match *slot {
-            Entry::Occupied(ref mut val) => val,
-            _ => std::hint::unreachable_unchecked(),
+    /// Get a key ref.
+    #[allow(unused)]
+    pub(crate) fn get(&self, key: usize) -> Option<&T> {
+        let page_id = get_page_id(key);
+        let page = match unsafe { self.pages.get_unchecked(page_id) } {
+            Some(page) => page,
+            None => return None,
         };
-        // Call user provided lambda.
-        let output = f(val);
+        page.get(key - page.prev_len)
+    }
 
-        // If the lambda set the value to None, we will delete it.
-        if val.is_none() {
-            *slot = Entry::Vacant(self.next);
-            self.next = key;
+    /// Get a key mut ref.
+    pub(crate) fn get_mut(&mut self, key: usize) -> Option<&mut T> {
+        let page_id = get_page_id(key);
+        let page = match unsafe { self.pages.get_unchecked_mut(page_id) } {
+            Some(page) => page,
+            None => return None,
+        };
+        page.get_mut(key - page.prev_len)
+    }
+
+    /// Insert an element into slab. The key is returned.
+    /// Note: If the slab is out of slot, it will panic.
+    pub(crate) fn insert(&mut self, val: T) -> usize {
+        let begin_id = self.w_page_id;
+        for i in begin_id..NUM_PAGES {
+            unsafe {
+                let page = match self.pages.get_unchecked_mut(i) {
+                    Some(page) => page,
+                    None => {
+                        let page = Page::new(
+                            PAGE_INITIAL_SIZE << i,
+                            (PAGE_INITIAL_SIZE << i) - PAGE_INITIAL_SIZE,
+                        );
+                        let r = self.pages.get_unchecked_mut(i);
+                        *r = Some(page);
+                        r.as_mut().unwrap_unchecked()
+                    }
+                };
+                if let Some(slot) = page.alloc() {
+                    page.set(slot, val);
+                    self.w_page_id = i;
+                    return slot + page.prev_len;
+                }
+            }
         }
-        output
+        panic!("out of slot");
+    }
+
+    /// Remove an element from slab.
+    pub(crate) fn remove(&mut self, key: usize) -> Option<T> {
+        let page_id = get_page_id(key);
+        let page = match unsafe { self.pages.get_unchecked_mut(page_id) } {
+            Some(page) => page,
+            None => return None,
+        };
+        let val = page.remove(key - page.prev_len);
+        // compact
+        self.generation = self.generation.wrapping_add(1);
+        if self.generation % COMPACT_INTERVAL == 0 {
+            // reset write page index
+            self.w_page_id = 0;
+            // find the last allocated page and try to drop
+            if let Some((id, last_page)) = self
+                .pages
+                .iter_mut()
+                .enumerate()
+                .rev()
+                .find_map(|(id, p)| p.as_mut().map(|p| (id, p)))
+            {
+                if last_page.is_empty() && id > 0 {
+                    unsafe {
+                        *self.pages.get_unchecked_mut(id) = None;
+                    }
+                }
+            }
+        }
+        val
     }
 }
 
-impl<T> std::ops::Index<usize> for Slab<T> {
-    type Output = T;
+// Forked from tokio.
+fn get_page_id(key: usize) -> usize {
+    const POINTER_WIDTH: u32 = std::mem::size_of::<usize>() as u32 * 8;
+    const PAGE_INDEX_SHIFT: u32 = PAGE_INITIAL_SIZE.trailing_zeros() + 1;
 
-    fn index(&self, key: usize) -> &T {
-        match self.entries.get(key) {
-            Some(&Entry::Occupied(ref v)) => unsafe { v.as_ref().unwrap_unchecked() },
-            _ => panic!("invalid key"),
+    let slot_shifted = (key.saturating_add(PAGE_INITIAL_SIZE)) >> PAGE_INDEX_SHIFT;
+    ((POINTER_WIDTH - slot_shifted.leading_zeros()) as usize).min(NUM_PAGES - 1)
+}
+
+enum Entry<T> {
+    Vacant(usize),
+    Occupied(T),
+}
+
+impl<T> Entry<T> {
+    fn as_ref(&self) -> Option<&T> {
+        match self {
+            Entry::Vacant(_) => None,
+            Entry::Occupied(inner) => Some(inner),
+        }
+    }
+
+    fn as_mut(&mut self) -> Option<&mut T> {
+        match self {
+            Entry::Vacant(_) => None,
+            Entry::Occupied(inner) => Some(inner),
+        }
+    }
+
+    fn is_vacant(&self) -> bool {
+        matches!(self, Entry::Vacant(_))
+    }
+
+    unsafe fn unwrap_unchecked(self) -> T {
+        match self {
+            Entry::Vacant(_) => std::hint::unreachable_unchecked(),
+            Entry::Occupied(inner) => inner,
         }
     }
 }
 
-impl<T> std::ops::IndexMut<usize> for Slab<T> {
-    fn index_mut(&mut self, key: usize) -> &mut T {
-        match self.entries.get_mut(key) {
-            Some(&mut Entry::Occupied(ref mut v)) => unsafe { v.as_mut().unwrap_unchecked() },
-            _ => panic!("invalid key"),
+struct Page<T> {
+    // continued buffer of fixed size
+    slots: Box<[MaybeUninit<Entry<T>>]>,
+    // number of occupied slots
+    used: usize,
+    // number of initialized slots
+    initialized: usize,
+    // next slot to write
+    next: usize,
+    // sum of previous page's slots count
+    prev_len: usize,
+}
+
+impl<T> Page<T> {
+    fn new(size: usize, prev_len: usize) -> Self {
+        let mut buffer = Vec::with_capacity(size);
+        unsafe { buffer.set_len(size) };
+        let slots = buffer.into_boxed_slice();
+        Self {
+            slots,
+            used: 0,
+            initialized: 0,
+            next: 0,
+            prev_len,
+        }
+    }
+
+    fn is_empty(&self) -> bool {
+        self.used == 0
+    }
+
+    fn is_full(&self) -> bool {
+        self.used == self.slots.len()
+    }
+
+    // alloc a slot
+    // Safety: after slot is allocated, the caller must guarante it will be initialized
+    unsafe fn alloc(&mut self) -> Option<usize> {
+        let next = self.next;
+        if self.is_full() {
+            // current page is full
+            debug_assert_eq!(next, self.slots.len(), "next should eq to slots.len()");
+            return None;
+        } else if next >= self.initialized {
+            // the slot to write is not initialized
+            debug_assert_eq!(next, self.initialized, "next should eq to initialized");
+            self.initialized += 1;
+            self.next += 1;
+        } else {
+            // the slot has already been initialized
+            // it must be Vacant
+            let slot = self.slots.get_unchecked(next).assume_init_ref();
+            match slot {
+                Entry::Vacant(next_slot) => {
+                    self.next = *next_slot;
+                }
+                _ => std::hint::unreachable_unchecked(),
+            }
+        }
+        self.used += 1;
+        Some(next)
+    }
+
+    // set value of the slot
+    // Safety: the slot must returned by Self::alloc.
+    unsafe fn set(&mut self, slot: usize, val: T) {
+        let slot = self.slots.get_unchecked_mut(slot);
+        *slot = MaybeUninit::new(Entry::Occupied(val));
+    }
+
+    fn get(&self, slot: usize) -> Option<&T> {
+        if slot >= self.initialized {
+            return None;
+        }
+        unsafe { self.slots.get_unchecked(slot).assume_init_ref() }.as_ref()
+    }
+
+    fn get_mut(&mut self, slot: usize) -> Option<&mut T> {
+        if slot >= self.initialized {
+            return None;
+        }
+        unsafe { self.slots.get_unchecked_mut(slot).assume_init_mut() }.as_mut()
+    }
+
+    fn remove(&mut self, slot: usize) -> Option<T> {
+        if slot >= self.initialized {
+            return None;
+        }
+        unsafe {
+            let slot_mut = self.slots.get_unchecked_mut(slot).assume_init_mut();
+            if slot_mut.is_vacant() {
+                return None;
+            }
+            let val = std::mem::replace(slot_mut, Entry::Vacant(self.next));
+            self.next = slot;
+            self.used -= 1;
+
+            Some(val.unwrap_unchecked())
         }
     }
 }
 
-impl<T> std::fmt::Debug for Slab<T>
-where
-    T: std::fmt::Debug,
-{
-    fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        fmt.debug_struct("Slab")
-            .field("len", &self.len)
-            .field("cap", &self.capacity())
-            .finish()
+impl<T> Drop for Page<T> {
+    fn drop(&mut self) {
+        let mut to_drop = std::mem::take(&mut self.slots).into_vec();
+
+        unsafe {
+            if self.is_empty() {
+                // fast drop if empty
+                to_drop.set_len(0);
+            } else {
+                // slow drop
+                to_drop.set_len(self.initialized);
+                std::mem::transmute::<_, Vec<Entry<T>>>(to_drop);
+            }
+        }
     }
 }
 
@@ -227,29 +287,11 @@ mod tests {
     #[test]
     fn insert_get_remove_one() {
         let mut slab = Slab::default();
-        assert!(slab.is_empty());
-
         let key = slab.insert(10);
-
-        assert_eq!(slab[key], 10);
         assert_eq!(slab.get(key), Some(&10));
-        assert!(!slab.is_empty());
-        assert!(slab.contains(key));
-
-        assert_eq!(slab.remove(key), 10);
-        assert!(!slab.contains(key));
+        assert_eq!(slab.remove(key), Some(10));
         assert!(slab.get(key).is_none());
-    }
-
-    #[test]
-    fn insert_get_many() {
-        let mut slab = Slab::with_capacity(10);
-        assert_eq!(slab.capacity(), 10);
-
-        for i in 0..10 {
-            let key = slab.insert(i + 10);
-            assert_eq!(slab[key], i + 10);
-        }
+        assert_eq!(slab.len(), 0);
     }
 
     #[test]
@@ -263,72 +305,36 @@ mod tests {
 
                 let key = slab.insert(val);
                 keys.push((key, val));
-                assert_eq!(slab[key], val);
+                assert_eq!(slab.get(key).unwrap(), &val);
             }
 
             for (key, val) in keys.drain(..) {
-                assert_eq!(val, slab.remove(key));
+                assert_eq!(val, slab.remove(key).unwrap());
             }
         }
     }
 
     #[test]
-    fn clone_and_clear_slab() {
-        let mut slab = Slab::new();
-        slab.insert(10);
-        let mut slab = slab.clone();
-        assert_eq!(slab.len(), 1);
-        slab.clear();
-        assert_eq!(slab.len(), 0);
-        assert!(slab.is_empty());
-    }
-
-    #[test]
-    fn get_unchecked() {
-        let mut slab = Slab::new();
-        let id = slab.insert(10);
-        unsafe {
-            assert_eq!(slab.get_unchecked(id), &10);
-            *slab.get_unchecked_mut(id) = 20;
-        }
-        assert_eq!(*slab.get(id).unwrap(), 20);
-    }
-
-    #[test]
-    fn try_remove() {
-        let mut slab = Slab::new();
-        let id = slab.insert(10);
-        assert!(slab.try_remove(10000).is_none());
-        assert!(slab.try_remove(id).is_some());
-    }
-
-    #[test]
-    fn get_index() {
-        let mut slab = Slab::new();
-        let id = slab.insert(10);
-        assert_eq!(slab[id], 10);
-        slab[id] = 20;
-        assert_eq!(slab[id], 20);
-    }
-
-    #[test]
-    #[should_panic(expected = "invalid key")]
-    fn get_index_panic() {
-        let slab = Slab::<i32>::new();
-        let _ = &slab[10000];
-    }
-
-    #[test]
-    #[should_panic(expected = "invalid key")]
-    fn get_index_mut_panic() {
+    fn get_not_exist() {
         let mut slab = Slab::<i32>::new();
-        slab[10000] = 20;
+        assert!(slab.get(0).is_none());
+        assert!(slab.get(1).is_none());
+        assert!(slab.get(usize::MAX).is_none());
+        assert!(slab.remove(0).is_none());
+        assert!(slab.remove(1).is_none());
+        assert!(slab.remove(usize::MAX).is_none());
     }
 
     #[test]
-    fn test_debug() {
-        let mut slab = Slab::new();
-        slab.insert(10);
-        assert!(format!("{:?}", slab).contains("Slab"));
+    fn insert_remove_big() {
+        let mut slab = Slab::default();
+        let keys = (0..1_000_000).map(|i| slab.insert(i)).collect::<Vec<_>>();
+        keys.iter().zip(0..1_000_000).for_each(|(key, val)| {
+            assert_eq!(slab.remove(*key).unwrap(), val);
+        });
+        keys.iter().for_each(|key| {
+            assert!(slab.get(*key).is_none());
+        });
+        assert_eq!(slab.len(), 0);
     }
 }

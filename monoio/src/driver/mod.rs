@@ -143,7 +143,7 @@ impl IoUringDriver {
         let uring = IoUring::new(entries)?;
 
         let inner = Rc::new(UnsafeCell::new(Inner {
-            ops: Ops::with_capacity(10 * entries as usize),
+            ops: Ops::new(),
             uring: ManuallyDrop::new(uring),
         }));
 
@@ -169,7 +169,7 @@ impl IoUringDriver {
         let (waker_sender, waker_receiver) = flume::unbounded::<std::task::Waker>();
 
         let inner = Rc::new(UnsafeCell::new(Inner {
-            ops: Ops::with_capacity(10 * entries as usize),
+            ops: Ops::new(),
             uring,
             shared_waker: std::sync::Arc::new(EventWaker::new(waker)),
             eventfd_installed: false,
@@ -452,10 +452,8 @@ impl Drop for IoUringDriver {
 }
 
 impl Ops {
-    fn with_capacity(capacity: usize) -> Self {
-        Ops {
-            slab: Slab::with_capacity(capacity),
-        }
+    const fn new() -> Self {
+        Ops { slab: Slab::new() }
     }
 
     // Insert a new operation
@@ -464,21 +462,24 @@ impl Ops {
     }
 
     fn complete(&mut self, index: usize, result: io::Result<u32>, flags: u32) {
-        unsafe {
-            self.slab.do_action_unchecked(index, |item| {
-                let lifecycle = item.take().unwrap_unchecked();
-                match lifecycle {
-                    op::Lifecycle::Submitted => {
-                        let _ = item.insert(op::Lifecycle::Completed(result, flags));
-                    }
+        let item = unsafe { self.slab.get_mut(index).unwrap_unchecked() };
+        match item {
+            op::Lifecycle::Submitted => {
+                *item = op::Lifecycle::Completed(result, flags);
+            }
+            op::Lifecycle::Waiting(_) => {
+                let old = std::mem::replace(item, op::Lifecycle::Completed(result, flags));
+                match old {
                     op::Lifecycle::Waiting(waker) => {
-                        let _ = item.insert(op::Lifecycle::Completed(result, flags));
                         waker.wake();
                     }
-                    op::Lifecycle::Ignored(..) => {}
-                    op::Lifecycle::Completed(..) => std::hint::unreachable_unchecked(),
+                    _ => unsafe { std::hint::unreachable_unchecked() },
                 }
-            });
+            }
+            op::Lifecycle::Ignored(..) => {
+                self.slab.remove(index);
+            }
+            op::Lifecycle::Completed(..) => unsafe { std::hint::unreachable_unchecked() },
         }
     }
 }
