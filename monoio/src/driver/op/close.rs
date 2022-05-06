@@ -1,4 +1,4 @@
-use crate::driver::Op;
+use super::Op;
 
 use std::io;
 use std::os::unix::io::RawFd;

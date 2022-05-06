@@ -1,5 +1,5 @@
 use crate::buf::{IoBuf, IoBufMut};
-use crate::driver::{Op, SharedFd};
+use crate::driver::{op::Op, shared_fd::SharedFd};
 use crate::fs::OpenOptions;
 
 use std::io;

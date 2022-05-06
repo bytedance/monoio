@@ -1,6 +1,5 @@
-use crate::buf::IoBufMut;
-use crate::driver::{Op, SharedFd};
-use crate::BufResult;
+use super::{super::shared_fd::SharedFd, Op};
+use crate::{buf::IoBufMut, BufResult};
 
 use std::io;
 

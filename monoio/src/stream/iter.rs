@@ -25,10 +25,8 @@ where
 {
     type Item = I::Item;
 
-    type Future<'a>
-    where
-        I: 'a,
-    = impl Future<Output = Option<Self::Item>>;
+    type Future<'a> = impl Future<Output = Option<Self::Item>> where
+        I: 'a;
 
     fn next(&mut self) -> Self::Future<'_> {
         async move { self.iter.next() }

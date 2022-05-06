@@ -19,10 +19,7 @@ where
     A: AsyncWriteRent + ?Sized,
     T: 'static + IoBuf,
 {
-    type Future<'a>
-    where
-        A: 'a,
-    = impl Future<Output = BufResult<usize, T>>;
+    type Future<'a> = impl Future<Output = BufResult<usize, T>> where A: 'a;
 
     fn write_all(&self, mut buf: T) -> Self::Future<'_> {
         async move {

@@ -1,9 +1,9 @@
+use super::{super::shared_fd::SharedFd, Op};
+
 use std::{
     io,
     mem::{size_of, MaybeUninit},
 };
-
-use super::{Op, SharedFd};
 
 /// Accept
 pub(crate) struct Accept {

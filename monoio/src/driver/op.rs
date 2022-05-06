@@ -8,6 +8,17 @@ use std::pin::Pin;
 use std::rc::Rc;
 use std::task::{Context, Poll, Waker};
 
+pub(crate) mod close;
+
+mod accept;
+mod connect;
+mod fsync;
+mod open;
+mod read;
+mod recv;
+mod send;
+mod write;
+
 /// In-flight operation
 pub(crate) struct Op<T: 'static> {
     // Driver running the operation
@@ -121,41 +132,33 @@ where
         let me = &mut *self;
         let inner = unsafe { &mut *me.driver.get() };
 
-        unsafe {
-            inner
-                .ops
-                .slab
-                .do_action_unchecked(me.index, |item| -> Poll<Self::Output> {
-                    let lifecycle = item.as_mut().unwrap_unchecked();
-                    match lifecycle {
-                        Lifecycle::Submitted => {
-                            *lifecycle = Lifecycle::Waiting(cx.waker().clone());
-                            return Poll::Pending;
-                        }
-                        Lifecycle::Waiting(waker) => {
-                            if !waker.will_wake(cx.waker()) {
-                                *lifecycle = Lifecycle::Waiting(cx.waker().clone());
-                            }
-                            return Poll::Pending;
-                        }
-                        _ => {}
-                    };
+        let lifecycle = unsafe { inner.ops.slab.get_mut(me.index).unwrap_unchecked() };
+        match lifecycle {
+            Lifecycle::Submitted => {
+                *lifecycle = Lifecycle::Waiting(cx.waker().clone());
+                return Poll::Pending;
+            }
+            Lifecycle::Waiting(waker) => {
+                if !waker.will_wake(cx.waker()) {
+                    *lifecycle = Lifecycle::Waiting(cx.waker().clone());
+                }
+                return Poll::Pending;
+            }
+            _ => {}
+        }
 
-                    // We can assume the lifecycle now must be Completed
-                    match item.take().unwrap_unchecked() {
-                        Lifecycle::Completed(result, flags) => {
-                            me.index = usize::MAX;
-                            let pinned_data = me.data.take().expect("unexpected operation state");
-                            let data = Box::into_inner(Pin::into_inner_unchecked(pinned_data));
-                            Poll::Ready(Completion {
-                                data,
-                                result,
-                                flags,
-                            })
-                        }
-                        _ => std::hint::unreachable_unchecked(),
-                    }
+        match unsafe { inner.ops.slab.remove(me.index).unwrap_unchecked() } {
+            Lifecycle::Completed(result, flags) => {
+                me.index = usize::MAX;
+                let pinned_data = me.data.take().expect("unexpected operation state");
+                let data = Box::into_inner(unsafe { Pin::into_inner_unchecked(pinned_data) });
+                Poll::Ready(Completion {
+                    data,
+                    result,
+                    flags,
                 })
+            }
+            _ => unsafe { std::hint::unreachable_unchecked() },
         }
     }
 }

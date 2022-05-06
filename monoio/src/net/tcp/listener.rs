@@ -4,7 +4,7 @@ use std::os::unix::prelude::{AsRawFd, FromRawFd, RawFd};
 use std::{future::Future, io, net::ToSocketAddrs, os::unix::prelude::IntoRawFd};
 
 use crate::{
-    driver::{Op, SharedFd},
+    driver::{op::Op, shared_fd::SharedFd},
     net::ListenerConfig,
     stream::Stream,
 };

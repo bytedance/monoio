@@ -1,4 +1,5 @@
-use crate::driver::{Op, SharedFd};
+use super::{super::shared_fd::SharedFd, Op};
+
 use os_socketaddr::OsSocketAddr;
 use std::{io, net::SocketAddr};
 

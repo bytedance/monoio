@@ -1,4 +1,5 @@
-use crate::driver::{self, Op};
+use super::Op;
+use crate::driver::util::cstr;
 use crate::fs::OpenOptions;
 
 use std::ffi::CString;
@@ -16,7 +17,7 @@ impl Op<Open> {
         use io_uring::{opcode, types};
 
         // Here the path will be copied, so its safe.
-        let path = driver::util::cstr(path.as_ref())?;
+        let path = cstr(path.as_ref())?;
         let flags = libc::O_CLOEXEC | options.access_mode()? | options.creation_mode()?;
 
         Op::submit_with(Open { path }, |open| {

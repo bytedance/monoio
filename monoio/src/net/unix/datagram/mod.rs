@@ -1,18 +1,17 @@
 //! Unix datagram related.
 
-use std::{
-    io,
-    os::unix::prelude::{AsRawFd, FromRawFd, IntoRawFd, RawFd},
-    path::Path,
-};
-
-use std::os::unix::net::UnixDatagram as StdUnixDatagram;
-
-use crate::driver::{Op, SharedFd};
-
 use super::{
     socket_addr::{local_addr, pair, peer_addr, socket_addr},
     SocketAddr,
+};
+use crate::driver::{op::Op, shared_fd::SharedFd};
+use std::{
+    io,
+    os::unix::{
+        net::UnixDatagram as StdUnixDatagram,
+        prelude::{AsRawFd, FromRawFd, IntoRawFd, RawFd},
+    },
+    path::Path,
 };
 
 /// UnixDatagram

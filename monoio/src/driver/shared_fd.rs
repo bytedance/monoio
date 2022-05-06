@@ -1,4 +1,4 @@
-use crate::driver::{Close, Op};
+use super::op::{close::Close, Op};
 use futures::future::poll_fn;
 
 use std::cell::UnsafeCell;

@@ -20,16 +20,10 @@ pub(crate) fn split(stream: &mut TcpStream) -> (ReadHalf<'_>, WriteHalf<'_>) {
 }
 
 impl<'t> AsyncReadRent for ReadHalf<'t> {
-    type ReadFuture<'a, B>
-    where
-        't: 'a,
-        B: 'a,
-    = impl std::future::Future<Output = crate::BufResult<usize, B>>;
-    type ReadvFuture<'a, B>
-    where
-        't: 'a,
-        B: 'a,
-    = impl std::future::Future<Output = crate::BufResult<usize, B>>;
+    type ReadFuture<'a, B> = impl std::future::Future<Output = crate::BufResult<usize, B>> where
+        't: 'a, B: 'a;
+    type ReadvFuture<'a, B> = impl std::future::Future<Output = crate::BufResult<usize, B>> where
+        't: 'a, B: 'a,;
 
     fn read<T: IoBufMut>(&self, buf: T) -> Self::ReadFuture<'_, T> {
         // Submit the read operation
@@ -43,20 +37,12 @@ impl<'t> AsyncReadRent for ReadHalf<'t> {
 }
 
 impl<'t> AsyncWriteRent for WriteHalf<'t> {
-    type WriteFuture<'a, B>
-    where
-        't: 'a,
-        B: 'a,
-    = impl std::future::Future<Output = crate::BufResult<usize, B>>;
-    type WritevFuture<'a, B>
-    where
-        't: 'a,
-        B: 'a,
-    = impl std::future::Future<Output = crate::BufResult<usize, B>>;
-    type ShutdownFuture<'a>
-    where
-        't: 'a,
-    = impl std::future::Future<Output = Result<(), std::io::Error>>;
+    type WriteFuture<'a, B> = impl std::future::Future<Output = crate::BufResult<usize, B>> where
+        't: 'a, B: 'a;
+    type WritevFuture<'a, B> = impl std::future::Future<Output = crate::BufResult<usize, B>> where
+        't: 'a, B: 'a;
+    type ShutdownFuture<'a> = impl std::future::Future<Output = Result<(), std::io::Error>> where
+        't: 'a;
 
     fn write<T: IoBuf>(&self, buf: T) -> Self::WriteFuture<'_, T> {
         // Submit the write operation
@@ -140,14 +126,10 @@ impl OwnedReadHalf {
 }
 
 impl AsyncReadRent for OwnedReadHalf {
-    type ReadFuture<'a, B>
-    where
-        B: 'a,
-    = impl std::future::Future<Output = crate::BufResult<usize, B>>;
-    type ReadvFuture<'a, B>
-    where
-        B: 'a,
-    = impl std::future::Future<Output = crate::BufResult<usize, B>>;
+    type ReadFuture<'a, B> = impl std::future::Future<Output = crate::BufResult<usize, B>> where
+        B: 'a;
+    type ReadvFuture<'a, B> = impl std::future::Future<Output = crate::BufResult<usize, B>> where
+        B: 'a;
 
     fn read<T: IoBufMut>(&self, buf: T) -> Self::ReadFuture<'_, T> {
         // Submit the read operation
@@ -182,14 +164,10 @@ impl OwnedWriteHalf {
 }
 
 impl AsyncWriteRent for OwnedWriteHalf {
-    type WriteFuture<'a, B>
-    where
-        B: 'a,
-    = impl std::future::Future<Output = crate::BufResult<usize, B>>;
-    type WritevFuture<'a, B>
-    where
-        B: 'a,
-    = impl std::future::Future<Output = crate::BufResult<usize, B>>;
+    type WriteFuture<'a, B> = impl std::future::Future<Output = crate::BufResult<usize, B>> where
+        B: 'a;
+    type WritevFuture<'a, B> = impl std::future::Future<Output = crate::BufResult<usize, B>> where
+        B: 'a;
     type ShutdownFuture<'a> = impl std::future::Future<Output = Result<(), std::io::Error>>;
 
     fn write<T: IoBuf>(&self, buf: T) -> Self::WriteFuture<'_, T> {

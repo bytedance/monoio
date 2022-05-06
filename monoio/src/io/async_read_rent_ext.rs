@@ -19,10 +19,7 @@ where
     A: AsyncReadRent + ?Sized,
     T: 'static + IoBufMut,
 {
-    type Future<'a>
-    where
-        A: 'a,
-    = impl Future<Output = BufResult<usize, T>>;
+    type Future<'a> = impl Future<Output = BufResult<usize, T>> where A: 'a;
 
     fn read_exact(&self, mut buf: T) -> Self::Future<'_> {
         async move {
