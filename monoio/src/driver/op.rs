@@ -1,11 +1,9 @@
 use crate::driver;
 
 use io_uring::squeue;
-use std::cell::UnsafeCell;
 use std::future::Future;
 use std::io;
 use std::pin::Pin;
-use std::rc::Rc;
 use std::task::{Context, Poll, Waker};
 
 pub(crate) mod close;
@@ -22,19 +20,25 @@ mod write;
 /// In-flight operation
 pub(crate) struct Op<T: 'static> {
     // Driver running the operation
-    pub(super) driver: Rc<UnsafeCell<driver::Inner>>,
+    pub(super) driver: driver::Inner,
 
     // Operation index in the slab
     pub(super) index: usize,
 
     // Per-operation data
-    data: Option<Pin<Box<T>>>,
+    pub(super) data: Option<Pin<Box<T>>>,
 }
 
 /// Operation completion. Returns stored state with the result of the operation.
 #[derive(Debug)]
 pub(crate) struct Completion<T> {
     pub(crate) data: T,
+    pub(crate) meta: CompletionMeta,
+}
+
+/// Operation completion meta info.
+#[derive(Debug)]
+pub(crate) struct CompletionMeta {
     pub(crate) result: io::Result<u32>,
     #[allow(unused)]
     pub(crate) flags: u32,
@@ -61,9 +65,9 @@ pub(crate) trait OpAble {
 
 impl<T> Op<T> {
     /// Create a new operation
-    fn new(data: T, inner: &mut driver::Inner, inner_rc: &Rc<UnsafeCell<driver::Inner>>) -> Op<T> {
+    pub(super) fn new(data: T, inner: &mut driver::UringInner, driver: driver::Inner) -> Op<T> {
         Op {
-            driver: inner_rc.clone(),
+            driver,
             index: inner.ops.insert(),
             data: Some(Box::pin(data)),
         }
@@ -77,41 +81,7 @@ impl<T> Op<T> {
     where
         T: OpAble,
     {
-        driver::CURRENT.with(|inner_rc| {
-            let inner = unsafe { &mut *inner_rc.get() };
-
-            // If the submission queue is full, flush it to the kernel
-            if inner.uring.submission().is_full() {
-                inner.submit()?;
-            }
-
-            // Create the operation
-            let mut op = Op::new(data, inner, inner_rc);
-
-            // Configure the SQE
-            let pinned_data = unsafe { op.data.as_mut().unwrap_unchecked() };
-            let sqe = OpAble::uring_op(pinned_data).user_data(op.index as _);
-
-            {
-                let mut sq = inner.uring.submission();
-
-                // Push the new operation
-                if unsafe { sq.push(&sqe).is_err() } {
-                    unimplemented!("when is this hit?");
-                }
-            }
-
-            // Submit the new operation. At this point, the operation has been
-            // pushed onto the queue and the tail pointer has been updated, so
-            // the submission entry is visible to the kernel. If there is an
-            // error here (probably EAGAIN), we still return the operation. A
-            // future `io_uring_enter` will fully submit the event.
-
-            // CHIHAI: We are not going to do syscall now. If we are waiting
-            // for IO, we will submit on `park`.
-            // let _ = inner.submit();
-            Ok(op)
-        })
+        driver::CURRENT.with(|this| this.submit_with(data))
     }
 
     /// Try submitting an operation to uring
@@ -135,65 +105,17 @@ where
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let me = &mut *self;
-        let inner = unsafe { &mut *me.driver.get() };
+        let meta = ready!(me.driver.poll_op(me.index, cx));
 
-        let lifecycle = unsafe { inner.ops.slab.get_mut(me.index).unwrap_unchecked() };
-        match lifecycle {
-            Lifecycle::Submitted => {
-                *lifecycle = Lifecycle::Waiting(cx.waker().clone());
-                return Poll::Pending;
-            }
-            Lifecycle::Waiting(waker) => {
-                if !waker.will_wake(cx.waker()) {
-                    *lifecycle = Lifecycle::Waiting(cx.waker().clone());
-                }
-                return Poll::Pending;
-            }
-            _ => {}
-        }
-
-        match unsafe { inner.ops.slab.remove(me.index).unwrap_unchecked() } {
-            Lifecycle::Completed(result, flags) => {
-                me.index = usize::MAX;
-                let pinned_data = me.data.take().expect("unexpected operation state");
-                let data = Box::into_inner(unsafe { Pin::into_inner_unchecked(pinned_data) });
-                Poll::Ready(Completion {
-                    data,
-                    result,
-                    flags,
-                })
-            }
-            _ => unsafe { std::hint::unreachable_unchecked() },
-        }
+        me.index = usize::MAX;
+        let pinned_data = me.data.take().expect("unexpected operation state");
+        let data = Box::into_inner(unsafe { Pin::into_inner_unchecked(pinned_data) });
+        Poll::Ready(Completion { data, meta })
     }
 }
 
 impl<T> Drop for Op<T> {
     fn drop(&mut self) {
-        let inner = unsafe { &mut *self.driver.get() };
-        let lifecycle = match inner.ops.slab.get_mut(self.index) {
-            Some(lifecycle) => lifecycle,
-            None => return,
-        };
-
-        match lifecycle {
-            Lifecycle::Submitted | Lifecycle::Waiting(_) => {
-                *lifecycle = Lifecycle::Ignored(Box::new(self.data.take()));
-                #[cfg(features = "async-cancel")]
-                unsafe {
-                    let cancel = io_uring::opcode::AsyncCancel::new(self.index as u64).build();
-
-                    // Try push cancel, if failed, will submit and re-push.
-                    if inner.uring.submission().push(&cancel).is_err() {
-                        let _ = inner.submit();
-                        let _ = inner.uring.submission().push(&cancel);
-                    }
-                }
-            }
-            Lifecycle::Completed(..) => {
-                inner.ops.slab.remove(self.index);
-            }
-            Lifecycle::Ignored(..) => unreachable!(),
-        }
+        self.driver.drop(self.index, &mut self.data);
     }
 }

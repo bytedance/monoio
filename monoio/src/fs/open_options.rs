@@ -337,7 +337,9 @@ impl OpenOptions {
         let completion = op.await;
 
         // The file is open
-        Ok(File::from_shared_fd(SharedFd::new(completion.result? as _)))
+        Ok(File::from_shared_fd(SharedFd::new(
+            completion.meta.result? as _,
+        )))
     }
 
     pub(crate) fn access_mode(&self) -> io::Result<libc::c_int> {

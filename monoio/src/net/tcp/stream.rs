@@ -47,7 +47,7 @@ impl TcpStream {
     pub async fn connect_addr(addr: SocketAddr) -> io::Result<Self> {
         let op = Op::connect(libc::SOCK_STREAM, addr)?;
         let completion = op.await;
-        completion.result?;
+        completion.meta.result?;
 
         let stream = TcpStream::from_shared_fd(completion.data.fd);
         Ok(stream)

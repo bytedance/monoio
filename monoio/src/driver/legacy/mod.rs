@@ -1,1 +1,1 @@
-
+pub(crate) struct LegacyInner {}

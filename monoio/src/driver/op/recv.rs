@@ -24,7 +24,7 @@ impl<T: IoBufMut> Op<Recv<T>> {
 
     pub(crate) async fn read(self) -> BufResult<usize, T> {
         let complete = self.await;
-        let res = complete.result.map(|v| v as _);
+        let res = complete.meta.result.map(|v| v as _);
         let mut buf = complete.data.buf;
 
         if let Ok(n) = res {

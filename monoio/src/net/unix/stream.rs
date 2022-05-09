@@ -43,7 +43,7 @@ impl UnixStream {
     ) -> io::Result<Self> {
         let op = Op::connect_unix(sockaddr, socklen)?;
         let completion = op.await;
-        completion.result?;
+        completion.meta.result?;
 
         let stream = Self::from_shared_fd(completion.data.fd);
         Ok(stream)

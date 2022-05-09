@@ -69,7 +69,7 @@ impl UnixListener {
         let completion = op.await;
 
         // Convert fd
-        let fd = completion.result?;
+        let fd = completion.meta.result?;
 
         // Construct stream
         let stream = UnixStream::from_shared_fd(SharedFd::new(fd as _));

@@ -31,7 +31,7 @@ impl<T: IoBufMut> Op<Read<T>> {
         let complete = self.await;
 
         // Convert the operation result to `usize`
-        let res = complete.result.map(|v| v as usize);
+        let res = complete.meta.result.map(|v| v as usize);
         // Recover the buffer
         let mut buf = complete.data.buf;
 
@@ -79,7 +79,7 @@ impl<T: IoVecBufMut> Op<ReadVec<T>> {
 
     pub(crate) async fn read(self) -> BufResult<usize, T> {
         let complete = self.await;
-        let res = complete.result.map(|v| v as _);
+        let res = complete.meta.result.map(|v| v as _);
         let mut buf_vec = complete.data.buf_vec;
 
         if let Ok(n) = res {

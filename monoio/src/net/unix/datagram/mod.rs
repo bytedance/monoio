@@ -58,7 +58,7 @@ impl UnixDatagram {
     ) -> io::Result<Self> {
         let op = Op::connect_unix(sockaddr, socklen)?;
         let completion = op.await;
-        completion.result?;
+        completion.meta.result?;
 
         Ok(Self::from_shared_fd(completion.data.fd))
     }

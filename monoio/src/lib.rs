@@ -11,6 +11,7 @@
 #![feature(generic_associated_types)]
 #![feature(type_alias_impl_trait)]
 #![feature(box_into_inner)]
+#![feature(new_uninit)]
 #![feature(io_error_more)]
 
 #[macro_use]

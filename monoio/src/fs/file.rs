@@ -404,7 +404,7 @@ impl File {
         let op = Op::fsync(&self.fd).unwrap();
         let completion = op.await;
 
-        completion.result?;
+        completion.meta.result?;
         Ok(())
     }
 
@@ -445,7 +445,7 @@ impl File {
         let op = Op::datasync(&self.fd).unwrap();
         let completion = op.await;
 
-        completion.result?;
+        completion.meta.result?;
         Ok(())
     }
 

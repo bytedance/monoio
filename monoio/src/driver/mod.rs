@@ -20,12 +20,16 @@ use std::cell::UnsafeCell;
 use std::io;
 use std::mem::ManuallyDrop;
 use std::os::unix::io::{AsRawFd, RawFd};
+use std::pin::Pin;
 use std::rc::Rc;
+use std::task::{Context, Poll};
 use std::time::Duration;
 
 #[cfg(feature = "sync")]
 pub(crate) mod thread;
 
+use self::legacy::LegacyInner;
+use self::op::{CompletionMeta, Lifecycle, Op, OpAble};
 use self::util::timespec;
 
 #[allow(unreachable_pub)]
@@ -69,7 +73,7 @@ pub trait Driver {
 }
 
 pub struct IoUringDriver {
-    inner: Handle,
+    inner: Rc<UnsafeCell<UringInner>>,
 
     // Used as timeout buffer
     timespec: *mut Timespec,
@@ -83,9 +87,42 @@ pub struct IoUringDriver {
     thread_id: usize,
 }
 
-type Handle = Rc<UnsafeCell<Inner>>;
+// type Handle = Rc<UnsafeCell<UringInner>>;
+scoped_thread_local!(static CURRENT: Inner);
 
-struct Inner {
+enum Inner {
+    Uring(Rc<UnsafeCell<UringInner>>),
+    #[allow(unused)]
+    Legacy(Rc<UnsafeCell<LegacyInner>>),
+}
+
+impl Inner {
+    fn submit_with<T>(&self, data: T) -> io::Result<Op<T>>
+    where
+        T: OpAble,
+    {
+        match self {
+            Inner::Uring(this) => UringInner::submit_with(this, data),
+            Inner::Legacy(_) => todo!(),
+        }
+    }
+
+    fn poll_op(&self, index: usize, cx: &mut Context<'_>) -> Poll<CompletionMeta> {
+        match self {
+            Inner::Uring(this) => UringInner::poll_op(this, index, cx),
+            Inner::Legacy(_) => todo!(),
+        }
+    }
+
+    fn drop<T: 'static>(&self, index: usize, data: &mut Option<Pin<Box<T>>>) {
+        match self {
+            Inner::Uring(this) => UringInner::drop(this, index, data),
+            Inner::Legacy(_) => todo!(),
+        }
+    }
+}
+
+struct UringInner {
     /// In-flight operations
     ops: Ops,
 
@@ -105,7 +142,7 @@ struct Inner {
     waker_receiver: flume::Receiver<std::task::Waker>,
 }
 
-impl Drop for Inner {
+impl Drop for UringInner {
     fn drop(&mut self) {
         unsafe {
             ManuallyDrop::drop(&mut self.uring);
@@ -119,8 +156,6 @@ struct Ops {
     slab: Slab<op::Lifecycle>,
 }
 
-scoped_thread_local!(static CURRENT: Rc<UnsafeCell<Inner>>);
-
 impl IoUringDriver {
     const DEFAULT_ENTRIES: u32 = 1024;
 
@@ -132,7 +167,7 @@ impl IoUringDriver {
     pub(crate) fn new_with_entries(entries: u32) -> io::Result<IoUringDriver> {
         let uring = IoUring::new(entries)?;
 
-        let inner = Rc::new(UnsafeCell::new(Inner {
+        let inner = Rc::new(UnsafeCell::new(UringInner {
             ops: Ops::new(),
             uring: ManuallyDrop::new(uring),
         }));
@@ -158,7 +193,7 @@ impl IoUringDriver {
 
         let (waker_sender, waker_receiver) = flume::unbounded::<std::task::Waker>();
 
-        let inner = Rc::new(UnsafeCell::new(Inner {
+        let inner = Rc::new(UnsafeCell::new(UringInner {
             ops: Ops::new(),
             uring,
             shared_waker: std::sync::Arc::new(EventWaker::new(waker)),
@@ -187,7 +222,7 @@ impl IoUringDriver {
     }
 
     // Flush to make enough space
-    fn flush_space(inner: &mut Inner, need: usize) -> io::Result<()> {
+    fn flush_space(inner: &mut UringInner, need: usize) -> io::Result<()> {
         let sq = inner.uring.submission();
         debug_assert!(sq.capacity() >= need);
         if sq.len() + need > sq.capacity() {
@@ -198,7 +233,7 @@ impl IoUringDriver {
     }
 
     #[cfg(feature = "sync")]
-    fn install_eventfd(&self, inner: &mut Inner, fd: RawFd) {
+    fn install_eventfd(&self, inner: &mut UringInner, fd: RawFd) {
         let entry = opcode::Read::new(io_uring::types::Fd(fd), self.eventfd_read_dst, 8)
             .build()
             .user_data(EVENTFD_USERDATA);
@@ -208,7 +243,7 @@ impl IoUringDriver {
         inner.eventfd_installed = true;
     }
 
-    fn install_timeout(&self, inner: &mut Inner, duration: Duration) {
+    fn install_timeout(&self, inner: &mut UringInner, duration: Duration) {
         let timespec = timespec(duration);
         unsafe {
             std::ptr::replace(self.timespec, timespec);
@@ -299,7 +334,9 @@ impl IoUringDriver {
 impl Driver for IoUringDriver {
     /// Enter the driver context. This enables using uring types.
     fn with<R>(&self, f: impl FnOnce() -> R) -> R {
-        CURRENT.set(&self.inner, f)
+        // TODO(ihciah): remove clone
+        let inner = Inner::Uring(self.inner.clone());
+        CURRENT.set(&inner, f)
     }
 
     fn submit(&self) -> io::Result<()> {
@@ -374,7 +411,7 @@ impl Unpark for UnparkHandle {
     }
 }
 
-impl Inner {
+impl UringInner {
     fn tick(&mut self) {
         let mut cq = self.uring.completion();
         cq.sync();
@@ -409,6 +446,108 @@ impl Inner {
                     return Err(e);
                 }
             }
+        }
+    }
+
+    fn submit_with<T>(this: &Rc<UnsafeCell<UringInner>>, data: T) -> io::Result<Op<T>>
+    where
+        T: OpAble,
+    {
+        let inner = unsafe { &mut *this.get() };
+        // If the submission queue is full, flush it to the kernel
+        if inner.uring.submission().is_full() {
+            inner.submit()?;
+        }
+
+        // Create the operation
+        let mut op = Op::new(data, inner, Inner::Uring(this.clone()));
+
+        // Configure the SQE
+        let pinned_data = unsafe { op.data.as_mut().unwrap_unchecked() };
+        let sqe = OpAble::uring_op(pinned_data).user_data(op.index as _);
+
+        {
+            let mut sq = inner.uring.submission();
+
+            // Push the new operation
+            if unsafe { sq.push(&sqe).is_err() } {
+                unimplemented!("when is this hit?");
+            }
+        }
+
+        // Submit the new operation. At this point, the operation has been
+        // pushed onto the queue and the tail pointer has been updated, so
+        // the submission entry is visible to the kernel. If there is an
+        // error here (probably EAGAIN), we still return the operation. A
+        // future `io_uring_enter` will fully submit the event.
+
+        // CHIHAI: We are not going to do syscall now. If we are waiting
+        // for IO, we will submit on `park`.
+        // let _ = inner.submit();
+        Ok(op)
+    }
+
+    fn poll_op(
+        this: &Rc<UnsafeCell<UringInner>>,
+        index: usize,
+        cx: &mut Context<'_>,
+    ) -> Poll<CompletionMeta> {
+        let inner = unsafe { &mut *this.get() };
+
+        let lifecycle = unsafe { inner.ops.slab.get_mut(index).unwrap_unchecked() };
+        match lifecycle {
+            Lifecycle::Submitted => {
+                *lifecycle = Lifecycle::Waiting(cx.waker().clone());
+                return Poll::Pending;
+            }
+            Lifecycle::Waiting(waker) => {
+                if !waker.will_wake(cx.waker()) {
+                    *lifecycle = Lifecycle::Waiting(cx.waker().clone());
+                }
+                return Poll::Pending;
+            }
+            _ => {}
+        }
+
+        match unsafe { inner.ops.slab.remove(index).unwrap_unchecked() } {
+            Lifecycle::Completed(result, flags) => Poll::Ready(CompletionMeta { result, flags }),
+            _ => unsafe { std::hint::unreachable_unchecked() },
+        }
+    }
+
+    fn drop<T: 'static>(
+        this: &Rc<UnsafeCell<UringInner>>,
+        index: usize,
+        data: &mut Option<Pin<Box<T>>>,
+    ) {
+        let inner = unsafe { &mut *this.get() };
+        let lifecycle = match inner.ops.slab.get_mut(index) {
+            Some(lifecycle) => lifecycle,
+            None => return,
+        };
+
+        match lifecycle {
+            Lifecycle::Submitted | Lifecycle::Waiting(_) => {
+                if let Some(data) = data.take() {
+                    *lifecycle = Lifecycle::Ignored(unsafe { Pin::into_inner_unchecked(data) });
+                } else {
+                    *lifecycle = Lifecycle::Ignored(Box::<()>::new_uninit());
+                };
+                #[cfg(features = "async-cancel")]
+                unsafe {
+                    let cancel = io_uring::opcode::AsyncCancel::new(index as u64).build();
+
+                    // Try push cancel, if failed, will submit and re-push.
+                    if inner.uring.submission().push(&cancel).is_err() {
+                        let _ = inner.submit();
+                        let _ = inner.uring.submission().push(&cancel);
+                    }
+                }
+            }
+            Lifecycle::Completed(..) => {
+                inner.ops.slab.remove(index);
+            }
+            Lifecycle::Ignored(..) => unreachable!(),
         }
     }
 }
