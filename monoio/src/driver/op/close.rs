@@ -1,17 +1,20 @@
-use super::Op;
+use super::{Op, OpAble};
 
-use std::io;
-use std::os::unix::io::RawFd;
+use io_uring::{opcode, types};
+use std::{io, os::unix::io::RawFd};
 
 pub(crate) struct Close {
-    #[allow(unused)]
     fd: RawFd,
 }
 
 impl Op<Close> {
     pub(crate) fn close(fd: RawFd) -> io::Result<Op<Close>> {
-        use io_uring::{opcode, types};
+        Op::try_submit_with(Close { fd })
+    }
+}
 
-        Op::try_submit_with(Close { fd }, |_| opcode::Close::new(types::Fd(fd)).build())
+impl OpAble for Close {
+    fn uring_op(self: &mut std::pin::Pin<Box<Self>>) -> io_uring::squeue::Entry {
+        opcode::Close::new(types::Fd(self.fd)).build()
     }
 }

@@ -1,5 +1,6 @@
-use super::{super::shared_fd::SharedFd, Op};
+use super::{super::shared_fd::SharedFd, Op, OpAble};
 
+use io_uring::{opcode, types};
 use std::{
     io,
     mem::{size_of, MaybeUninit},
@@ -16,21 +17,21 @@ pub(crate) struct Accept {
 impl Op<Accept> {
     /// Accept a connection
     pub(crate) fn accept(fd: &SharedFd) -> io::Result<Self> {
-        use io_uring::{opcode, types};
-        Op::submit_with(
-            Accept {
-                fd: fd.clone(),
-                addr: MaybeUninit::uninit(),
-                addrlen: size_of::<libc::sockaddr_storage>() as libc::socklen_t,
-            },
-            |accept| {
-                opcode::Accept::new(
-                    types::Fd(fd.raw_fd()),
-                    accept.addr.as_mut_ptr() as *mut _,
-                    &mut accept.addrlen,
-                )
-                .build()
-            },
+        Op::submit_with(Accept {
+            fd: fd.clone(),
+            addr: MaybeUninit::uninit(),
+            addrlen: size_of::<libc::sockaddr_storage>() as libc::socklen_t,
+        })
+    }
+}
+
+impl OpAble for Accept {
+    fn uring_op(self: &mut std::pin::Pin<Box<Self>>) -> io_uring::squeue::Entry {
+        opcode::Accept::new(
+            types::Fd(self.fd.raw_fd()),
+            self.addr.as_mut_ptr() as *mut _,
+            &mut self.addrlen,
         )
+        .build()
     }
 }

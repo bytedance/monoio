@@ -55,6 +55,10 @@ pub(crate) enum Lifecycle {
     Completed(io::Result<u32>, u32),
 }
 
+pub(crate) trait OpAble {
+    fn uring_op(self: &mut std::pin::Pin<Box<Self>>) -> squeue::Entry;
+}
+
 impl<T> Op<T> {
     /// Create a new operation
     fn new(data: T, inner: &mut driver::Inner, inner_rc: &Rc<UnsafeCell<driver::Inner>>) -> Op<T> {
@@ -69,9 +73,9 @@ impl<T> Op<T> {
     ///
     /// `state` is stored during the operation tracking any state submitted to
     /// the kernel.
-    pub(super) fn submit_with<F>(data: T, f: F) -> io::Result<Op<T>>
+    pub(super) fn submit_with(data: T) -> io::Result<Op<T>>
     where
-        F: FnOnce(&mut Pin<Box<T>>) -> squeue::Entry,
+        T: OpAble,
     {
         driver::CURRENT.with(|inner_rc| {
             let inner = unsafe { &mut *inner_rc.get() };
@@ -85,7 +89,8 @@ impl<T> Op<T> {
             let mut op = Op::new(data, inner, inner_rc);
 
             // Configure the SQE
-            let sqe = f(unsafe { op.data.as_mut().unwrap_unchecked() }).user_data(op.index as _);
+            let pinned_data = unsafe { op.data.as_mut().unwrap_unchecked() };
+            let sqe = OpAble::uring_op(pinned_data).user_data(op.index as _);
 
             {
                 let mut sq = inner.uring.submission();
@@ -110,12 +115,12 @@ impl<T> Op<T> {
     }
 
     /// Try submitting an operation to uring
-    pub(super) fn try_submit_with<F>(data: T, f: F) -> io::Result<Op<T>>
+    pub(super) fn try_submit_with(data: T) -> io::Result<Op<T>>
     where
-        F: FnOnce(&mut Pin<Box<T>>) -> squeue::Entry,
+        T: OpAble,
     {
         if driver::CURRENT.is_set() {
-            Op::submit_with(data, f)
+            Op::submit_with(data)
         } else {
             Err(io::ErrorKind::Other.into())
         }

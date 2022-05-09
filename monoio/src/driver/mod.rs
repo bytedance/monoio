@@ -1,14 +1,3 @@
-macro_rules! syscall {
-    ($fn: ident ( $($arg: expr),* $(,)* ) ) => {{
-        let res = unsafe { libc::$fn($($arg, )*) };
-        if res == -1 {
-            Err(std::io::Error::last_os_error())
-        } else {
-            Ok(res)
-        }
-    }};
-}
-
 #[allow(unused)]
 pub(crate) const CANCEL_USERDATA: u64 = u64::MAX;
 pub(crate) const TIMEOUT_USERDATA: u64 = u64::MAX - 1;
@@ -17,6 +6,7 @@ pub(crate) const EVENTFD_USERDATA: u64 = u64::MAX - 2;
 
 pub(crate) const MIN_REVERSED_USERDATA: u64 = u64::MAX - 2;
 
+pub(crate) mod legacy;
 pub(crate) mod op;
 pub(crate) mod shared_fd;
 mod util;
@@ -159,7 +149,7 @@ impl IoUringDriver {
 
         // Create eventfd and register it to the ring.
         let waker = {
-            let fd = syscall!(eventfd(0, libc::EFD_CLOEXEC | libc::EFD_NONBLOCK))?;
+            let fd = crate::syscall!(eventfd(0, libc::EFD_CLOEXEC | libc::EFD_NONBLOCK))?;
             unsafe {
                 use std::os::unix::io::FromRawFd;
                 std::fs::File::from_raw_fd(fd)
