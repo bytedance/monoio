@@ -95,6 +95,9 @@ You can find more example code in `examples` of this repository.
 
 Thanks for their contributions!
 
+## Community
+Monoio is a subproject of [CloudWeGo](https://www.cloudwego.io/). We are committed to building a cloud native ecosystem.
+
 ## Licenses
 Monoio is licensed under the MIT license or Apache license.
 
