@@ -51,7 +51,7 @@ impl UnixListener {
         sys_listener.bind(&addr)?;
         sys_listener.listen(config.backlog)?;
 
-        let fd = SharedFd::new(sys_listener.into_raw_fd());
+        let fd = SharedFd::new(sys_listener.into_raw_fd())?;
 
         Ok(Self::from_shared_fd(fd))
     }
@@ -72,7 +72,7 @@ impl UnixListener {
         let fd = completion.meta.result?;
 
         // Construct stream
-        let stream = UnixStream::from_shared_fd(SharedFd::new(fd as _));
+        let stream = UnixStream::from_shared_fd(SharedFd::new(fd as _)?);
 
         // Construct SocketAddr
         let mut storage = unsafe { std::mem::MaybeUninit::assume_init(completion.data.addr) };

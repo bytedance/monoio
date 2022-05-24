@@ -186,6 +186,7 @@ pub(crate) fn pair<T>(flags: libc::c_int) -> io::Result<(T, T)>
 where
     T: FromRawFd,
 {
+    #[cfg(not(any(target_os = "ios", target_os = "macos")))]
     let flags = flags | libc::SOCK_NONBLOCK | libc::SOCK_CLOEXEC;
 
     let mut fds = [-1; 2];

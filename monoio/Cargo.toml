@@ -13,24 +13,27 @@ version = "0.0.4"
 [dependencies]
 monoio-macros = {version = "0.0.2", path = "../monoio-macros", optional = true}
 
+libc = "0.2"
+mio = {version = "0.8", features = ["net", "os-poll", "os-ext"]}
+
+bytes = {version = "1", optional = true}
+flume = {version = "0.10", optional = true}
 futures = "0.3"
 fxhash = "0.2"
-io-uring = {version = "0.5", features = ["unstable"]}
-libc = "0.2"
+lazy_static = {version = "1", optional = true}
+nix = {version = "0.24", optional = true}
 os_socketaddr = "0.2"
 pin-project-lite = "0.2"
 scoped-tls = "1"
 socket2 = {version = "0.4", features = ["all"]}
+tracing = {version = "0.1", default-features = false, features = ["std"], optional = true}
 
-bytes = {version = "1", optional = true}
-flume = {version = "0.10", optional = true}
-lazy_static = {version = "1", optional = true}
-nix = {version = "0.23", optional = true}
-tracing = { version = "0.1", default-features = false, features = ["std"], optional = true }
+[target.'cfg(target_os = "linux")'.dependencies]
+io-uring = {version = "0.5", features = ["unstable"]}
 
 [dev-dependencies]
-tempfile = "3.2"
 local-sync = "0.0.5"
+tempfile = "3.2"
 
 [features]
 # async-cancel will push a async-cancel entry into sq when op is canceled

@@ -1,11 +1,14 @@
 use super::{super::shared_fd::SharedFd, Op, OpAble};
 use crate::{
     buf::{IoBuf, IoVecBuf},
-    BufResult,
+    driver::legacy::ready::Direction,
+    syscall_u32, BufResult,
 };
 
+#[cfg(target_os = "linux")]
 use io_uring::{opcode, types};
-use std::io;
+
+use std::{io, os::unix::prelude::AsRawFd};
 
 pub(crate) struct Write<T> {
     /// Holds a strong ref to the FD, preventing the file from being closed
@@ -33,6 +36,7 @@ impl<T: IoBuf> Op<Write<T>> {
 }
 
 impl<T: IoBuf> OpAble for Write<T> {
+    #[cfg(target_os = "linux")]
     fn uring_op(self: &mut std::pin::Pin<Box<Self>>) -> io_uring::squeue::Entry {
         opcode::Write::new(
             types::Fd(self.fd.raw_fd()),
@@ -41,6 +45,35 @@ impl<T: IoBuf> OpAble for Write<T> {
         )
         .offset(self.offset)
         .build()
+    }
+
+    fn legacy_interest(&self) -> Option<(Direction, usize)> {
+        self.fd
+            .registered_index()
+            .map(|idx| (Direction::Write, idx))
+    }
+
+    fn legacy_call(self: &mut std::pin::Pin<Box<Self>>) -> io::Result<u32> {
+        let fd = self.fd.as_raw_fd();
+        if self.offset != 0 {
+            syscall_u32!(lseek(fd, self.offset, libc::SEEK_CUR))?;
+            syscall_u32!(write(
+                fd,
+                self.buf.read_ptr() as _,
+                self.buf.bytes_init().min(u32::MAX as usize)
+            ))
+            .map_err(|e| {
+                // seek back if read fail...
+                let _ = syscall_u32!(lseek(fd, -self.offset, libc::SEEK_CUR));
+                e
+            })
+        } else {
+            syscall_u32!(write(
+                fd,
+                self.buf.read_ptr() as _,
+                self.buf.bytes_init().min(u32::MAX as usize)
+            ))
+        }
     }
 }
 
@@ -68,9 +101,24 @@ impl<T: IoVecBuf> Op<WriteVec<T>> {
 }
 
 impl<T: IoVecBuf> OpAble for WriteVec<T> {
+    #[cfg(target_os = "linux")]
     fn uring_op(self: &mut std::pin::Pin<Box<Self>>) -> io_uring::squeue::Entry {
         let ptr = self.buf_vec.read_iovec_ptr() as *const _;
         let len = self.buf_vec.read_iovec_len() as _;
         opcode::Writev::new(types::Fd(self.fd.raw_fd()), ptr, len).build()
+    }
+
+    fn legacy_interest(&self) -> Option<(Direction, usize)> {
+        self.fd
+            .registered_index()
+            .map(|idx| (Direction::Write, idx))
+    }
+
+    fn legacy_call(self: &mut std::pin::Pin<Box<Self>>) -> io::Result<u32> {
+        syscall_u32!(writev(
+            self.fd.raw_fd(),
+            self.buf_vec.read_iovec_ptr(),
+            self.buf_vec.read_iovec_len().min(i32::MAX as usize) as _
+        ))
     }
 }

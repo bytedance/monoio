@@ -50,13 +50,17 @@ impl TcpStream {
         completion.meta.result?;
 
         let stream = TcpStream::from_shared_fd(completion.data.fd);
+        // wait write ready
+        // TODO: not use write to detect writable
+        let _ = stream.write([]).await;
+        // getsockopt
+        let sys_socket = unsafe { std::net::TcpStream::from_raw_fd(stream.fd.raw_fd()) };
+        let err = sys_socket.take_error();
+        let _ = sys_socket.into_raw_fd();
+        if let Some(e) = err? {
+            return Err(e);
+        }
         Ok(stream)
-    }
-
-    /// Create new `TcpStream` from a `std::net::TcpStream`.
-    pub fn from_std(stream: std::net::TcpStream) -> Self {
-        let fd = stream.into_raw_fd();
-        unsafe { Self::from_raw_fd(fd) }
     }
 
     /// Return the local address that this stream is bound to.
@@ -98,12 +102,6 @@ impl TcpStream {
     /// Split stream into read and write halves with ownership.
     pub fn into_split(self) -> (OwnedReadHalf, OwnedWriteHalf) {
         split_owned(self)
-    }
-}
-
-impl FromRawFd for TcpStream {
-    unsafe fn from_raw_fd(fd: RawFd) -> Self {
-        Self::from_shared_fd(SharedFd::new(fd))
     }
 }
 
@@ -253,6 +251,7 @@ impl StreamMeta {
 
     #[cfg(feature = "zero-copy")]
     fn set_zero_copy(&self) {
+        #[cfg(target_os = "linux")]
         unsafe {
             let fd = self.socket.as_ref().unwrap().as_raw_fd();
             let v: libc::c_int = 1;

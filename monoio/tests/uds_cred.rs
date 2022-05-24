@@ -3,7 +3,7 @@ use monoio::net::UnixStream;
 use libc::getegid;
 use libc::geteuid;
 
-#[monoio::test]
+#[monoio::test_all]
 async fn test_socket_pair() {
     let (a, b) = UnixStream::pair().unwrap();
     let cred_a = a.peer_cred().unwrap();

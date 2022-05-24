@@ -1,8 +1,14 @@
-use super::op::{close::Close, Op};
+use super::{
+    legacy::LegacyDriver,
+    op::{close::Close, Op},
+    CURRENT,
+};
+
 use futures::future::poll_fn;
 
 use std::cell::UnsafeCell;
-use std::os::unix::io::{FromRawFd, RawFd};
+use std::io;
+use std::os::unix::io::{AsRawFd, FromRawFd, RawFd};
 use std::rc::Rc;
 use std::task::Waker;
 
@@ -21,13 +27,18 @@ struct Inner {
     state: UnsafeCell<State>,
 }
 
+enum State {
+    Uring(UringState),
+    Legacy(Option<usize>),
+}
+
 impl std::fmt::Debug for Inner {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Inner").field("fd", &self.fd).finish()
     }
 }
 
-enum State {
+enum UringState {
     /// Initial state
     Init,
 
@@ -41,14 +52,52 @@ enum State {
     Closed,
 }
 
+impl AsRawFd for SharedFd {
+    fn as_raw_fd(&self) -> RawFd {
+        self.raw_fd()
+    }
+}
+
 impl SharedFd {
-    pub(crate) fn new(fd: RawFd) -> SharedFd {
-        SharedFd {
+    pub(crate) fn new(fd: RawFd) -> io::Result<SharedFd> {
+        let state = match CURRENT.with(|inner| {
+            const RW_INTERESTS: mio::Interest =
+                mio::Interest::READABLE.add(mio::Interest::WRITABLE);
+
+            match inner {
+                #[cfg(target_os = "linux")]
+                super::Inner::Uring(_) => None,
+                super::Inner::Legacy(inner) => {
+                    let mut source = mio::unix::SourceFd(&fd);
+                    Some(LegacyDriver::register(inner, &mut source, RW_INTERESTS))
+                }
+            }
+        }) {
+            Some(reg) => State::Legacy(Some(reg?)),
+            None => State::Uring(UringState::Init),
+        };
+
+        Ok(SharedFd {
             inner: Rc::new(Inner {
                 fd,
-                state: UnsafeCell::new(State::Init),
+                state: UnsafeCell::new(state),
             }),
-        }
+        })
+    }
+
+    pub(crate) fn new_without_register(fd: RawFd) -> io::Result<SharedFd> {
+        let state = CURRENT.with(|inner| match inner {
+            #[cfg(target_os = "linux")]
+            super::Inner::Uring(_) => State::Uring(UringState::Init),
+            super::Inner::Legacy(_) => State::Legacy(None),
+        });
+
+        Ok(SharedFd {
+            inner: Rc::new(Inner {
+                fd,
+                state: UnsafeCell::new(state),
+            }),
+        })
     }
 
     /// Returns the RawFd
@@ -56,51 +105,39 @@ impl SharedFd {
         self.inner.fd
     }
 
+    pub(crate) fn registered_index(&self) -> Option<usize> {
+        let state = unsafe { &*self.inner.state.get() };
+        match state {
+            State::Uring(_) => None,
+            State::Legacy(s) => *s,
+        }
+    }
+
     /// An FD cannot be closed until all in-flight operation have completed.
     /// This prevents bugs where in-flight reads could operate on the incorrect
     /// file descriptor.
-    ///
-    /// TO model this, if there are no in-flight operations, then
     pub(crate) async fn close(mut self) {
-        // Get a mutable reference to Inner, indicating there are no
-        // in-flight operations on the FD.
-        if let Some(inner) = Rc::get_mut(&mut self.inner) {
-            // Submit the close operation
-            inner.submit_close_op();
+        let fd = self.inner.fd;
+        // Here we only submit close op for uring mode.
+        // Fd will be closed when Inner drops for legacy mode.
+        if let State::Uring(uring_state) = unsafe { &mut *self.inner.state.get() } {
+            if Rc::get_mut(&mut self.inner).is_some() {
+                *uring_state = match Op::close(fd) {
+                    Ok(op) => UringState::Closing(op),
+                    Err(_) => {
+                        let _ = unsafe { std::fs::File::from_raw_fd(fd) };
+                        return;
+                    }
+                };
+            }
+            self.inner.closed().await;
         }
-
-        self.inner.closed().await;
     }
 }
 
 impl Inner {
-    /// If there are no in-flight operations, submit the operation.
-    fn submit_close_op(&mut self) {
-        // Close the FD
-        let state = UnsafeCell::get_mut(&mut self.state);
-
-        // Submit a close operation
-        *state = match Op::close(self.fd) {
-            Ok(op) => State::Closing(op),
-            Err(_) => {
-                // Submitting the operation failed, we fall back on a
-                // synchronous `close`. This is safe as, at this point, we
-                // guarantee all in-flight operations have completed. The most
-                // common cause for an error is attempting to close the FD while
-                // off runtime.
-                //
-                // This is done by initializing a `File` with the FD and
-                // dropping it.
-                //
-                // TODO: Should we warn?
-                let _ = unsafe { std::fs::File::from_raw_fd(self.fd) };
-
-                State::Closed
-            }
-        };
-    }
-
     /// Completes when the FD has been closed.
+    /// Should only be called for uring mode.
     async fn closed(&self) {
         use std::future::Future;
         use std::pin::Pin;
@@ -108,30 +145,36 @@ impl Inner {
 
         poll_fn(|cx| {
             let state = unsafe { &mut *self.state.get() };
+            let uring_state = match state {
+                State::Uring(uring) => uring,
+                State::Legacy(_) => {
+                    return Poll::Ready(());
+                }
+            };
 
-            match state {
-                State::Init => {
-                    *state = State::Waiting(Some(cx.waker().clone()));
+            match uring_state {
+                UringState::Init => {
+                    *uring_state = UringState::Waiting(Some(cx.waker().clone()));
                     Poll::Pending
                 }
-                State::Waiting(Some(waker)) => {
+                UringState::Waiting(Some(waker)) => {
                     if !waker.will_wake(cx.waker()) {
                         *waker = cx.waker().clone();
                     }
 
                     Poll::Pending
                 }
-                State::Waiting(None) => {
-                    *state = State::Waiting(Some(cx.waker().clone()));
+                UringState::Waiting(None) => {
+                    *uring_state = UringState::Waiting(Some(cx.waker().clone()));
                     Poll::Pending
                 }
-                State::Closing(op) => {
+                UringState::Closing(op) => {
                     // Nothing to do if the close operation failed.
                     let _ = ready!(Pin::new(op).poll(cx));
-                    *state = State::Closed;
+                    *uring_state = UringState::Closed;
                     Poll::Ready(())
                 }
-                State::Closed => Poll::Ready(()),
+                UringState::Closed => Poll::Ready(()),
             }
         })
         .await;
@@ -140,10 +183,33 @@ impl Inner {
 
 impl Drop for Inner {
     fn drop(&mut self) {
-        // Submit the close operation, if needed
-        match UnsafeCell::get_mut(&mut self.state) {
-            State::Init | State::Waiting(..) => {
-                self.submit_close_op();
+        let fd = self.fd;
+        let state = unsafe { &mut *self.state.get() };
+        match state {
+            State::Uring(UringState::Init) | State::Uring(UringState::Waiting(..)) => {
+                if Op::close(fd).is_err() {
+                    let _ = unsafe { std::fs::File::from_raw_fd(fd) };
+                };
+            }
+            State::Legacy(idx) => {
+                if CURRENT.is_set() {
+                    CURRENT.with(|inner| {
+                        match inner {
+                            #[cfg(target_os = "linux")]
+                            super::Inner::Uring(_) => {
+                                unreachable!("close legacy fd with uring runtime")
+                            }
+                            super::Inner::Legacy(inner) => {
+                                // deregister it from driver(Poll and slab) and close fd
+                                if let Some(idx) = idx {
+                                    let mut source = mio::unix::SourceFd(&fd);
+                                    let _ = LegacyDriver::deregister(inner, *idx, &mut source);
+                                }
+                            }
+                        }
+                    })
+                }
+                let _ = unsafe { std::fs::File::from_raw_fd(fd) };
             }
             _ => {}
         }

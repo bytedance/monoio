@@ -1,16 +1,10 @@
-/// You may not call thread::sleep in async runtime, which will block the whole thread.
-/// Instead, you should use monoio::time provided functions.
-use monoio::time::Duration;
+//! You may not call thread::sleep in async runtime, which will block the whole thread.
+//! Instead, you should use monoio::time provided functions.
 
-fn main() {
-    let mut rt = monoio::RuntimeBuilder::new()
-        .enable_timer()
-        .build()
-        .unwrap();
-    rt.block_on(wait_print());
-}
+use std::time::Duration;
 
-async fn wait_print() {
+#[monoio::main(enable_timer = true)]
+async fn main() {
     loop {
         monoio::time::sleep(Duration::from_secs(1)).await;
         println!("balabala");

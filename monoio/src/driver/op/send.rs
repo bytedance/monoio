@@ -1,8 +1,10 @@
 use super::{super::shared_fd::SharedFd, Op, OpAble};
-use crate::{buf::IoBuf, BufResult};
+use crate::{buf::IoBuf, driver::legacy::ready::Direction, syscall_u32, BufResult};
 
+#[cfg(target_os = "linux")]
 use io_uring::{opcode, types};
-use std::io;
+
+use std::{io, os::unix::prelude::AsRawFd};
 
 pub(crate) struct Send<T> {
     /// Holds a strong ref to the FD, preventing the file from being closed
@@ -28,6 +30,7 @@ impl<T: IoBuf> Op<Send<T>> {
 }
 
 impl<T: IoBuf> OpAble for Send<T> {
+    #[cfg(target_os = "linux")]
     fn uring_op(self: &mut std::pin::Pin<Box<Self>>) -> io_uring::squeue::Entry {
         #[cfg(feature = "zero-copy")]
         fn zero_copy_flag_guard<T: IoBuf>(buf: &T) -> i32 {
@@ -56,5 +59,30 @@ impl<T: IoBuf> OpAble for Send<T> {
         )
         .flags(flags)
         .build()
+    }
+
+    fn legacy_interest(&self) -> Option<(Direction, usize)> {
+        self.fd
+            .registered_index()
+            .map(|idx| (Direction::Write, idx))
+    }
+
+    fn legacy_call(self: &mut std::pin::Pin<Box<Self>>) -> io::Result<u32> {
+        let fd = self.fd.as_raw_fd();
+        #[cfg(target_os = "linux")]
+        let flags = libc::MSG_NOSIGNAL;
+        #[cfg(not(target_os = "linux"))]
+        let flags = 0;
+
+        if self.buf.bytes_init() == 0 {
+            return Ok(0);
+        }
+
+        syscall_u32!(send(
+            fd,
+            self.buf.read_ptr() as _,
+            self.buf.bytes_init(),
+            flags
+        ))
     }
 }

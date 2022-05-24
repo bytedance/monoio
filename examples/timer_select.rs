@@ -1,17 +1,11 @@
-/// A example to illustrate selecting by macro or manually.
+//! An example to illustrate selecting by macro or manually.
+
 use monoio::time::Duration;
 use pin_project_lite::pin_project;
 use std::future::Future;
 
-fn main() {
-    let mut rt = monoio::RuntimeBuilder::new()
-        .enable_timer()
-        .build()
-        .unwrap();
-    rt.block_on(wait_print());
-}
-
-async fn wait_print() {
+#[monoio::main(enable_timer = true)]
+async fn main() {
     loop {
         // You can write poll by yourself
         let fut1 = monoio::time::sleep(Duration::from_secs(1));

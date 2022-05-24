@@ -1,8 +1,12 @@
 use super::{Op, OpAble};
+use crate::driver::legacy::ready::Direction;
 use crate::driver::util::cstr;
 use crate::fs::OpenOptions;
+use crate::syscall_u32;
 
+#[cfg(target_os = "linux")]
 use io_uring::{opcode, types};
+
 use std::ffi::CString;
 use std::io;
 use std::path::Path;
@@ -11,7 +15,7 @@ use std::path::Path;
 pub(crate) struct Open {
     pub(crate) path: CString,
     flags: i32,
-    mode: u32,
+    mode: libc::mode_t,
 }
 
 impl Op<Open> {
@@ -27,10 +31,23 @@ impl Op<Open> {
 }
 
 impl OpAble for Open {
+    #[cfg(target_os = "linux")]
     fn uring_op(self: &mut std::pin::Pin<Box<Self>>) -> io_uring::squeue::Entry {
         opcode::OpenAt::new(types::Fd(libc::AT_FDCWD), self.path.as_c_str().as_ptr())
             .flags(self.flags)
             .mode(self.mode)
             .build()
+    }
+
+    fn legacy_interest(&self) -> Option<(Direction, usize)> {
+        None
+    }
+
+    fn legacy_call(self: &mut std::pin::Pin<Box<Self>>) -> io::Result<u32> {
+        syscall_u32!(open(
+            self.path.as_c_str().as_ptr(),
+            self.flags,
+            self.mode as libc::c_int
+        ))
     }
 }

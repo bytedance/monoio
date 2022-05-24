@@ -36,11 +36,15 @@ pub mod stream;
 pub mod task;
 pub mod utils;
 
-pub use builder::RuntimeBuilder;
-pub use runtime::{spawn, Runtime};
+pub use builder::{Buildable, FusionDriver, RuntimeBuilder};
+pub use driver::{Driver, LegacyDriver};
+pub use runtime::{spawn, FusionRuntime, Runtime};
+
+#[cfg(target_os = "linux")]
+pub use driver::IoUringDriver;
 
 #[cfg(feature = "macros")]
-pub use monoio_macros::{main, test};
+pub use monoio_macros::{main, test, test_all};
 
 use std::future::Future;
 
@@ -54,7 +58,7 @@ use std::future::Future;
 /// use monoio::fs::File;
 ///
 /// fn main() -> Result<(), Box<dyn std::error::Error>> {
-///     monoio::start(async {
+///     monoio::start::<monoio::LegacyDriver, _>(async {
 ///         // Open a file
 ///         let file = File::open("hello.txt").await?;
 ///
@@ -72,13 +76,13 @@ use std::future::Future;
 ///     })
 /// }
 /// ```
-pub fn start<F>(future: F) -> F::Output
+pub fn start<D, F>(future: F) -> F::Output
 where
     F: Future,
     F::Output: 'static,
+    D: Buildable + Driver,
 {
-    let mut rt = builder::RuntimeBuilder::new()
-        .build()
+    let mut rt = builder::Buildable::build(&builder::RuntimeBuilder::<D>::new())
         .expect("Unable to build runtime.");
     rt.block_on(future)
 }
@@ -96,7 +100,7 @@ where
 /// use monoio::fs::File;
 ///
 /// fn main() -> Result<(), Box<dyn std::error::Error>> {
-///     monoio::start(async {
+///     monoio::start::<monoio::LegacyDriver, _>(async {
 ///         // Open a file
 ///         let file = File::open("hello.txt").await?;
 ///

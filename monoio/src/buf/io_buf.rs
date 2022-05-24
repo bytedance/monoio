@@ -21,7 +21,7 @@ use super::Slice;
 /// # Safety
 /// impl it safely
 pub unsafe trait IoBuf: Unpin + 'static {
-    /// Returns a raw pointer to the vector’s buffer.
+    /// Returns a raw pointer to the vector's buffer.
     ///
     /// This method is to be used by the `monoio` runtime and it is not
     /// expected for users to call it directly.
@@ -194,7 +194,7 @@ unsafe impl IoBuf for bytes::BytesMut {
 /// # Safety
 /// See the safety note of the methods.
 pub unsafe trait IoBufMut: Unpin + 'static {
-    /// Returns a raw mutable pointer to the vector’s buffer.
+    /// Returns a raw mutable pointer to the vector's buffer.
     ///
     /// `monoio` Runtime will `Box::pin` the buffer. Runtime makes sure
     /// the buffer will not be moved, and the implement must ensure

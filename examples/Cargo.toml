@@ -26,12 +26,16 @@ local-sync = "0.0.5"
 pin-project-lite = "0.2"
 
 [[example]]
+name = "accept"
+path = "accept.rs"
+
+[[example]]
 name = "builder"
 path = "builder.rs"
 
 [[example]]
-name = "connect"
-path = "connect.rs"
+name = "tcp"
+path = "tcp.rs"
 
 [[example]]
 name = "uds"

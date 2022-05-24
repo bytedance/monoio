@@ -1,14 +1,15 @@
-/// HTTP client example with hyper in compatible mode.
-///
-/// It will try to fetch http://127.0.0.1:23300/monoio and print the
-/// response.
-///
-/// Note:
-/// It is not recommended to use this example as a production code.
-/// The `hyper` require `Send` for a future and obviously the future
-/// is not `Send` in monoio. So we just use some unsafe code to let
-/// it pass which infact not a good solution but the only way to
-/// make it work without modifying hyper.
+//! HTTP client example with hyper in compatible mode.
+//!
+//! It will try to fetch http://127.0.0.1:23300/monoio and print the
+//! response.
+//!
+//! Note:
+//! It is not recommended to use this example as a production code.
+//! The `hyper` require `Send` for a future and obviously the future
+//! is not `Send` in monoio. So we just use some unsafe code to let
+//! it pass which infact not a good solution but the only way to
+//! make it work without modifying hyper.
+
 use std::pin::Pin;
 
 use futures::Future;

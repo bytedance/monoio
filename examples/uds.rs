@@ -1,4 +1,5 @@
-/// A example to show how to use UnixStream.
+//! A example to show how to use UnixStream.
+
 use local_sync::oneshot::channel;
 use monoio::{
     io::{AsyncReadRent, AsyncWriteRentExt},

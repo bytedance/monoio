@@ -1,8 +1,6 @@
-use io_uring::types::Timespec;
 use std::ffi::CString;
 use std::io;
 use std::path::Path;
-use std::time::Duration;
 
 pub(super) fn cstr(p: &Path) -> io::Result<CString> {
     use std::os::unix::ffi::OsStrExt;
@@ -11,8 +9,9 @@ pub(super) fn cstr(p: &Path) -> io::Result<CString> {
 
 // Convert Duration to Timespec
 // It's strange that io_uring does not impl From<Duration> for Timespec.
-pub(super) fn timespec(duration: Duration) -> Timespec {
-    Timespec::new()
+#[cfg(target_os = "linux")]
+pub(super) fn timespec(duration: std::time::Duration) -> io_uring::types::Timespec {
+    io_uring::types::Timespec::new()
         .sec(duration.as_secs())
         .nsec(duration.subsec_nanos())
 }
@@ -26,6 +25,19 @@ macro_rules! syscall {
             Err(std::io::Error::last_os_error())
         } else {
             Ok(res)
+        }
+    }};
+}
+
+/// Do syscall and return Result<T, std::io::Error>
+#[macro_export]
+macro_rules! syscall_u32 {
+    ($fn: ident ( $($arg: expr),* $(,)* ) ) => {{
+        let res = unsafe { libc::$fn($($arg, )*) };
+        if res < 0 {
+            Err(std::io::Error::last_os_error())
+        } else {
+            Ok(res as u32)
         }
     }};
 }

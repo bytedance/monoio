@@ -1,8 +1,9 @@
-/// HTTP server example with hyper in compatible mode.
-///
-/// After running this example, you can open http://localhost:23300
-/// and http://localhost:23300/monoio in your browser or curl it.
-/// Also you can try `hyper_client.rs` example to request it.
+//! HTTP server example with hyper in compatible mode.
+//!
+//! After running this example, you can open http://localhost:23300
+//! and http://localhost:23300/monoio in your browser or curl it.
+//! Also you can try `hyper_client.rs` example to request it.
+
 use futures::Future;
 use hyper::{server::conn::Http, service::service_fn};
 use monoio::net::TcpListener;

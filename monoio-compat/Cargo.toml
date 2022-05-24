@@ -16,4 +16,3 @@ tokio = {version = "1", default-features = false, features = ["io-util"]}
 
 [dev-dependencies]
 monoio = {version = "0.0.4", path = "../monoio", features = ["async-cancel", "macros"]}
-local-sync = "0.0.5"

@@ -46,6 +46,16 @@ impl UnixStream {
         completion.meta.result?;
 
         let stream = Self::from_shared_fd(completion.data.fd);
+        // wait write ready
+        // TODO: not use write to detect writable
+        let _ = stream.write([]).await;
+        // getsockopt
+        let sys_socket = unsafe { std::os::unix::net::UnixStream::from_raw_fd(stream.fd.raw_fd()) };
+        let err = sys_socket.take_error();
+        let _ = sys_socket.into_raw_fd();
+        if let Some(e) = err? {
+            return Err(e);
+        }
         Ok(stream)
     }
 
@@ -53,7 +63,8 @@ impl UnixStream {
     ///
     /// Returns two `UnixStream`s which are connected to each other.
     pub fn pair() -> io::Result<(Self, Self)> {
-        pair(libc::SOCK_STREAM).map(|(a, b)| (Self::from_std(a), Self::from_std(b)))
+        let (a, b) = pair(libc::SOCK_STREAM)?;
+        Ok((Self::from_std(a)?, Self::from_std(b)?))
     }
 
     /// Returns effective credentials of the process which called `connect` or `pair`.
@@ -62,9 +73,9 @@ impl UnixStream {
     }
 
     /// Creates new `UnixStream` from a `std::os::unix::net::UnixStream`.
-    pub fn from_std(stream: std::os::unix::net::UnixStream) -> Self {
+    pub fn from_std(stream: std::os::unix::net::UnixStream) -> io::Result<Self> {
         let fd = stream.into_raw_fd();
-        unsafe { Self::from_raw_fd(fd) }
+        Ok(Self::from_shared_fd(SharedFd::new(fd)?))
     }
 
     /// Returns the socket address of the local half of this connection.
@@ -86,12 +97,6 @@ impl UnixStream {
     /// Split stream into read and write halves with ownership.
     pub fn into_split(self) -> (OwnedReadHalf, OwnedWriteHalf) {
         split_owned(self)
-    }
-}
-
-impl FromRawFd for UnixStream {
-    unsafe fn from_raw_fd(fd: RawFd) -> Self {
-        Self::from_shared_fd(SharedFd::new(fd))
     }
 }
 

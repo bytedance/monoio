@@ -1,6 +1,10 @@
+use crate::driver::legacy::ready::Direction;
+
 use super::{super::shared_fd::SharedFd, Op, OpAble};
 
+#[cfg(target_os = "linux")]
 use io_uring::{opcode, types};
+
 use os_socketaddr::OsSocketAddr;
 use std::{io, net::SocketAddr};
 
@@ -15,22 +19,22 @@ impl Op<Connect> {
         socket_type: libc::c_int,
         socket_addr: SocketAddr,
     ) -> io::Result<Op<Connect>> {
-        let os_socket_addr = OsSocketAddr::from(socket_addr);
-        let socket_type = socket_type | libc::SOCK_CLOEXEC;
         let domain = match socket_addr {
             SocketAddr::V4(_) => libc::AF_INET,
             SocketAddr::V6(_) => libc::AF_INET6,
         };
-        let fd = crate::syscall!(socket(domain, socket_type, 0))?;
+        let socket = super::new_socket(domain, socket_type)?;
+        let os_socket_addr = OsSocketAddr::from(socket_addr);
 
         Op::submit_with(Connect {
-            fd: SharedFd::new(fd),
+            fd: SharedFd::new(socket)?,
             os_socket_addr,
         })
     }
 }
 
 impl OpAble for Connect {
+    #[cfg(target_os = "linux")]
     fn uring_op(self: &mut std::pin::Pin<Box<Self>>) -> io_uring::squeue::Entry {
         opcode::Connect::new(
             types::Fd(self.fd.raw_fd()),
@@ -38,6 +42,21 @@ impl OpAble for Connect {
             self.os_socket_addr.len(),
         )
         .build()
+    }
+
+    fn legacy_interest(&self) -> Option<(Direction, usize)> {
+        None
+    }
+
+    fn legacy_call(self: &mut std::pin::Pin<Box<Self>>) -> io::Result<u32> {
+        match crate::syscall_u32!(connect(
+            self.fd.raw_fd(),
+            self.os_socket_addr.as_ptr(),
+            self.os_socket_addr.len()
+        )) {
+            Err(err) if err.raw_os_error() != Some(libc::EINPROGRESS) => Err(err),
+            _ => Ok(self.fd.raw_fd() as u32),
+        }
     }
 }
 
@@ -55,12 +74,10 @@ impl Op<ConnectUnix> {
         socket_addr: libc::sockaddr_un,
         socket_len: libc::socklen_t,
     ) -> io::Result<Op<ConnectUnix>> {
-        let socket_type = libc::SOCK_STREAM | libc::SOCK_CLOEXEC;
-        let domain = libc::AF_UNIX;
-        let fd = crate::syscall!(socket(domain, socket_type, 0))?;
+        let socket = super::new_socket(libc::AF_UNIX, libc::SOCK_STREAM)?;
 
         Op::submit_with(ConnectUnix {
-            fd: SharedFd::new(fd),
+            fd: SharedFd::new(socket)?,
             socket_addr,
             socket_len,
         })
@@ -68,6 +85,7 @@ impl Op<ConnectUnix> {
 }
 
 impl OpAble for ConnectUnix {
+    #[cfg(target_os = "linux")]
     fn uring_op(self: &mut std::pin::Pin<Box<Self>>) -> io_uring::squeue::Entry {
         opcode::Connect::new(
             types::Fd(self.fd.raw_fd()),
@@ -75,5 +93,20 @@ impl OpAble for ConnectUnix {
             self.socket_len,
         )
         .build()
+    }
+
+    fn legacy_interest(&self) -> Option<(Direction, usize)> {
+        None
+    }
+
+    fn legacy_call(self: &mut std::pin::Pin<Box<Self>>) -> io::Result<u32> {
+        match crate::syscall_u32!(connect(
+            self.fd.raw_fd(),
+            &self.socket_addr as *const _ as *const _,
+            self.socket_len
+        )) {
+            Err(err) if err.raw_os_error() != Some(libc::EINPROGRESS) => Err(err),
+            _ => Ok(self.fd.raw_fd() as u32),
+        }
     }
 }

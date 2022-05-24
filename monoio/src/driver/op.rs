@@ -1,10 +1,11 @@
 use crate::driver;
 
-use io_uring::squeue;
 use std::future::Future;
 use std::io;
 use std::pin::Pin;
-use std::task::{Context, Poll, Waker};
+use std::task::{Context, Poll};
+
+use super::legacy::ready::Direction;
 
 pub(crate) mod close;
 
@@ -44,35 +45,15 @@ pub(crate) struct CompletionMeta {
     pub(crate) flags: u32,
 }
 
-pub(crate) enum Lifecycle {
-    /// The operation has been submitted to uring and is currently in-flight
-    Submitted,
-
-    /// The submitter is waiting for the completion of the operation
-    Waiting(Waker),
-
-    /// The submitter no longer has interest in the operation result. The state
-    /// must be passed to the driver and held until the operation completes.
-    Ignored(Box<dyn std::any::Any>),
-
-    /// The operation has completed.
-    Completed(io::Result<u32>, u32),
-}
-
 pub(crate) trait OpAble {
-    fn uring_op(self: &mut std::pin::Pin<Box<Self>>) -> squeue::Entry;
+    #[cfg(target_os = "linux")]
+    fn uring_op(self: &mut std::pin::Pin<Box<Self>>) -> io_uring::squeue::Entry;
+
+    fn legacy_interest(&self) -> Option<(Direction, usize)>;
+    fn legacy_call(self: &mut std::pin::Pin<Box<Self>>) -> io::Result<u32>;
 }
 
 impl<T> Op<T> {
-    /// Create a new operation
-    pub(super) fn new(data: T, inner: &mut driver::UringInner, driver: driver::Inner) -> Op<T> {
-        Op {
-            driver,
-            index: inner.ops.insert(),
-            data: Some(Box::pin(data)),
-        }
-    }
-
     /// Submit an operation to uring.
     ///
     /// `state` is stored during the operation tracking any state submitted to
@@ -99,13 +80,14 @@ impl<T> Op<T> {
 
 impl<T> Future for Op<T>
 where
-    T: Unpin + 'static,
+    T: Unpin + OpAble + 'static,
 {
     type Output = Completion<T>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let me = &mut *self;
-        let meta = ready!(me.driver.poll_op(me.index, cx));
+        let data_mut = me.data.as_mut().expect("unexpected operation state");
+        let meta = ready!(me.driver.poll_op::<T>(data_mut, me.index, cx));
 
         me.index = usize::MAX;
         let pinned_data = me.data.take().expect("unexpected operation state");
@@ -116,6 +98,75 @@ where
 
 impl<T> Drop for Op<T> {
     fn drop(&mut self) {
-        self.driver.drop(self.index, &mut self.data);
+        self.driver.drop_op(self.index, &mut self.data);
     }
+}
+
+#[allow(unused)]
+#[cfg(not(target_os = "linux"))]
+fn non_blocking() -> bool {
+    true
+}
+
+#[cfg(target_os = "linux")]
+fn non_blocking() -> bool {
+    super::CURRENT.with(|inner| inner.is_legacy())
+}
+
+// Copied from mio.
+fn new_socket(domain: libc::c_int, socket_type: libc::c_int) -> io::Result<libc::c_int> {
+    #[cfg(any(
+        target_os = "android",
+        target_os = "dragonfly",
+        target_os = "freebsd",
+        target_os = "illumos",
+        target_os = "netbsd",
+        target_os = "openbsd"
+    ))]
+    let socket_type = socket_type | libc::SOCK_NONBLOCK | libc::SOCK_CLOEXEC;
+
+    #[cfg(target_os = "linux")]
+    let socket_type = {
+        if non_blocking() {
+            socket_type | libc::SOCK_CLOEXEC | libc::SOCK_NONBLOCK
+        } else {
+            socket_type | libc::SOCK_CLOEXEC
+        }
+    };
+
+    // Gives a warning for platforms without SOCK_NONBLOCK.
+    #[allow(clippy::let_and_return)]
+    let socket = crate::syscall!(socket(domain, socket_type, 0));
+
+    // Mimick `libstd` and set `SO_NOSIGPIPE` on apple systems.
+    #[cfg(target_vendor = "apple")]
+    let socket = socket.and_then(|socket| {
+        crate::syscall!(setsockopt(
+            socket,
+            libc::SOL_SOCKET,
+            libc::SO_NOSIGPIPE,
+            &1 as *const libc::c_int as *const libc::c_void,
+            std::mem::size_of::<libc::c_int>() as libc::socklen_t
+        ))
+        .map(|_| socket)
+    });
+
+    // Darwin doesn't have SOCK_NONBLOCK or SOCK_CLOEXEC.
+    #[cfg(any(target_os = "ios", target_os = "macos"))]
+    let socket = socket.and_then(|socket| {
+        // For platforms that don't support flags in socket, we need to
+        // set the flags ourselves.
+        crate::syscall!(fcntl(socket, libc::F_SETFL, libc::O_NONBLOCK))
+            .and_then(|_| {
+                crate::syscall!(fcntl(socket, libc::F_SETFD, libc::FD_CLOEXEC)).map(|_| socket)
+            })
+            .map_err(|e| {
+                // If either of the `fcntl` calls failed, ensure the socket is
+                // closed and return the error.
+                let _ = crate::syscall!(close(socket));
+                e
+            })
+    });
+
+    socket
 }

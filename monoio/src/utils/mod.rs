@@ -1,11 +1,12 @@
 //! Common utils
 
 pub(crate) mod linked_list;
+pub(crate) mod slab;
+pub(crate) mod uring_detect;
 
 mod rand;
 pub use rand::thread_rng_n;
-
-pub mod slab;
+pub use uring_detect::detect_uring;
 
 #[cfg(feature = "sync")]
 pub(crate) mod thread_id;

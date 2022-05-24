@@ -1,3 +1,5 @@
+//! An example TCP proxy.
+
 use monoio::{
     io::{AsyncReadRent, AsyncWriteRentExt},
     net::{TcpListener, TcpStream},

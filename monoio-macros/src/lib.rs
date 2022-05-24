@@ -22,6 +22,11 @@ pub fn test(args: TokenStream, item: TokenStream) -> TokenStream {
     entry::test(args, item)
 }
 
+#[proc_macro_attribute]
+pub fn test_all(args: TokenStream, item: TokenStream) -> TokenStream {
+    entry::test_all(args, item)
+}
+
 /// Implementation detail of the `select!` macro. This macro is **not** intended
 /// to be used as part of the public API and is permitted to change.
 #[proc_macro]
