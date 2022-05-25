@@ -177,11 +177,11 @@ impl LegacyDriver {
 
         // try to deregister fd first, on success we will remove it from slab.
         match inner.poll.registry().deregister(source) {
-            Ok(r) => Ok(r),
-            Err(e) => {
+            Ok(_) => {
                 inner.io_dispatch.remove(token);
-                Err(e)
+                Ok(())
             }
+            Err(e) => Err(e),
         }
     }
 }
@@ -247,10 +247,10 @@ impl LegacyInner {
     where
         T: OpAble,
     {
-        let scheduled_io_idx = data.legacy_interest().map(|x| x.1).unwrap_or(usize::MAX);
         Ok(Op {
             driver: Inner::Legacy(this.clone()),
-            index: scheduled_io_idx,
+            // useless for legacy
+            index: 0,
             data: Some(Box::pin(data)),
         })
     }

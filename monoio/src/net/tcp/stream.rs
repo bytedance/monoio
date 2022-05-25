@@ -105,6 +105,14 @@ impl TcpStream {
     }
 }
 
+impl IntoRawFd for TcpStream {
+    fn into_raw_fd(self) -> RawFd {
+        self.fd
+            .try_unwrap()
+            .expect("unexpected multiple reference to rawfd")
+    }
+}
+
 impl AsRawFd for TcpStream {
     fn as_raw_fd(&self) -> RawFd {
         self.fd.raw_fd()

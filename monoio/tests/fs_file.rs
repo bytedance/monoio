@@ -96,6 +96,7 @@ async fn drop_open() {
     let file = File::create(tempfile.path()).await.unwrap();
 
     file.write_at(HELLO, 0).await.0.unwrap();
+    drop(file);
 
     let file = std::fs::read(tempfile.path()).unwrap();
     assert_eq!(file, HELLO);

@@ -1,3 +1,7 @@
+//! A loop accept example.
+//!
+//! Run the example and `nc 127.0.0.1 50002` in another shell.
+
 use std::time::Duration;
 
 use monoio::net::TcpListener;

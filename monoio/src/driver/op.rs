@@ -5,8 +5,6 @@ use std::io;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
-use super::legacy::ready::Direction;
-
 pub(crate) mod close;
 
 mod accept;
@@ -23,7 +21,7 @@ pub(crate) struct Op<T: 'static> {
     // Driver running the operation
     pub(super) driver: driver::Inner,
 
-    // Operation index in the slab
+    // Operation index in the slab(useless for legacy)
     pub(super) index: usize,
 
     // Per-operation data
@@ -46,10 +44,12 @@ pub(crate) struct CompletionMeta {
 }
 
 pub(crate) trait OpAble {
-    #[cfg(target_os = "linux")]
+    #[cfg(all(target_os = "linux", feature = "iouring"))]
     fn uring_op(self: &mut std::pin::Pin<Box<Self>>) -> io_uring::squeue::Entry;
 
-    fn legacy_interest(&self) -> Option<(Direction, usize)>;
+    #[cfg(feature = "legacy")]
+    fn legacy_interest(&self) -> Option<(super::legacy::ready::Direction, usize)>;
+    #[cfg(feature = "legacy")]
     fn legacy_call(self: &mut std::pin::Pin<Box<Self>>) -> io::Result<u32>;
 }
 
@@ -66,6 +66,7 @@ impl<T> Op<T> {
     }
 
     /// Try submitting an operation to uring
+    #[allow(unused)]
     pub(super) fn try_submit_with(data: T) -> io::Result<Op<T>>
     where
         T: OpAble,

@@ -1,13 +1,16 @@
 use super::{super::shared_fd::SharedFd, Op, OpAble};
-use crate::{driver::legacy::ready::Direction, syscall_u32};
 
-#[cfg(target_os = "linux")]
+#[cfg(all(target_os = "linux", feature = "iouring"))]
 use io_uring::{opcode, types};
+#[cfg(feature = "legacy")]
+use {
+    crate::{driver::legacy::ready::Direction, syscall_u32},
+    std::os::unix::prelude::AsRawFd,
+};
 
 use std::{
     io,
     mem::{size_of, MaybeUninit},
-    os::unix::prelude::AsRawFd,
 };
 
 /// Accept
@@ -30,7 +33,7 @@ impl Op<Accept> {
 }
 
 impl OpAble for Accept {
-    #[cfg(target_os = "linux")]
+    #[cfg(all(target_os = "linux", feature = "iouring"))]
     fn uring_op(self: &mut std::pin::Pin<Box<Self>>) -> io_uring::squeue::Entry {
         opcode::Accept::new(
             types::Fd(self.fd.raw_fd()),
@@ -40,10 +43,12 @@ impl OpAble for Accept {
         .build()
     }
 
+    #[cfg(feature = "legacy")]
     fn legacy_interest(&self) -> Option<(Direction, usize)> {
         self.fd.registered_index().map(|idx| (Direction::Read, idx))
     }
 
+    #[cfg(feature = "legacy")]
     fn legacy_call(self: &mut std::pin::Pin<Box<Self>>) -> io::Result<u32> {
         let fd = self.fd.as_raw_fd();
         let addr = self.addr.as_mut_ptr() as *mut _;

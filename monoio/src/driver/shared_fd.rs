@@ -1,16 +1,9 @@
-use super::{
-    legacy::LegacyDriver,
-    op::{close::Close, Op},
-    CURRENT,
-};
-
-use futures::future::poll_fn;
+use super::CURRENT;
 
 use std::cell::UnsafeCell;
 use std::io;
 use std::os::unix::io::{AsRawFd, FromRawFd, RawFd};
 use std::rc::Rc;
-use std::task::Waker;
 
 // Tracks in-flight operations on a file descriptor. Ensures all in-flight
 // operations complete before submitting the close.
@@ -28,7 +21,9 @@ struct Inner {
 }
 
 enum State {
+    #[cfg(all(target_os = "linux", feature = "iouring"))]
     Uring(UringState),
+    #[cfg(feature = "legacy")]
     Legacy(Option<usize>),
 }
 
@@ -38,15 +33,16 @@ impl std::fmt::Debug for Inner {
     }
 }
 
+#[cfg(all(target_os = "linux", feature = "iouring"))]
 enum UringState {
     /// Initial state
     Init,
 
     /// Waiting for all in-flight operation to complete.
-    Waiting(Option<Waker>),
+    Waiting(Option<std::task::Waker>),
 
     /// The FD is closing
-    Closing(Op<Close>),
+    Closing(super::op::Op<super::op::close::Close>),
 
     /// The FD is fully closed
     Closed,
@@ -59,24 +55,50 @@ impl AsRawFd for SharedFd {
 }
 
 impl SharedFd {
+    #[allow(unreachable_code, unused)]
     pub(crate) fn new(fd: RawFd) -> io::Result<SharedFd> {
-        let state = match CURRENT.with(|inner| {
-            const RW_INTERESTS: mio::Interest =
-                mio::Interest::READABLE.add(mio::Interest::WRITABLE);
+        #[cfg(feature = "legacy")]
+        const RW_INTERESTS: mio::Interest = mio::Interest::READABLE.add(mio::Interest::WRITABLE);
 
-            match inner {
-                #[cfg(target_os = "linux")]
-                super::Inner::Uring(_) => None,
-                super::Inner::Legacy(inner) => {
-                    let mut source = mio::unix::SourceFd(&fd);
-                    Some(LegacyDriver::register(inner, &mut source, RW_INTERESTS))
-                }
+        #[cfg(all(target_os = "linux", feature = "iouring", feature = "legacy"))]
+        let state = match CURRENT.with(|inner| match inner {
+            super::Inner::Uring(_) => None,
+            super::Inner::Legacy(inner) => {
+                let mut source = mio::unix::SourceFd(&fd);
+                Some(super::legacy::LegacyDriver::register(
+                    inner,
+                    &mut source,
+                    RW_INTERESTS,
+                ))
             }
         }) {
             Some(reg) => State::Legacy(Some(reg?)),
             None => State::Uring(UringState::Init),
         };
 
+        #[cfg(all(not(feature = "legacy"), target_os = "linux", feature = "iouring"))]
+        let state = State::Uring(UringState::Init);
+
+        #[cfg(all(feature = "legacy", not(all(target_os = "linux", feature = "iouring"))))]
+        let state = {
+            let reg = CURRENT.with(|inner| match inner {
+                super::Inner::Legacy(inner) => {
+                    let mut source = mio::unix::SourceFd(&fd);
+                    super::legacy::LegacyDriver::register(inner, &mut source, RW_INTERESTS)
+                }
+            });
+
+            State::Legacy(Some(reg?))
+        };
+
+        #[cfg(all(
+            not(feature = "legacy"),
+            not(all(target_os = "linux", feature = "iouring"))
+        ))]
+        #[allow(unused)]
+        let state = super::util::feature_panic();
+
+        #[allow(unreachable_code)]
         Ok(SharedFd {
             inner: Rc::new(Inner {
                 fd,
@@ -85,11 +107,20 @@ impl SharedFd {
         })
     }
 
+    #[allow(unreachable_code, unused)]
     pub(crate) fn new_without_register(fd: RawFd) -> io::Result<SharedFd> {
         let state = CURRENT.with(|inner| match inner {
-            #[cfg(target_os = "linux")]
+            #[cfg(all(target_os = "linux", feature = "iouring"))]
             super::Inner::Uring(_) => State::Uring(UringState::Init),
+            #[cfg(feature = "legacy")]
             super::Inner::Legacy(_) => State::Legacy(None),
+            #[cfg(all(
+                not(feature = "legacy"),
+                not(all(target_os = "linux", feature = "iouring"))
+            ))]
+            _ => {
+                super::util::feature_panic();
+            }
         });
 
         Ok(SharedFd {
@@ -105,77 +136,132 @@ impl SharedFd {
         self.inner.fd
     }
 
+    /// Try unwrap Rc, then deregister if registered and return rawfd.
+    /// Note: this action will consume self and return rawfd without closing it.
+    pub(crate) fn try_unwrap(self) -> Result<RawFd, Self> {
+        let fd = self.inner.fd;
+        match Rc::try_unwrap(self.inner) {
+            Ok(_inner) => {
+                #[cfg(feature = "legacy")]
+                let state = unsafe { &*_inner.state.get() };
+
+                #[cfg(feature = "legacy")]
+                #[allow(irrefutable_let_patterns)]
+                if let State::Legacy(idx) = state {
+                    if CURRENT.is_set() {
+                        CURRENT.with(|inner| {
+                            match inner {
+                                #[cfg(all(target_os = "linux", feature = "iouring"))]
+                                super::Inner::Uring(_) => {
+                                    unreachable!("try_unwrap legacy fd with uring runtime")
+                                }
+                                super::Inner::Legacy(inner) => {
+                                    // deregister it from driver(Poll and slab) and close fd
+                                    if let Some(idx) = idx {
+                                        let mut source = mio::unix::SourceFd(&fd);
+                                        let _ = super::legacy::LegacyDriver::deregister(
+                                            inner,
+                                            *idx,
+                                            &mut source,
+                                        );
+                                    }
+                                }
+                            }
+                        })
+                    }
+                }
+                Ok(fd)
+            }
+            Err(inner) => Err(Self { inner }),
+        }
+    }
+
+    #[allow(unused)]
     pub(crate) fn registered_index(&self) -> Option<usize> {
         let state = unsafe { &*self.inner.state.get() };
         match state {
+            #[cfg(all(target_os = "linux", feature = "iouring"))]
             State::Uring(_) => None,
+            #[cfg(feature = "legacy")]
             State::Legacy(s) => *s,
+            #[cfg(all(
+                not(feature = "legacy"),
+                not(all(target_os = "linux", feature = "iouring"))
+            ))]
+            _ => {
+                super::util::feature_panic();
+            }
         }
     }
 
     /// An FD cannot be closed until all in-flight operation have completed.
     /// This prevents bugs where in-flight reads could operate on the incorrect
     /// file descriptor.
-    pub(crate) async fn close(mut self) {
-        let fd = self.inner.fd;
+    pub(crate) async fn close(self) {
         // Here we only submit close op for uring mode.
         // Fd will be closed when Inner drops for legacy mode.
-        if let State::Uring(uring_state) = unsafe { &mut *self.inner.state.get() } {
-            if Rc::get_mut(&mut self.inner).is_some() {
-                *uring_state = match Op::close(fd) {
-                    Ok(op) => UringState::Closing(op),
-                    Err(_) => {
-                        let _ = unsafe { std::fs::File::from_raw_fd(fd) };
-                        return;
-                    }
-                };
+        #[cfg(all(target_os = "linux", feature = "iouring"))]
+        {
+            let fd = self.inner.fd;
+            let mut this = self;
+            #[allow(irrefutable_let_patterns)]
+            if let State::Uring(uring_state) = unsafe { &mut *this.inner.state.get() } {
+                if Rc::get_mut(&mut this.inner).is_some() {
+                    *uring_state = match super::op::Op::close(fd) {
+                        Ok(op) => UringState::Closing(op),
+                        Err(_) => {
+                            let _ = unsafe { std::fs::File::from_raw_fd(fd) };
+                            return;
+                        }
+                    };
+                }
+                this.inner.closed().await;
             }
-            self.inner.closed().await;
         }
     }
 }
 
+#[cfg(all(target_os = "linux", feature = "iouring"))]
 impl Inner {
     /// Completes when the FD has been closed.
     /// Should only be called for uring mode.
     async fn closed(&self) {
-        use std::future::Future;
-        use std::pin::Pin;
         use std::task::Poll;
 
-        poll_fn(|cx| {
+        futures::future::poll_fn(|cx| {
             let state = unsafe { &mut *self.state.get() };
-            let uring_state = match state {
-                State::Uring(uring) => uring,
-                State::Legacy(_) => {
-                    return Poll::Ready(());
-                }
-            };
 
-            match uring_state {
-                UringState::Init => {
-                    *uring_state = UringState::Waiting(Some(cx.waker().clone()));
-                    Poll::Pending
-                }
-                UringState::Waiting(Some(waker)) => {
-                    if !waker.will_wake(cx.waker()) {
-                        *waker = cx.waker().clone();
+            #[allow(irrefutable_let_patterns)]
+            if let State::Uring(uring_state) = state {
+                use std::future::Future;
+                use std::pin::Pin;
+
+                return match uring_state {
+                    UringState::Init => {
+                        *uring_state = UringState::Waiting(Some(cx.waker().clone()));
+                        Poll::Pending
                     }
+                    UringState::Waiting(Some(waker)) => {
+                        if !waker.will_wake(cx.waker()) {
+                            *waker = cx.waker().clone();
+                        }
 
-                    Poll::Pending
-                }
-                UringState::Waiting(None) => {
-                    *uring_state = UringState::Waiting(Some(cx.waker().clone()));
-                    Poll::Pending
-                }
-                UringState::Closing(op) => {
-                    // Nothing to do if the close operation failed.
-                    let _ = ready!(Pin::new(op).poll(cx));
-                    *uring_state = UringState::Closed;
-                    Poll::Ready(())
-                }
-                UringState::Closed => Poll::Ready(()),
+                        Poll::Pending
+                    }
+                    UringState::Waiting(None) => {
+                        *uring_state = UringState::Waiting(Some(cx.waker().clone()));
+                        Poll::Pending
+                    }
+                    UringState::Closing(op) => {
+                        // Nothing to do if the close operation failed.
+                        let _ = ready!(Pin::new(op).poll(cx));
+                        *uring_state = UringState::Closed;
+                        Poll::Ready(())
+                    }
+                    UringState::Closed => Poll::Ready(()),
+                };
             }
+            Poll::Ready(())
         })
         .await;
     }
@@ -185,25 +271,33 @@ impl Drop for Inner {
     fn drop(&mut self) {
         let fd = self.fd;
         let state = unsafe { &mut *self.state.get() };
+        #[allow(unreachable_patterns)]
         match state {
+            #[cfg(all(target_os = "linux", feature = "iouring"))]
             State::Uring(UringState::Init) | State::Uring(UringState::Waiting(..)) => {
-                if Op::close(fd).is_err() {
+                if super::op::Op::close(fd).is_err() {
                     let _ = unsafe { std::fs::File::from_raw_fd(fd) };
                 };
             }
+            #[cfg(feature = "legacy")]
             State::Legacy(idx) => {
                 if CURRENT.is_set() {
                     CURRENT.with(|inner| {
                         match inner {
-                            #[cfg(target_os = "linux")]
+                            #[cfg(all(target_os = "linux", feature = "iouring"))]
                             super::Inner::Uring(_) => {
                                 unreachable!("close legacy fd with uring runtime")
                             }
+                            #[cfg(feature = "legacy")]
                             super::Inner::Legacy(inner) => {
                                 // deregister it from driver(Poll and slab) and close fd
                                 if let Some(idx) = idx {
                                     let mut source = mio::unix::SourceFd(&fd);
-                                    let _ = LegacyDriver::deregister(inner, *idx, &mut source);
+                                    let _ = super::legacy::LegacyDriver::deregister(
+                                        inner,
+                                        *idx,
+                                        &mut source,
+                                    );
                                 }
                             }
                         }

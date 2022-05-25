@@ -1,29 +1,28 @@
 //! An example to show how to use TcpStream.
 
-use futures::channel::oneshot;
-use monoio::{
-    io::{AsyncReadRent, AsyncWriteRentExt},
-    net::{TcpListener, TcpStream},
-    Buildable, Driver, LegacyDriver,
-};
+#[cfg(not(target_os = "linux"))]
+fn main() {}
 
-const ADDRESS: &str = "127.0.0.1:50000";
-
+#[cfg(target_os = "linux")]
 fn main() {
-    #[cfg(target_os = "linux")]
-    println!("Will run with IoUringDriver");
-    #[cfg(target_os = "linux")]
+    println!("Will run with IoUringDriver(you must be on linux and enable iouring feature)");
     run::<monoio::IoUringDriver>();
-    println!("Will run with LegacyDriver");
-    run::<LegacyDriver>();
 }
 
+#[cfg(target_os = "linux")]
 fn run<D>()
 where
-    D: Buildable + Driver,
+    D: monoio::Buildable + monoio::Driver,
 {
-    let (mut tx, rx) = oneshot::channel::<()>();
+    use futures::channel::oneshot;
+    use monoio::{
+        io::{AsyncReadRent, AsyncWriteRentExt},
+        net::{TcpListener, TcpStream},
+    };
 
+    const ADDRESS: &str = "127.0.0.1:50000";
+
+    let (mut tx, rx) = oneshot::channel::<()>();
     let client_thread = std::thread::spawn(|| {
         monoio::start::<D, _>(async move {
             println!("[Client] Waiting for server ready");

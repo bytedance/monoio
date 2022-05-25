@@ -4,11 +4,13 @@ use scoped_tls::scoped_thread_local;
 
 use crate::driver::Driver;
 use crate::time::driver::TimeDriver;
-use crate::FusionRuntime;
-use crate::{driver::LegacyDriver, runtime::Context, time::Clock, Runtime};
 
-#[cfg(target_os = "linux")]
+use crate::{time::Clock, Runtime};
+
+#[cfg(all(target_os = "linux", feature = "iouring"))]
 use crate::driver::IoUringDriver;
+#[cfg(feature = "legacy")]
+use crate::driver::LegacyDriver;
 
 // ===== basic builder structure definition =====
 
@@ -52,6 +54,7 @@ pub trait Buildable: Sized {
     fn build(this: &RuntimeBuilder<Self>) -> io::Result<Runtime<Self>>;
 }
 
+#[allow(unused)]
 macro_rules! direct_build {
     ($ty: ty) => {
         impl RuntimeBuilder<$ty> {
@@ -63,15 +66,18 @@ macro_rules! direct_build {
     };
 }
 
-#[cfg(target_os = "linux")]
+#[cfg(all(target_os = "linux", feature = "iouring"))]
 direct_build!(IoUringDriver);
-#[cfg(target_os = "linux")]
+#[cfg(all(target_os = "linux", feature = "iouring"))]
 direct_build!(TimeDriver<IoUringDriver>);
+#[cfg(feature = "legacy")]
 direct_build!(LegacyDriver);
+#[cfg(feature = "legacy")]
 direct_build!(TimeDriver<LegacyDriver>);
 
 // ===== builder impl =====
 
+#[cfg(feature = "legacy")]
 impl Buildable for LegacyDriver {
     fn build(this: &RuntimeBuilder<Self>) -> io::Result<Runtime<LegacyDriver>> {
         #[cfg(not(feature = "sync"))]
@@ -84,13 +90,13 @@ impl Buildable for LegacyDriver {
                 Some(entries) => LegacyDriver::new_with_entries(entries)?,
                 None => LegacyDriver::new()?,
             };
-            let context = Context::default();
+            let context = crate::runtime::Context::default();
             Ok(Runtime { driver, context })
         })
     }
 }
 
-#[cfg(target_os = "linux")]
+#[cfg(all(target_os = "linux", feature = "iouring"))]
 impl Buildable for IoUringDriver {
     fn build(this: &RuntimeBuilder<Self>) -> io::Result<Runtime<IoUringDriver>> {
         #[cfg(not(feature = "sync"))]
@@ -103,7 +109,7 @@ impl Buildable for IoUringDriver {
                 Some(entries) => IoUringDriver::new_with_entries(entries)?,
                 None => IoUringDriver::new()?,
             };
-            let context = Context::default();
+            let context = crate::runtime::Context::default();
             Ok(Runtime { driver, context })
         })
     }
@@ -128,12 +134,14 @@ impl<D> RuntimeBuilder<D> {
 // ===== FusionDriver =====
 
 /// Fake driver only for conditionally building.
+#[cfg(any(all(target_os = "linux", feature = "iouring"), feature = "legacy"))]
 pub struct FusionDriver;
 
+#[cfg(any(all(target_os = "linux", feature = "iouring"), feature = "legacy"))]
 impl RuntimeBuilder<FusionDriver> {
     /// Build the runtime.
-    #[cfg(target_os = "linux")]
-    pub fn build(&self) -> io::Result<FusionRuntime<IoUringDriver, LegacyDriver>> {
+    #[cfg(all(target_os = "linux", feature = "iouring", feature = "legacy"))]
+    pub fn build(&self) -> io::Result<crate::FusionRuntime<IoUringDriver, LegacyDriver>> {
         if crate::utils::detect_uring() {
             let builder = RuntimeBuilder::<IoUringDriver> {
                 entries: self.entries,
@@ -150,9 +158,19 @@ impl RuntimeBuilder<FusionDriver> {
     }
 
     /// Build the runtime.
-    #[cfg(not(target_os = "linux"))]
-    pub fn build(&self) -> io::Result<FusionRuntime<LegacyDriver>> {
+    #[cfg(not(all(target_os = "linux", feature = "iouring")))]
+    pub fn build(&self) -> io::Result<crate::FusionRuntime<LegacyDriver>> {
         let builder = RuntimeBuilder::<LegacyDriver> {
+            entries: self.entries,
+            _mark: PhantomData,
+        };
+        Ok(builder.build()?.into())
+    }
+
+    /// Build the runtime.
+    #[cfg(all(target_os = "linux", feature = "iouring", not(feature = "legacy")))]
+    pub fn build(&self) -> io::Result<crate::FusionRuntime<IoUringDriver>> {
+        let builder = RuntimeBuilder::<IoUringDriver> {
             entries: self.entries,
             _mark: PhantomData,
         };
@@ -160,12 +178,13 @@ impl RuntimeBuilder<FusionDriver> {
     }
 }
 
+#[cfg(any(all(target_os = "linux", feature = "iouring"), feature = "legacy"))]
 impl RuntimeBuilder<TimeDriver<FusionDriver>> {
     /// Build the runtime.
-    #[cfg(target_os = "linux")]
+    #[cfg(all(target_os = "linux", feature = "iouring", feature = "legacy"))]
     pub fn build(
         &self,
-    ) -> io::Result<FusionRuntime<TimeDriver<IoUringDriver>, TimeDriver<LegacyDriver>>> {
+    ) -> io::Result<crate::FusionRuntime<TimeDriver<IoUringDriver>, TimeDriver<LegacyDriver>>> {
         if crate::utils::detect_uring() {
             let builder = RuntimeBuilder::<TimeDriver<IoUringDriver>> {
                 entries: self.entries,
@@ -182,9 +201,19 @@ impl RuntimeBuilder<TimeDriver<FusionDriver>> {
     }
 
     /// Build the runtime.
-    #[cfg(not(target_os = "linux"))]
-    pub fn build(&self) -> io::Result<FusionRuntime<TimeDriver<LegacyDriver>>> {
+    #[cfg(not(all(target_os = "linux", feature = "iouring")))]
+    pub fn build(&self) -> io::Result<crate::FusionRuntime<TimeDriver<LegacyDriver>>> {
         let builder = RuntimeBuilder::<TimeDriver<LegacyDriver>> {
+            entries: self.entries,
+            _mark: PhantomData,
+        };
+        Ok(builder.build()?.into())
+    }
+
+    /// Build the runtime.
+    #[cfg(all(target_os = "linux", feature = "iouring", not(feature = "legacy")))]
+    pub fn build(&self) -> io::Result<crate::FusionRuntime<TimeDriver<IoUringDriver>>> {
+        let builder = RuntimeBuilder::<TimeDriver<IoUringDriver>> {
             entries: self.entries,
             _mark: PhantomData,
         };
@@ -197,9 +226,11 @@ mod time_wrap {
     pub trait TimeWrapable {}
 }
 
-#[cfg(target_os = "linux")]
+#[cfg(all(target_os = "linux", feature = "iouring"))]
 impl time_wrap::TimeWrapable for IoUringDriver {}
+#[cfg(feature = "legacy")]
 impl time_wrap::TimeWrapable for LegacyDriver {}
+#[cfg(any(all(target_os = "linux", feature = "iouring"), feature = "legacy"))]
 impl time_wrap::TimeWrapable for FusionDriver {}
 
 impl<D: Driver> Buildable for TimeDriver<D>

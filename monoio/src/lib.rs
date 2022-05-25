@@ -36,12 +36,17 @@ pub mod stream;
 pub mod task;
 pub mod utils;
 
-pub use builder::{Buildable, FusionDriver, RuntimeBuilder};
-pub use driver::{Driver, LegacyDriver};
-pub use runtime::{spawn, FusionRuntime, Runtime};
+pub use builder::{Buildable, RuntimeBuilder};
+pub use driver::Driver;
+pub use runtime::{spawn, Runtime};
 
-#[cfg(target_os = "linux")]
+#[cfg(any(all(target_os = "linux", feature = "iouring"), feature = "legacy"))]
+pub use {builder::FusionDriver, runtime::FusionRuntime};
+
+#[cfg(all(target_os = "linux", feature = "iouring"))]
 pub use driver::IoUringDriver;
+#[cfg(feature = "legacy")]
+pub use driver::LegacyDriver;
 
 #[cfg(feature = "macros")]
 pub use monoio_macros::{main, test, test_all};

@@ -384,6 +384,10 @@ impl UringInner {
         data: &mut Option<Pin<Box<T>>>,
     ) {
         let inner = unsafe { &mut *this.get() };
+        if index == usize::MAX {
+            // already finished
+            return;
+        }
         if let Some(lifecycle) = inner.ops.slab.get(index) {
             let _must_finished = lifecycle.drop_op(data);
             #[cfg(features = "async-cancel")]

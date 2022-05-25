@@ -45,6 +45,8 @@ impl<T> Slab<T> {
 
     pub(crate) fn get(&mut self, key: usize) -> Option<Ref<'_, T>> {
         let page_id = get_page_id(key);
+        // here we make 2 mut ref so we must make it safe.
+        let slab = unsafe { &mut *(self as *mut Slab<T>) };
         let page = match unsafe { self.pages.get_unchecked_mut(page_id) } {
             Some(page) => page,
             None => return None,
@@ -54,7 +56,7 @@ impl<T> Slab<T> {
             None => None,
             Some(entry) => match entry {
                 Entry::Vacant(_) => None,
-                Entry::Occupied(_) => Some(Ref { page, index }),
+                Entry::Occupied(_) => Some(Ref { slab, page, index }),
             },
         }
     }
@@ -88,6 +90,7 @@ impl<T> Slab<T> {
     }
 
     /// Remove an element from slab.
+    #[allow(unused)]
     pub(crate) fn remove(&mut self, key: usize) -> Option<T> {
         let page_id = get_page_id(key);
         let page = match unsafe { self.pages.get_unchecked_mut(page_id) } {
@@ -95,6 +98,11 @@ impl<T> Slab<T> {
             None => return None,
         };
         let val = page.remove(key - page.prev_len);
+        self.mark_remove();
+        val
+    }
+
+    pub(crate) fn mark_remove(&mut self) {
         // compact
         self.generation = self.generation.wrapping_add(1);
         if self.generation % COMPACT_INTERVAL == 0 {
@@ -115,7 +123,6 @@ impl<T> Slab<T> {
                 }
             }
         }
-        val
     }
 }
 
@@ -130,6 +137,7 @@ fn get_page_id(key: usize) -> usize {
 
 /// Ref point to a valid slot.
 pub(crate) struct Ref<'a, T> {
+    slab: &'a mut Slab<T>,
     page: &'a mut Page<T>,
     index: usize,
 }
@@ -139,7 +147,9 @@ impl<'a, T> Ref<'a, T> {
     pub(crate) fn remove(self) -> T {
         // # Safety
         // We make sure the index is valid.
-        unsafe { self.page.remove(self.index).unwrap_unchecked() }
+        let val = unsafe { self.page.remove(self.index).unwrap_unchecked() };
+        self.slab.mark_remove();
+        val
     }
 }
 

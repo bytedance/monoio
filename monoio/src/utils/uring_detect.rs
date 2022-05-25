@@ -1,13 +1,13 @@
 //! Detect if current platform support io_uring.
 
-#[cfg(target_os = "linux")]
+#[cfg(all(target_os = "linux", feature = "iouring"))]
 macro_rules! op_codes {
     ($($op: ident),*) => {
         [$(io_uring::opcode::$op::CODE),*]
     };
 }
 
-#[cfg(target_os = "linux")]
+#[cfg(all(target_os = "linux", feature = "iouring"))]
 macro_rules! err_to_false {
     ($e: expr) => {
         match $e {
@@ -18,8 +18,7 @@ macro_rules! err_to_false {
         }
     };
 }
-
-#[cfg(target_os = "linux")]
+#[cfg(all(target_os = "linux", feature = "iouring"))]
 fn detect_uring_inner() -> bool {
     const USED_OP: [u8; 14] = op_codes![
         Accept,
@@ -45,7 +44,7 @@ fn detect_uring_inner() -> bool {
 }
 
 /// Detect if current platform supports our needed uring ops.
-#[cfg(target_os = "linux")]
+#[cfg(all(target_os = "linux", feature = "iouring"))]
 pub fn detect_uring() -> bool {
     static mut URING_SUPPORTED: bool = false;
     static INIT: std::sync::Once = std::sync::Once::new();
@@ -59,14 +58,14 @@ pub fn detect_uring() -> bool {
 }
 
 /// Detect if current platform supports our needed uring ops.
-#[cfg(not(target_os = "linux"))]
+#[cfg(not(all(target_os = "linux", feature = "iouring")))]
 pub fn detect_uring() -> bool {
     false
 }
 
 #[cfg(test)]
 mod tests {
-    #[cfg(target_os = "linux")]
+    #[cfg(all(target_os = "linux", feature = "iouring"))]
     #[test]
     fn test_detect() {
         assert!(

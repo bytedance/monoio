@@ -1,14 +1,18 @@
 use super::{super::shared_fd::SharedFd, Op, OpAble};
 use crate::{
     buf::{IoBufMut, IoVecBufMut},
-    driver::legacy::ready::Direction,
-    syscall_u32, BufResult,
+    BufResult,
 };
 
-#[cfg(target_os = "linux")]
+#[cfg(all(target_os = "linux", feature = "iouring"))]
 use io_uring::{opcode, types};
+#[cfg(feature = "legacy")]
+use {
+    crate::{driver::legacy::ready::Direction, syscall_u32},
+    std::os::unix::prelude::AsRawFd,
+};
 
-use std::{io, os::unix::prelude::AsRawFd};
+use std::io;
 
 pub(crate) struct Read<T> {
     /// Holds a strong ref to the FD, preventing the file from being closed
@@ -51,7 +55,7 @@ impl<T: IoBufMut> Op<Read<T>> {
 }
 
 impl<T: IoBufMut> OpAble for Read<T> {
-    #[cfg(target_os = "linux")]
+    #[cfg(all(target_os = "linux", feature = "iouring"))]
     fn uring_op(self: &mut std::pin::Pin<Box<Self>>) -> io_uring::squeue::Entry {
         opcode::Read::new(
             types::Fd(self.fd.raw_fd()),
@@ -62,10 +66,12 @@ impl<T: IoBufMut> OpAble for Read<T> {
         .build()
     }
 
+    #[cfg(feature = "legacy")]
     fn legacy_interest(&self) -> Option<(Direction, usize)> {
         self.fd.registered_index().map(|idx| (Direction::Read, idx))
     }
 
+    #[cfg(feature = "legacy")]
     fn legacy_call(self: &mut std::pin::Pin<Box<Self>>) -> io::Result<u32> {
         let fd = self.fd.as_raw_fd();
         if self.offset != 0 {
@@ -124,17 +130,19 @@ impl<T: IoVecBufMut> Op<ReadVec<T>> {
 }
 
 impl<T: IoVecBufMut> OpAble for ReadVec<T> {
-    #[cfg(target_os = "linux")]
+    #[cfg(all(target_os = "linux", feature = "iouring"))]
     fn uring_op(self: &mut std::pin::Pin<Box<Self>>) -> io_uring::squeue::Entry {
         let ptr = self.buf_vec.write_iovec_ptr() as _;
         let len = self.buf_vec.write_iovec_len() as _;
         opcode::Readv::new(types::Fd(self.fd.raw_fd()), ptr, len).build()
     }
 
+    #[cfg(feature = "legacy")]
     fn legacy_interest(&self) -> Option<(Direction, usize)> {
         self.fd.registered_index().map(|idx| (Direction::Read, idx))
     }
 
+    #[cfg(feature = "legacy")]
     fn legacy_call(self: &mut std::pin::Pin<Box<Self>>) -> io::Result<u32> {
         syscall_u32!(readv(
             self.fd.raw_fd(),

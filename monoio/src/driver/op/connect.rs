@@ -1,8 +1,8 @@
-use crate::driver::legacy::ready::Direction;
-
 use super::{super::shared_fd::SharedFd, Op, OpAble};
 
-#[cfg(target_os = "linux")]
+#[cfg(feature = "legacy")]
+use crate::driver::legacy::ready::Direction;
+#[cfg(all(target_os = "linux", feature = "iouring"))]
 use io_uring::{opcode, types};
 
 use os_socketaddr::OsSocketAddr;
@@ -34,7 +34,7 @@ impl Op<Connect> {
 }
 
 impl OpAble for Connect {
-    #[cfg(target_os = "linux")]
+    #[cfg(all(target_os = "linux", feature = "iouring"))]
     fn uring_op(self: &mut std::pin::Pin<Box<Self>>) -> io_uring::squeue::Entry {
         opcode::Connect::new(
             types::Fd(self.fd.raw_fd()),
@@ -44,10 +44,12 @@ impl OpAble for Connect {
         .build()
     }
 
+    #[cfg(feature = "legacy")]
     fn legacy_interest(&self) -> Option<(Direction, usize)> {
         None
     }
 
+    #[cfg(feature = "legacy")]
     fn legacy_call(self: &mut std::pin::Pin<Box<Self>>) -> io::Result<u32> {
         match crate::syscall_u32!(connect(
             self.fd.raw_fd(),
@@ -85,7 +87,7 @@ impl Op<ConnectUnix> {
 }
 
 impl OpAble for ConnectUnix {
-    #[cfg(target_os = "linux")]
+    #[cfg(all(target_os = "linux", feature = "iouring"))]
     fn uring_op(self: &mut std::pin::Pin<Box<Self>>) -> io_uring::squeue::Entry {
         opcode::Connect::new(
             types::Fd(self.fd.raw_fd()),
@@ -95,10 +97,12 @@ impl OpAble for ConnectUnix {
         .build()
     }
 
+    #[cfg(feature = "legacy")]
     fn legacy_interest(&self) -> Option<(Direction, usize)> {
         None
     }
 
+    #[cfg(feature = "legacy")]
     fn legacy_call(self: &mut std::pin::Pin<Box<Self>>) -> io::Result<u32> {
         match crate::syscall_u32!(connect(
             self.fd.raw_fd(),

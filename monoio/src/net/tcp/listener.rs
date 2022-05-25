@@ -135,11 +135,18 @@ impl TcpListener {
             })
     }
 
-    fn set_non_blocking(socket: &socket2::Socket) -> io::Result<()> {
+    fn set_non_blocking(_socket: &socket2::Socket) -> io::Result<()> {
+        #[cfg(all(
+            not(all(target_os = "linux", feature = "iouring")),
+            not(feature = "legacy")
+        ))]
+        unreachable!();
+        #[cfg(any(all(target_os = "linux", feature = "iouring"), feature = "legacy"))]
         crate::driver::CURRENT.with(|x| match x {
-            #[cfg(target_os = "linux")]
+            #[cfg(all(target_os = "linux", feature = "iouring"))]
             crate::driver::Inner::Uring(_) => Ok(()),
-            crate::driver::Inner::Legacy(_) => socket.set_nonblocking(true),
+            #[cfg(feature = "legacy")]
+            crate::driver::Inner::Legacy(_) => _socket.set_nonblocking(true),
         })
     }
 }
