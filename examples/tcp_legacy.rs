@@ -25,7 +25,7 @@ where
             tx.cancellation().await;
 
             println!("[Client] Server is ready, will connect and send data");
-            let conn = TcpStream::connect(ADDRESS)
+            let mut conn = TcpStream::connect(ADDRESS)
                 .await
                 .expect("[Client] Unable to connect to server");
             let buf: Vec<u8> = vec![97; 10];
@@ -41,7 +41,7 @@ where
             println!("[Server] Bind ready");
             drop(rx);
 
-            let (conn, _addr) = listener
+            let (mut conn, _addr) = listener
                 .accept()
                 .await
                 .expect("[Server] Unable to accept connection");

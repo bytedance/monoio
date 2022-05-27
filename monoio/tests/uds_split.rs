@@ -12,12 +12,12 @@ use monoio::{
 async fn split() -> std::io::Result<()> {
     let (mut a, mut b) = UnixStream::pair()?;
 
-    let (a_read, a_write) = a.split();
-    let (b_read, b_write) = b.split();
+    let (mut a_read, mut a_write) = a.split();
+    let (mut b_read, mut b_write) = b.split();
 
     let (a_response, b_response) = futures::future::try_join(
-        send_recv_all(&a_read, &a_write, b"A"),
-        send_recv_all(&b_read, &b_write, b"B"),
+        send_recv_all(&mut a_read, &mut a_write, b"A"),
+        send_recv_all(&mut b_read, &mut b_write, b"B"),
     )
     .await?;
 
@@ -28,8 +28,8 @@ async fn split() -> std::io::Result<()> {
 }
 
 async fn send_recv_all<R: AsyncReadRent, W: AsyncWriteRent>(
-    read: &R,
-    write: &W,
+    read: &mut R,
+    write: &mut W,
     input: &'static [u8],
 ) -> std::io::Result<Vec<u8>> {
     write.write_all(input).await.0?;

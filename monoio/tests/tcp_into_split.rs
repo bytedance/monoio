@@ -13,11 +13,11 @@ async fn split() -> Result<()> {
     let listener = TcpListener::bind("127.0.0.1:0")?;
     let addr = listener.local_addr()?;
 
-    let (stream1, (stream2, _)) = try_join! {
+    let (stream1, (mut stream2, _)) = try_join! {
         TcpStream::connect(&addr),
         listener.accept(),
     }?;
-    let (read_half, write_half) = stream1.into_split();
+    let (mut read_half, mut write_half) = stream1.into_split();
 
     let ((), (), ()) = try_join! {
         async {
@@ -102,7 +102,7 @@ async fn drop_write() -> Result<()> {
     });
 
     let stream = TcpStream::connect(&addr).await?;
-    let (read_half, write_half) = stream.into_split();
+    let (mut read_half, write_half) = stream.into_split();
 
     let read_buf = vec![0u8; 32];
     let (read_res, read_buf) = read_half.read(read_buf).await;

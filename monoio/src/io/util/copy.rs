@@ -6,7 +6,7 @@ use std::io;
 const BUF_SIZE: usize = 4 * 1024;
 
 /// Copy data from reader to writer.
-pub async fn copy<'a, R, W>(reader: &'a R, writer: &'a W) -> io::Result<u64>
+pub async fn copy<'a, R, W>(reader: &'a mut R, writer: &'a mut W) -> io::Result<u64>
 where
     R: AsyncReadRent + ?Sized,
     W: AsyncWriteRent + ?Sized,

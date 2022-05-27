@@ -49,7 +49,7 @@ impl TcpStream {
         let completion = op.await;
         completion.meta.result?;
 
-        let stream = TcpStream::from_shared_fd(completion.data.fd);
+        let mut stream = TcpStream::from_shared_fd(completion.data.fd);
         // wait write ready
         // TODO: not use write to detect writable
         let _ = stream.write([]).await;
@@ -132,18 +132,18 @@ impl AsyncWriteRent for TcpStream {
         B: 'a;
     type ShutdownFuture<'a> = impl std::future::Future<Output = Result<(), std::io::Error>>;
 
-    fn write<T: IoBuf>(&self, buf: T) -> Self::WriteFuture<'_, T> {
+    fn write<T: IoBuf>(&mut self, buf: T) -> Self::WriteFuture<'_, T> {
         // Submit the write operation
         let op = Op::send(&self.fd, buf).unwrap();
         op.write()
     }
 
-    fn writev<T: IoVecBuf>(&self, buf_vec: T) -> Self::WritevFuture<'_, T> {
+    fn writev<T: IoVecBuf>(&mut self, buf_vec: T) -> Self::WritevFuture<'_, T> {
         let op = Op::writev(&self.fd, buf_vec).unwrap();
         op.write()
     }
 
-    fn shutdown(&self) -> Self::ShutdownFuture<'_> {
+    fn shutdown(&mut self) -> Self::ShutdownFuture<'_> {
         // We could use shutdown op here, which requires kernel 5.11+.
         // However, for simplicity, we just close the socket using direct syscall.
         let fd = self.as_raw_fd();
@@ -162,13 +162,13 @@ impl AsyncReadRent for TcpStream {
     type ReadvFuture<'a, B> = impl std::future::Future<Output = crate::BufResult<usize, B>> where
         B: 'a;
 
-    fn read<T: IoBufMut>(&self, buf: T) -> Self::ReadFuture<'_, T> {
+    fn read<T: IoBufMut>(&mut self, buf: T) -> Self::ReadFuture<'_, T> {
         // Submit the read operation
         let op = Op::recv(&self.fd, buf).unwrap();
         op.read()
     }
 
-    fn readv<T: IoVecBufMut>(&self, buf: T) -> Self::ReadvFuture<'_, T> {
+    fn readv<T: IoVecBufMut>(&mut self, buf: T) -> Self::ReadvFuture<'_, T> {
         // Submit the read operation
         let op = Op::readv(&self.fd, buf).unwrap();
         op.read()

@@ -14,7 +14,7 @@ async fn main() {
 
     monoio::spawn(async move {
         tx.closed().await;
-        let client = UnixStream::connect(ADDRESS).await.unwrap();
+        let mut client = UnixStream::connect(ADDRESS).await.unwrap();
         let buf = "hello";
         let (ret, buf) = client.write_all(buf).await;
         ret.unwrap();
@@ -25,7 +25,7 @@ async fn main() {
     let listener = UnixListener::bind(ADDRESS).unwrap();
     println!("listening on {:?}", ADDRESS);
     drop(rx);
-    let (conn, addr) = listener.accept().await.unwrap();
+    let (mut conn, addr) = listener.accept().await.unwrap();
     println!("accepted a new connection from {:?}", addr);
     let buf = Vec::with_capacity(1024);
     let (ret, buf) = conn.read(buf).await;
