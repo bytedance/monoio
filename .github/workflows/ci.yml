@@ -71,3 +71,24 @@ jobs:
           args: --all-features --no-run
       - name: Run cargo test
         run: sudo bash -c "ulimit -Sl 512 && ulimit -Hl 512 && sudo -u runner RUSTUP_TOOLCHAIN=nightly /home/runner/.cargo/bin/cargo test --all-features"
+
+  test-macos:
+    name: Run cargo test on macos
+    runs-on: macos-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v2
+      - name: Install toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: ${{ env.TOOLCHAIN_PROFILE }}
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+          override: true
+      - name: Cache
+        uses: Swatinem/rust-cache@v1
+      - name: Run cargo test
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --all-features
+          toolchain: ${{ env.RUST_TOOLCHAIN }}

@@ -1,7 +1,15 @@
-use super::{super::shared_fd::SharedFd, Op};
+use super::{super::shared_fd::SharedFd, Op, OpAble};
 use crate::{
     buf::{IoBufMut, IoVecBufMut},
     BufResult,
+};
+
+#[cfg(all(target_os = "linux", feature = "iouring"))]
+use io_uring::{opcode, types};
+#[cfg(feature = "legacy")]
+use {
+    crate::{driver::legacy::ready::Direction, syscall_u32},
+    std::os::unix::prelude::AsRawFd,
 };
 
 use std::io;
@@ -11,6 +19,7 @@ pub(crate) struct Read<T> {
     /// while the operation is in-flight.
     #[allow(unused)]
     fd: SharedFd,
+    offset: libc::off_t,
 
     /// Reference to the in-flight buffer.
     pub(crate) buf: T,
@@ -18,30 +27,18 @@ pub(crate) struct Read<T> {
 
 impl<T: IoBufMut> Op<Read<T>> {
     pub(crate) fn read_at(fd: &SharedFd, buf: T, offset: u64) -> io::Result<Op<Read<T>>> {
-        use io_uring::{opcode, types};
-
-        Op::submit_with(
-            Read {
-                fd: fd.clone(),
-                buf,
-            },
-            |read| {
-                opcode::Read::new(
-                    types::Fd(fd.raw_fd()),
-                    read.buf.write_ptr(),
-                    read.buf.bytes_total() as _,
-                )
-                .offset(offset as _)
-                .build()
-            },
-        )
+        Op::submit_with(Read {
+            fd: fd.clone(),
+            offset: offset as _,
+            buf,
+        })
     }
 
     pub(crate) async fn read(self) -> BufResult<usize, T> {
         let complete = self.await;
 
         // Convert the operation result to `usize`
-        let res = complete.result.map(|v| v as usize);
+        let res = complete.meta.result.map(|v| v as usize);
         // Recover the buffer
         let mut buf = complete.data.buf;
 
@@ -57,6 +54,48 @@ impl<T: IoBufMut> Op<Read<T>> {
     }
 }
 
+impl<T: IoBufMut> OpAble for Read<T> {
+    #[cfg(all(target_os = "linux", feature = "iouring"))]
+    fn uring_op(self: &mut std::pin::Pin<Box<Self>>) -> io_uring::squeue::Entry {
+        opcode::Read::new(
+            types::Fd(self.fd.raw_fd()),
+            self.buf.write_ptr(),
+            self.buf.bytes_total() as _,
+        )
+        .offset(self.offset)
+        .build()
+    }
+
+    #[cfg(feature = "legacy")]
+    fn legacy_interest(&self) -> Option<(Direction, usize)> {
+        self.fd.registered_index().map(|idx| (Direction::Read, idx))
+    }
+
+    #[cfg(feature = "legacy")]
+    fn legacy_call(self: &mut std::pin::Pin<Box<Self>>) -> io::Result<u32> {
+        let fd = self.fd.as_raw_fd();
+        if self.offset != 0 {
+            syscall_u32!(lseek(fd, self.offset, libc::SEEK_CUR))?;
+            syscall_u32!(read(
+                fd,
+                self.buf.write_ptr() as _,
+                self.buf.bytes_total().min(u32::MAX as usize)
+            ))
+            .map_err(|e| {
+                // seek back if read fail...
+                let _ = syscall_u32!(lseek(fd, -self.offset, libc::SEEK_CUR));
+                e
+            })
+        } else {
+            syscall_u32!(read(
+                fd,
+                self.buf.write_ptr() as _,
+                self.buf.bytes_total().min(u32::MAX as usize)
+            ))
+        }
+    }
+}
+
 pub(crate) struct ReadVec<T> {
     /// Holds a strong ref to the FD, preventing the file from being closed
     /// while the operation is in-flight.
@@ -69,24 +108,15 @@ pub(crate) struct ReadVec<T> {
 
 impl<T: IoVecBufMut> Op<ReadVec<T>> {
     pub(crate) fn readv(fd: &SharedFd, buf_vec: T) -> io::Result<Self> {
-        use io_uring::{opcode, types};
-
-        Op::submit_with(
-            ReadVec {
-                fd: fd.clone(),
-                buf_vec,
-            },
-            |read_vec| {
-                let ptr = read_vec.buf_vec.write_iovec_ptr() as _;
-                let len = read_vec.buf_vec.write_iovec_len() as _;
-                opcode::Readv::new(types::Fd(fd.raw_fd()), ptr, len).build()
-            },
-        )
+        Op::submit_with(ReadVec {
+            fd: fd.clone(),
+            buf_vec,
+        })
     }
 
     pub(crate) async fn read(self) -> BufResult<usize, T> {
         let complete = self.await;
-        let res = complete.result.map(|v| v as _);
+        let res = complete.meta.result.map(|v| v as _);
         let mut buf_vec = complete.data.buf_vec;
 
         if let Ok(n) = res {
@@ -96,5 +126,28 @@ impl<T: IoVecBufMut> Op<ReadVec<T>> {
             }
         }
         (res, buf_vec)
+    }
+}
+
+impl<T: IoVecBufMut> OpAble for ReadVec<T> {
+    #[cfg(all(target_os = "linux", feature = "iouring"))]
+    fn uring_op(self: &mut std::pin::Pin<Box<Self>>) -> io_uring::squeue::Entry {
+        let ptr = self.buf_vec.write_iovec_ptr() as _;
+        let len = self.buf_vec.write_iovec_len() as _;
+        opcode::Readv::new(types::Fd(self.fd.raw_fd()), ptr, len).build()
+    }
+
+    #[cfg(feature = "legacy")]
+    fn legacy_interest(&self) -> Option<(Direction, usize)> {
+        self.fd.registered_index().map(|idx| (Direction::Read, idx))
+    }
+
+    #[cfg(feature = "legacy")]
+    fn legacy_call(self: &mut std::pin::Pin<Box<Self>>) -> io::Result<u32> {
+        syscall_u32!(readv(
+            self.fd.raw_fd(),
+            self.buf_vec.write_iovec_ptr(),
+            self.buf_vec.write_iovec_len().min(i32::MAX as usize) as _
+        ))
     }
 }

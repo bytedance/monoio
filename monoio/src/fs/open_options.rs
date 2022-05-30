@@ -24,14 +24,13 @@ use std::path::Path;
 /// ```no_run
 /// use monoio::fs::OpenOptions;
 ///
-/// fn main() -> Result<(), Box<dyn std::error::Error>> {
-///     monoio::start(async {
-///         let file = OpenOptions::new()
-///             .read(true)
-///             .open("foo.txt")
-///             .await?;
-///         Ok(())
-///     })
+/// #[monoio::main]
+/// async fn main() -> Result<(), Box<dyn std::error::Error>> {
+///     let file = OpenOptions::new()
+///         .read(true)
+///         .open("foo.txt")
+///         .await?;
+///     Ok(())
 /// }
 /// ```
 ///
@@ -41,16 +40,15 @@ use std::path::Path;
 /// ```no_run
 /// use monoio::fs::OpenOptions;
 ///
-/// fn main() -> Result<(), Box<dyn std::error::Error>> {
-///     monoio::start(async {
-///         let file = OpenOptions::new()
-///             .read(true)
-///             .write(true)
-///             .create(true)
-///             .open("foo.txt")
-///             .await?;
-///         Ok(())
-///     })
+/// #[monoio::main]
+/// async fn main() -> Result<(), Box<dyn std::error::Error>> {
+///     let file = OpenOptions::new()
+///         .read(true)
+///         .write(true)
+///         .create(true)
+///         .open("foo.txt")
+///         .await?;
+///     Ok(())
 /// }
 /// ```
 #[derive(Debug, Clone)]
@@ -74,14 +72,13 @@ impl OpenOptions {
     /// ```no_run
     /// use monoio::fs::OpenOptions;
     ///
-    /// fn main() -> Result<(), Box<dyn std::error::Error>> {
-    ///     monoio::start(async {
-    ///         let file = OpenOptions::new()
-    ///             .read(true)
-    ///             .open("foo.txt")
-    ///             .await?;
-    ///         Ok(())
-    ///     })
+    /// #[monoio::main]
+    /// async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    ///     let file = OpenOptions::new()
+    ///         .read(true)
+    ///         .open("foo.txt")
+    ///         .await?;
+    ///     Ok(())
     /// }
     /// ```
     #[allow(clippy::new_without_default)]
@@ -108,14 +105,13 @@ impl OpenOptions {
     /// ```no_run
     /// use monoio::fs::OpenOptions;
     ///
-    /// fn main() -> Result<(), Box<dyn std::error::Error>> {
-    ///     monoio::start(async {
-    ///         let file = OpenOptions::new()
-    ///             .read(true)
-    ///             .open("foo.txt")
-    ///             .await?;
-    ///         Ok(())
-    ///     })
+    /// #[monoio::main]
+    /// async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    ///     let file = OpenOptions::new()
+    ///         .read(true)
+    ///         .open("foo.txt")
+    ///         .await?;
+    ///     Ok(())
     /// }
     /// ```
     pub fn read(&mut self, read: bool) -> &mut OpenOptions {
@@ -136,14 +132,13 @@ impl OpenOptions {
     /// ```no_run
     /// use monoio::fs::OpenOptions;
     ///
-    /// fn main() -> Result<(), Box<dyn std::error::Error>> {
-    ///     monoio::start(async {
-    ///         let file = OpenOptions::new()
-    ///             .write(true)
-    ///             .open("foo.txt")
-    ///             .await?;
-    ///         Ok(())
-    ///     })
+    /// #[monoio::main]
+    /// async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    ///     let file = OpenOptions::new()
+    ///         .write(true)
+    ///         .open("foo.txt")
+    ///         .await?;
+    ///     Ok(())
     /// }
     /// ```
     pub fn write(&mut self, write: bool) -> &mut OpenOptions {
@@ -172,14 +167,13 @@ impl OpenOptions {
     /// ```no_run
     /// use monoio::fs::OpenOptions;
     ///
-    /// fn main() -> Result<(), Box<dyn std::error::Error>> {
-    ///     monoio::start(async {
-    ///         let file = OpenOptions::new()
-    ///             .append(true)
-    ///             .open("foo.txt")
-    ///             .await?;
-    ///         Ok(())
-    ///     })
+    /// #[monoio::main]
+    /// async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    ///     let file = OpenOptions::new()
+    ///         .append(true)
+    ///         .open("foo.txt")
+    ///         .await?;
+    ///     Ok(())
     /// }
     /// ```
     pub fn append(&mut self, append: bool) -> &mut OpenOptions {
@@ -199,15 +193,14 @@ impl OpenOptions {
     /// ```no_run
     /// use monoio::fs::OpenOptions;
     ///
-    /// fn main() -> Result<(), Box<dyn std::error::Error>> {
-    ///     monoio::start(async {
-    ///         let file = OpenOptions::new()
-    ///             .write(true)
-    ///             .truncate(true)
-    ///             .open("foo.txt")
-    ///             .await?;
-    ///         Ok(())
-    ///     })
+    /// #[monoio::main]
+    /// async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    ///     let file = OpenOptions::new()
+    ///         .write(true)
+    ///         .truncate(true)
+    ///         .open("foo.txt")
+    ///         .await?;
+    ///     Ok(())
     /// }
     /// ```
     pub fn truncate(&mut self, truncate: bool) -> &mut OpenOptions {
@@ -225,15 +218,14 @@ impl OpenOptions {
     /// ```no_run
     /// use monoio::fs::OpenOptions;
     ///
-    /// fn main() -> Result<(), Box<dyn std::error::Error>> {
-    ///     monoio::start(async {
-    ///         let file = OpenOptions::new()
-    ///             .write(true)
-    ///             .create(true)
-    ///             .open("foo.txt")
-    ///             .await?;
-    ///         Ok(())
-    ///     })
+    /// #[monoio::main]
+    /// async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    ///     let file = OpenOptions::new()
+    ///         .write(true)
+    ///         .create(true)
+    ///         .open("foo.txt")
+    ///         .await?;
+    ///     Ok(())
     /// }
     /// ```
     pub fn create(&mut self, create: bool) -> &mut OpenOptions {
@@ -264,15 +256,14 @@ impl OpenOptions {
     /// ```no_run
     /// use monoio::fs::OpenOptions;
     ///
-    /// fn main() -> Result<(), Box<dyn std::error::Error>> {
-    ///     monoio::start(async {
-    ///         let file = OpenOptions::new()
-    ///             .write(true)
-    ///             .create_new(true)
-    ///             .open("foo.txt")
-    ///             .await?;
-    ///         Ok(())
-    ///     })
+    /// #[monoio::main]
+    /// async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    ///     let file = OpenOptions::new()
+    ///         .write(true)
+    ///         .create_new(true)
+    ///         .open("foo.txt")
+    ///         .await?;
+    ///     Ok(())
     /// }
     /// ```
     pub fn create_new(&mut self, create_new: bool) -> &mut OpenOptions {
@@ -314,14 +305,13 @@ impl OpenOptions {
     /// ```no_run
     /// use monoio::fs::OpenOptions;
     ///
-    /// fn main() -> Result<(), Box<dyn std::error::Error>> {
-    ///     monoio::start(async {
-    ///         let file = OpenOptions::new()
-    ///             .read(true)
-    ///             .open("foo.txt")
-    ///             .await?;
-    ///         Ok(())
-    ///     })
+    /// #[monoio::main]
+    /// async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    ///     let file = OpenOptions::new()
+    ///         .read(true)
+    ///         .open("foo.txt")
+    ///         .await?;
+    ///     Ok(())
     /// }
     /// ```
     ///
@@ -337,7 +327,9 @@ impl OpenOptions {
         let completion = op.await;
 
         // The file is open
-        Ok(File::from_shared_fd(SharedFd::new(completion.result? as _)))
+        Ok(File::from_shared_fd(SharedFd::new_without_register(
+            completion.meta.result? as _,
+        )?))
     }
 
     pub(crate) fn access_mode(&self) -> io::Result<libc::c_int> {

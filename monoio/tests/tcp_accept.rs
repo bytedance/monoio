@@ -5,21 +5,17 @@ use monoio::net::{TcpListener, TcpStream};
 macro_rules! test_accept {
     ($(($ident:ident, $target:expr),)*) => {
         $(
-            #[monoio::test]
+            #[monoio::test_all]
             async fn $ident() {
                 let listener = TcpListener::bind($target).unwrap();
                 let addr = listener.local_addr().unwrap();
-
                 let (tx, rx) = local_sync::oneshot::channel();
-
                 monoio::spawn(async move {
                     let (socket, _) = listener.accept().await.unwrap();
                     assert!(tx.send(socket).is_ok());
                 });
-
                 let cli = TcpStream::connect(&addr).await.unwrap();
                 let srv = rx.await.unwrap();
-
                 assert_eq!(cli.local_addr().unwrap(), srv.peer_addr().unwrap());
             }
         )*

@@ -1,12 +1,9 @@
 use crate::driver;
 
-use io_uring::squeue;
-use std::cell::UnsafeCell;
 use std::future::Future;
 use std::io;
 use std::pin::Pin;
-use std::rc::Rc;
-use std::task::{Context, Poll, Waker};
+use std::task::{Context, Poll};
 
 pub(crate) mod close;
 
@@ -22,100 +19,60 @@ mod write;
 /// In-flight operation
 pub(crate) struct Op<T: 'static> {
     // Driver running the operation
-    pub(super) driver: Rc<UnsafeCell<driver::Inner>>,
+    pub(super) driver: driver::Inner,
 
-    // Operation index in the slab
+    // Operation index in the slab(useless for legacy)
     pub(super) index: usize,
 
     // Per-operation data
-    data: Option<Pin<Box<T>>>,
+    pub(super) data: Option<Pin<Box<T>>>,
 }
 
 /// Operation completion. Returns stored state with the result of the operation.
 #[derive(Debug)]
 pub(crate) struct Completion<T> {
     pub(crate) data: T,
+    pub(crate) meta: CompletionMeta,
+}
+
+/// Operation completion meta info.
+#[derive(Debug)]
+pub(crate) struct CompletionMeta {
     pub(crate) result: io::Result<u32>,
     #[allow(unused)]
     pub(crate) flags: u32,
 }
 
-pub(crate) enum Lifecycle {
-    /// The operation has been submitted to uring and is currently in-flight
-    Submitted,
+pub(crate) trait OpAble {
+    #[cfg(all(target_os = "linux", feature = "iouring"))]
+    fn uring_op(self: &mut std::pin::Pin<Box<Self>>) -> io_uring::squeue::Entry;
 
-    /// The submitter is waiting for the completion of the operation
-    Waiting(Waker),
-
-    /// The submitter no longer has interest in the operation result. The state
-    /// must be passed to the driver and held until the operation completes.
-    Ignored(Box<dyn std::any::Any>),
-
-    /// The operation has completed.
-    Completed(io::Result<u32>, u32),
+    #[cfg(feature = "legacy")]
+    fn legacy_interest(&self) -> Option<(super::legacy::ready::Direction, usize)>;
+    #[cfg(feature = "legacy")]
+    fn legacy_call(self: &mut std::pin::Pin<Box<Self>>) -> io::Result<u32>;
 }
 
 impl<T> Op<T> {
-    /// Create a new operation
-    fn new(data: T, inner: &mut driver::Inner, inner_rc: &Rc<UnsafeCell<driver::Inner>>) -> Op<T> {
-        Op {
-            driver: inner_rc.clone(),
-            index: inner.ops.insert(),
-            data: Some(Box::pin(data)),
-        }
-    }
-
     /// Submit an operation to uring.
     ///
     /// `state` is stored during the operation tracking any state submitted to
     /// the kernel.
-    pub(super) fn submit_with<F>(data: T, f: F) -> io::Result<Op<T>>
+    pub(super) fn submit_with(data: T) -> io::Result<Op<T>>
     where
-        F: FnOnce(&mut Pin<Box<T>>) -> squeue::Entry,
+        T: OpAble,
     {
-        driver::CURRENT.with(|inner_rc| {
-            let inner = unsafe { &mut *inner_rc.get() };
-
-            // If the submission queue is full, flush it to the kernel
-            if inner.uring.submission().is_full() {
-                inner.submit()?;
-            }
-
-            // Create the operation
-            let mut op = Op::new(data, inner, inner_rc);
-
-            // Configure the SQE
-            let sqe = f(unsafe { op.data.as_mut().unwrap_unchecked() }).user_data(op.index as _);
-
-            {
-                let mut sq = inner.uring.submission();
-
-                // Push the new operation
-                if unsafe { sq.push(&sqe).is_err() } {
-                    unimplemented!("when is this hit?");
-                }
-            }
-
-            // Submit the new operation. At this point, the operation has been
-            // pushed onto the queue and the tail pointer has been updated, so
-            // the submission entry is visible to the kernel. If there is an
-            // error here (probably EAGAIN), we still return the operation. A
-            // future `io_uring_enter` will fully submit the event.
-
-            // CHIHAI: We are not going to do syscall now. If we are waiting
-            // for IO, we will submit on `park`.
-            // let _ = inner.submit();
-            Ok(op)
-        })
+        driver::CURRENT.with(|this| this.submit_with(data))
     }
 
     /// Try submitting an operation to uring
-    pub(super) fn try_submit_with<F>(data: T, f: F) -> io::Result<Op<T>>
+    #[allow(unused)]
+    pub(super) fn try_submit_with(data: T) -> io::Result<Op<T>>
     where
-        F: FnOnce(&mut Pin<Box<T>>) -> squeue::Entry,
+        T: OpAble,
     {
         if driver::CURRENT.is_set() {
-            Op::submit_with(data, f)
+            Op::submit_with(data)
         } else {
             Err(io::ErrorKind::Other.into())
         }
@@ -124,71 +81,93 @@ impl<T> Op<T> {
 
 impl<T> Future for Op<T>
 where
-    T: Unpin + 'static,
+    T: Unpin + OpAble + 'static,
 {
     type Output = Completion<T>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let me = &mut *self;
-        let inner = unsafe { &mut *me.driver.get() };
+        let data_mut = me.data.as_mut().expect("unexpected operation state");
+        let meta = ready!(me.driver.poll_op::<T>(data_mut, me.index, cx));
 
-        let lifecycle = unsafe { inner.ops.slab.get_mut(me.index).unwrap_unchecked() };
-        match lifecycle {
-            Lifecycle::Submitted => {
-                *lifecycle = Lifecycle::Waiting(cx.waker().clone());
-                return Poll::Pending;
-            }
-            Lifecycle::Waiting(waker) => {
-                if !waker.will_wake(cx.waker()) {
-                    *lifecycle = Lifecycle::Waiting(cx.waker().clone());
-                }
-                return Poll::Pending;
-            }
-            _ => {}
-        }
-
-        match unsafe { inner.ops.slab.remove(me.index).unwrap_unchecked() } {
-            Lifecycle::Completed(result, flags) => {
-                me.index = usize::MAX;
-                let pinned_data = me.data.take().expect("unexpected operation state");
-                let data = Box::into_inner(unsafe { Pin::into_inner_unchecked(pinned_data) });
-                Poll::Ready(Completion {
-                    data,
-                    result,
-                    flags,
-                })
-            }
-            _ => unsafe { std::hint::unreachable_unchecked() },
-        }
+        me.index = usize::MAX;
+        let pinned_data = me.data.take().expect("unexpected operation state");
+        let data = Box::into_inner(unsafe { Pin::into_inner_unchecked(pinned_data) });
+        Poll::Ready(Completion { data, meta })
     }
 }
 
 impl<T> Drop for Op<T> {
     fn drop(&mut self) {
-        let inner = unsafe { &mut *self.driver.get() };
-        let lifecycle = match inner.ops.slab.get_mut(self.index) {
-            Some(lifecycle) => lifecycle,
-            None => return,
-        };
-
-        match lifecycle {
-            Lifecycle::Submitted | Lifecycle::Waiting(_) => {
-                *lifecycle = Lifecycle::Ignored(Box::new(self.data.take()));
-                #[cfg(features = "async-cancel")]
-                unsafe {
-                    let cancel = io_uring::opcode::AsyncCancel::new(self.index as u64).build();
-
-                    // Try push cancel, if failed, will submit and re-push.
-                    if inner.uring.submission().push(&cancel).is_err() {
-                        let _ = inner.submit();
-                        let _ = inner.uring.submission().push(&cancel);
-                    }
-                }
-            }
-            Lifecycle::Completed(..) => {
-                inner.ops.slab.remove(self.index);
-            }
-            Lifecycle::Ignored(..) => unreachable!(),
-        }
+        self.driver.drop_op(self.index, &mut self.data);
     }
+}
+
+#[allow(unused)]
+#[cfg(not(target_os = "linux"))]
+fn non_blocking() -> bool {
+    true
+}
+
+#[cfg(target_os = "linux")]
+fn non_blocking() -> bool {
+    super::CURRENT.with(|inner| inner.is_legacy())
+}
+
+// Copied from mio.
+fn new_socket(domain: libc::c_int, socket_type: libc::c_int) -> io::Result<libc::c_int> {
+    #[cfg(any(
+        target_os = "android",
+        target_os = "dragonfly",
+        target_os = "freebsd",
+        target_os = "illumos",
+        target_os = "netbsd",
+        target_os = "openbsd"
+    ))]
+    let socket_type = socket_type | libc::SOCK_NONBLOCK | libc::SOCK_CLOEXEC;
+
+    #[cfg(target_os = "linux")]
+    let socket_type = {
+        if non_blocking() {
+            socket_type | libc::SOCK_CLOEXEC | libc::SOCK_NONBLOCK
+        } else {
+            socket_type | libc::SOCK_CLOEXEC
+        }
+    };
+
+    // Gives a warning for platforms without SOCK_NONBLOCK.
+    #[allow(clippy::let_and_return)]
+    let socket = crate::syscall!(socket(domain, socket_type, 0));
+
+    // Mimick `libstd` and set `SO_NOSIGPIPE` on apple systems.
+    #[cfg(target_vendor = "apple")]
+    let socket = socket.and_then(|socket| {
+        crate::syscall!(setsockopt(
+            socket,
+            libc::SOL_SOCKET,
+            libc::SO_NOSIGPIPE,
+            &1 as *const libc::c_int as *const libc::c_void,
+            std::mem::size_of::<libc::c_int>() as libc::socklen_t
+        ))
+        .map(|_| socket)
+    });
+
+    // Darwin doesn't have SOCK_NONBLOCK or SOCK_CLOEXEC.
+    #[cfg(any(target_os = "ios", target_os = "macos"))]
+    let socket = socket.and_then(|socket| {
+        // For platforms that don't support flags in socket, we need to
+        // set the flags ourselves.
+        crate::syscall!(fcntl(socket, libc::F_SETFL, libc::O_NONBLOCK))
+            .and_then(|_| {
+                crate::syscall!(fcntl(socket, libc::F_SETFD, libc::FD_CLOEXEC)).map(|_| socket)
+            })
+            .map_err(|e| {
+                // If either of the `fcntl` calls failed, ensure the socket is
+                // closed and return the error.
+                let _ = crate::syscall!(close(socket));
+                e
+            })
+    });
+
+    socket
 }

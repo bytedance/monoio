@@ -11,6 +11,7 @@
 #![feature(generic_associated_types)]
 #![feature(type_alias_impl_trait)]
 #![feature(box_into_inner)]
+#![feature(new_uninit)]
 #![feature(io_error_more)]
 
 #[macro_use]
@@ -35,11 +36,20 @@ pub mod stream;
 pub mod task;
 pub mod utils;
 
-pub use builder::RuntimeBuilder;
+pub use builder::{Buildable, RuntimeBuilder};
+pub use driver::Driver;
 pub use runtime::{spawn, Runtime};
 
+#[cfg(any(all(target_os = "linux", feature = "iouring"), feature = "legacy"))]
+pub use {builder::FusionDriver, runtime::FusionRuntime};
+
+#[cfg(all(target_os = "linux", feature = "iouring"))]
+pub use driver::IoUringDriver;
+#[cfg(feature = "legacy")]
+pub use driver::LegacyDriver;
+
 #[cfg(feature = "macros")]
-pub use monoio_macros::{main, test};
+pub use monoio_macros::{main, test, test_all};
 
 use std::future::Future;
 
@@ -53,7 +63,7 @@ use std::future::Future;
 /// use monoio::fs::File;
 ///
 /// fn main() -> Result<(), Box<dyn std::error::Error>> {
-///     monoio::start(async {
+///     monoio::start::<monoio::LegacyDriver, _>(async {
 ///         // Open a file
 ///         let file = File::open("hello.txt").await?;
 ///
@@ -71,13 +81,13 @@ use std::future::Future;
 ///     })
 /// }
 /// ```
-pub fn start<F>(future: F) -> F::Output
+pub fn start<D, F>(future: F) -> F::Output
 where
     F: Future,
     F::Output: 'static,
+    D: Buildable + Driver,
 {
-    let mut rt = builder::RuntimeBuilder::new()
-        .build()
+    let mut rt = builder::Buildable::build(&builder::RuntimeBuilder::<D>::new())
         .expect("Unable to build runtime.");
     rt.block_on(future)
 }
@@ -95,7 +105,7 @@ where
 /// use monoio::fs::File;
 ///
 /// fn main() -> Result<(), Box<dyn std::error::Error>> {
-///     monoio::start(async {
+///     monoio::start::<monoio::LegacyDriver, _>(async {
 ///         // Open a file
 ///         let file = File::open("hello.txt").await?;
 ///

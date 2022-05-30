@@ -45,6 +45,10 @@ impl TcpListener {
         };
         let sys_listener =
             socket2::Socket::new(domain, socket2::Type::STREAM, Some(socket2::Protocol::TCP))?;
+
+        #[cfg(feature = "legacy")]
+        Self::set_non_blocking(&sys_listener)?;
+
         let addr = socket2::SockAddr::from(addr);
 
         if config.reuse_port {
@@ -62,7 +66,7 @@ impl TcpListener {
         sys_listener.bind(&addr)?;
         sys_listener.listen(config.backlog)?;
 
-        let fd = SharedFd::new(sys_listener.into_raw_fd());
+        let fd = SharedFd::new(sys_listener.into_raw_fd())?;
 
         Ok(Self::from_shared_fd(fd))
     }
@@ -81,10 +85,10 @@ impl TcpListener {
         let completion = op.await;
 
         // Convert fd
-        let fd = completion.result?;
+        let fd = completion.meta.result?;
 
         // Construct stream
-        let stream = TcpStream::from_shared_fd(SharedFd::new(fd as _));
+        let stream = TcpStream::from_shared_fd(SharedFd::new(fd as _)?);
 
         // Construct SocketAddr
         let storage = completion.data.addr.as_ptr() as *const _ as *const libc::sockaddr_storage;
@@ -132,6 +136,15 @@ impl TcpListener {
                 unsafe { &mut *meta }.local_addr = Some(addr);
                 addr
             })
+    }
+
+    #[cfg(feature = "legacy")]
+    fn set_non_blocking(_socket: &socket2::Socket) -> io::Result<()> {
+        crate::driver::CURRENT.with(|x| match x {
+            #[cfg(all(target_os = "linux", feature = "iouring"))]
+            crate::driver::Inner::Uring(_) => Ok(()),
+            crate::driver::Inner::Legacy(_) => _socket.set_nonblocking(true),
+        })
     }
 }
 

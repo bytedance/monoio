@@ -2,10 +2,17 @@ use scoped_tls::scoped_thread_local;
 
 use crate::driver::Driver;
 use crate::scheduler::{LocalScheduler, TaskQueue};
-// use crate::task::task_impl::spawn_local;
+#[cfg(all(target_os = "linux", feature = "iouring"))]
+use crate::IoUringDriver;
+#[cfg(feature = "legacy")]
+use crate::LegacyDriver;
+
 use crate::task::waker_fn::{dummy_waker, set_poll, should_poll};
 use crate::task::{new_task, JoinHandle};
 use crate::time::driver::Handle as TimeHandle;
+
+#[cfg(any(all(target_os = "linux", feature = "iouring"), feature = "legacy"))]
+use crate::time::TimeDriver;
 
 use std::future::Future;
 
@@ -39,13 +46,6 @@ impl Default for Context {
 }
 
 impl Context {
-    pub(crate) fn new_with_time_handle(time_handle: TimeHandle) -> Self {
-        Self {
-            time_handle: Some(time_handle),
-            ..Self::new()
-        }
-    }
-
     pub(crate) fn new() -> Self {
         #[cfg(feature = "sync")]
         let thread_id = crate::builder::BUILD_THREAD_ID.with(|id| *id);
@@ -65,7 +65,7 @@ impl Context {
     #[allow(unused)]
     #[cfg(feature = "sync")]
     pub(crate) fn unpark_thread(&self, id: usize) {
-        use crate::driver::{thread::get_unpark_handle, Unpark};
+        use crate::driver::{thread::get_unpark_handle, unpark::Unpark};
         if let Some(handle) = self.unpark_cache.borrow().get(&id) {
             handle.unpark();
             return;
@@ -178,6 +178,141 @@ impl<D> Runtime<D> {
     }
 }
 
+/// Fusion Runtime is a wrapper of io_uring driver or legacy driver based runtime.
+#[cfg(feature = "legacy")]
+pub enum FusionRuntime<#[cfg(all(target_os = "linux", feature = "iouring"))] L, R> {
+    /// Uring driver based runtime.
+    #[cfg(all(target_os = "linux", feature = "iouring"))]
+    Uring(Runtime<L>),
+    /// Legacy driver based runtime.
+    Legacy(Runtime<R>),
+}
+
+/// Fusion Runtime is a wrapper of io_uring driver or legacy driver based runtime.
+#[cfg(all(target_os = "linux", feature = "iouring", not(feature = "legacy")))]
+pub enum FusionRuntime<L> {
+    /// Uring driver based runtime.
+    Uring(Runtime<L>),
+}
+
+#[cfg(all(target_os = "linux", feature = "iouring", feature = "legacy"))]
+impl<L, R> FusionRuntime<L, R>
+where
+    L: Driver,
+    R: Driver,
+{
+    /// Block on
+    pub fn block_on<F>(&mut self, future: F) -> F::Output
+    where
+        F: Future,
+    {
+        match self {
+            FusionRuntime::Uring(inner) => inner.block_on(future),
+            FusionRuntime::Legacy(inner) => inner.block_on(future),
+        }
+    }
+}
+
+#[cfg(all(feature = "legacy", not(all(target_os = "linux", feature = "iouring"))))]
+impl<R> FusionRuntime<R>
+where
+    R: Driver,
+{
+    /// Block on
+    pub fn block_on<F>(&mut self, future: F) -> F::Output
+    where
+        F: Future,
+    {
+        match self {
+            FusionRuntime::Legacy(inner) => inner.block_on(future),
+        }
+    }
+}
+
+#[cfg(all(not(feature = "legacy"), all(target_os = "linux", feature = "iouring")))]
+impl<R> FusionRuntime<R>
+where
+    R: Driver,
+{
+    /// Block on
+    pub fn block_on<F>(&mut self, future: F) -> F::Output
+    where
+        F: Future,
+    {
+        match self {
+            FusionRuntime::Uring(inner) => inner.block_on(future),
+        }
+    }
+}
+
+// L -> Fusion<L, R>
+#[cfg(all(target_os = "linux", feature = "iouring", feature = "legacy"))]
+impl From<Runtime<IoUringDriver>> for FusionRuntime<IoUringDriver, LegacyDriver> {
+    fn from(r: Runtime<IoUringDriver>) -> Self {
+        Self::Uring(r)
+    }
+}
+
+// TL -> Fusion<TL, TR>
+#[cfg(all(target_os = "linux", feature = "iouring", feature = "legacy"))]
+impl From<Runtime<TimeDriver<IoUringDriver>>>
+    for FusionRuntime<TimeDriver<IoUringDriver>, TimeDriver<LegacyDriver>>
+{
+    fn from(r: Runtime<TimeDriver<IoUringDriver>>) -> Self {
+        Self::Uring(r)
+    }
+}
+
+// R -> Fusion<L, R>
+#[cfg(all(target_os = "linux", feature = "iouring", feature = "legacy"))]
+impl From<Runtime<LegacyDriver>> for FusionRuntime<IoUringDriver, LegacyDriver> {
+    fn from(r: Runtime<LegacyDriver>) -> Self {
+        Self::Legacy(r)
+    }
+}
+
+// TR -> Fusion<TL, TR>
+#[cfg(all(target_os = "linux", feature = "iouring", feature = "legacy"))]
+impl From<Runtime<TimeDriver<LegacyDriver>>>
+    for FusionRuntime<TimeDriver<IoUringDriver>, TimeDriver<LegacyDriver>>
+{
+    fn from(r: Runtime<TimeDriver<LegacyDriver>>) -> Self {
+        Self::Legacy(r)
+    }
+}
+
+// R -> Fusion<R>
+#[cfg(all(feature = "legacy", not(all(target_os = "linux", feature = "iouring"))))]
+impl From<Runtime<LegacyDriver>> for FusionRuntime<LegacyDriver> {
+    fn from(r: Runtime<LegacyDriver>) -> Self {
+        Self::Legacy(r)
+    }
+}
+
+// TR -> Fusion<TR>
+#[cfg(all(feature = "legacy", not(all(target_os = "linux", feature = "iouring"))))]
+impl From<Runtime<TimeDriver<LegacyDriver>>> for FusionRuntime<TimeDriver<LegacyDriver>> {
+    fn from(r: Runtime<TimeDriver<LegacyDriver>>) -> Self {
+        Self::Legacy(r)
+    }
+}
+
+// L -> Fusion<L>
+#[cfg(all(target_os = "linux", feature = "iouring", not(feature = "legacy")))]
+impl From<Runtime<IoUringDriver>> for FusionRuntime<IoUringDriver> {
+    fn from(r: Runtime<IoUringDriver>) -> Self {
+        Self::Uring(r)
+    }
+}
+
+// TL -> Fusion<TL>
+#[cfg(all(target_os = "linux", feature = "iouring", not(feature = "legacy")))]
+impl From<Runtime<TimeDriver<IoUringDriver>>> for FusionRuntime<TimeDriver<IoUringDriver>> {
+    fn from(r: Runtime<TimeDriver<IoUringDriver>>) -> Self {
+        Self::Uring(r)
+    }
+}
+
 /// Spawns a new asynchronous task, returning a [`JoinHandle`] for it.
 ///
 /// Spawning a task enables the task to execute concurrently to other tasks.
@@ -194,14 +329,15 @@ impl<D> Runtime<D> {
 /// that processes each received connection.
 ///
 /// ```no_run
-/// monoio::start(async {
+/// #[monoio::main]
+/// async fn main() {
 ///     let handle = monoio::spawn(async {
 ///         println!("hello from a background task");
 ///     });
 ///
 ///     // Let the task complete
 ///     handle.await;
-/// });
+/// }
 /// ```
 pub fn spawn<T>(future: T) -> JoinHandle<T::Output>
 where
@@ -243,31 +379,42 @@ where
 
 #[cfg(test)]
 mod tests {
-    #[cfg(feature = "sync")]
+    #[cfg(all(feature = "sync", target_os = "linux", feature = "iouring"))]
     #[test]
     fn across_thread() {
+        use crate::driver::IoUringDriver;
         use futures::channel::oneshot;
+
         let (tx1, rx1) = oneshot::channel::<u8>();
         let (tx2, rx2) = oneshot::channel::<u8>();
 
         std::thread::spawn(move || {
-            let mut rt = crate::RuntimeBuilder::new().build().unwrap();
+            let mut rt = crate::RuntimeBuilder::<IoUringDriver>::new()
+                .build()
+                .unwrap();
             rt.block_on(async move {
                 let n = rx1.await.expect("unable to receive rx1");
                 assert!(tx2.send(n).is_ok());
             });
         });
 
-        let mut rt = crate::RuntimeBuilder::new().build().unwrap();
+        let mut rt = crate::RuntimeBuilder::<IoUringDriver>::new()
+            .build()
+            .unwrap();
         rt.block_on(async move {
             assert!(tx1.send(24).is_ok());
             assert_eq!(rx2.await.expect("unable to receive rx2"), 24);
         });
     }
 
+    #[cfg(all(target_os = "linux", feature = "iouring"))]
     #[test]
     fn timer() {
-        let mut rt = crate::RuntimeBuilder::new().enable_timer().build().unwrap();
+        use crate::driver::IoUringDriver;
+        let mut rt = crate::RuntimeBuilder::<IoUringDriver>::new()
+            .enable_timer()
+            .build()
+            .unwrap();
         let instant = std::time::Instant::now();
         rt.block_on(async {
             crate::time::sleep(std::time::Duration::from_millis(200)).await;

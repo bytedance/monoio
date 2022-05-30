@@ -82,7 +82,7 @@ use std::{num::NonZeroU64, ptr::NonNull};
 /// [timeout]: crate::time::Timeout
 /// [interval]: crate::time::Interval
 #[derive(Debug)]
-pub struct TimeDriver<D: Driver + 'static> {
+pub struct TimeDriver<D: 'static> {
     /// Timing backend in use
     time_source: ClockTime,
 
@@ -350,7 +350,7 @@ where
 
 impl<D> Drop for TimeDriver<D>
 where
-    D: Driver + 'static,
+    D: 'static,
 {
     fn drop(&mut self) {
         // self.shutdown();

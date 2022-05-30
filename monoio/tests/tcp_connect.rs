@@ -5,7 +5,7 @@ use monoio::net::{TcpListener, TcpStream};
 macro_rules! test_connect_ip {
     ($(($ident:ident, $target:expr, $addr_f:path),)*) => {
         $(
-            #[monoio::test]
+            #[monoio::test_all]
             async fn $ident() {
                 let listener = TcpListener::bind($target).unwrap();
                 let addr = listener.local_addr().unwrap();
@@ -37,7 +37,7 @@ test_connect_ip! {
 macro_rules! test_connect {
     ($(($ident:ident, $mapping:tt),)*) => {
         $(
-            #[monoio::test]
+            #[monoio::test_all]
             async fn $ident() {
                 let listener = TcpListener::bind("127.0.0.1:0").unwrap();
                 #[allow(clippy::redundant_closure_call)]
@@ -79,4 +79,43 @@ test_connect! {
         let addr = listener.local_addr().unwrap();
         ("127.0.0.1", addr.port())
     })),
+}
+
+#[monoio::test_all(timer_enabled = true)]
+async fn connect_timeout_dst() {
+    let drop_flag = DropFlag::default();
+    let drop_flag_copy = drop_flag.clone();
+    {
+        let connect = async move {
+            let _unused = drop_flag_copy;
+            TcpStream::connect("1.1.1.1:1").await
+        };
+
+        let res = monoio::select! {
+            _ = connect => { false }
+            _ = monoio::time::sleep(std::time::Duration::from_secs(1)) => { true }
+        };
+        assert!(res);
+    }
+    drop_flag.assert_dropped();
+}
+
+#[monoio::test_all]
+async fn connect_invalid_dst() {
+    assert!(TcpStream::connect("127.0.0.1:1").await.is_err());
+}
+
+#[derive(Default, Clone)]
+struct DropFlag(std::rc::Rc<std::cell::RefCell<bool>>);
+
+impl Drop for DropFlag {
+    fn drop(&mut self) {
+        *self.0.borrow_mut() = true;
+    }
+}
+
+impl DropFlag {
+    fn assert_dropped(&self) {
+        assert!(*self.0.borrow());
+    }
 }

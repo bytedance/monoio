@@ -8,14 +8,13 @@ license = "MIT/Apache-2.0"
 name = "monoio"
 readme = "README.md"
 repository = "https://github.com/bytedance/monoio"
-version = "0.0.4"
+version = "0.0.5"
 
 [dependencies]
-monoio-macros = {version = "0.0.2", path = "../monoio-macros", optional = true}
+monoio-macros = {version = "0.0.3", path = "../monoio-macros", optional = true}
 
 futures = "0.3"
 fxhash = "0.2"
-io-uring = {version = "0.5", features = ["unstable"]}
 libc = "0.2"
 os_socketaddr = "0.2"
 pin-project-lite = "0.2"
@@ -25,12 +24,16 @@ socket2 = {version = "0.4", features = ["all"]}
 bytes = {version = "1", optional = true}
 flume = {version = "0.10", optional = true}
 lazy_static = {version = "1", optional = true}
-nix = {version = "0.23", optional = true}
-tracing = { version = "0.1", default-features = false, features = ["std"], optional = true }
+mio = {version = "0.8", features = ["net", "os-poll", "os-ext"], optional = true}
+nix = {version = "0.24", optional = true}
+tracing = {version = "0.1", default-features = false, features = ["std"], optional = true}
+
+[target.'cfg(target_os = "linux")'.dependencies]
+io-uring = {version = "0.5", features = ["unstable"]}
 
 [dev-dependencies]
-tempfile = "3.2"
 local-sync = "0.0.5"
+tempfile = "3.2"
 
 [features]
 # async-cancel will push a async-cancel entry into sq when op is canceled
@@ -46,5 +49,9 @@ sync = ["lazy_static", "flume"]
 utils = ["nix"]
 # enable debug if you want to know what runtime does
 debug = ["tracing"]
-
-default = ["async-cancel", "bytes", "macros", "utils"]
+# enable legacy driver support(will make monoio available for older kernel and macOS)
+legacy = ["mio"]
+# iouring support
+iouring = []
+# by default both iouring and legacy are enabled
+default = ["async-cancel", "bytes", "iouring", "legacy", "macros", "utils"]

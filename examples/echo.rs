@@ -1,11 +1,12 @@
-/// An echo example.
-///
-/// Run the example and `nc 127.0.0.1 50002` in another shell.
-/// All your input will be echoed out.
+//! An echo example.
+//!
+//! Run the example and `nc 127.0.0.1 50002` in another shell.
+//! All your input will be echoed out.
+
 use monoio::io::{AsyncReadRent, AsyncWriteRentExt};
 use monoio::net::{TcpListener, TcpStream};
 
-#[monoio::main]
+#[monoio::main(driver = "fusion")]
 async fn main() {
     // tracing_subscriber::fmt().with_max_level(tracing::Level::TRACE).init();
     let listener = TcpListener::bind("127.0.0.1:50002").unwrap();

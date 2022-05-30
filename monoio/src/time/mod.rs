@@ -92,7 +92,10 @@ pub(crate) use self::clock::Clock;
 pub(crate) mod driver;
 
 #[doc(inline)]
-pub use driver::sleep::{sleep, sleep_until, Sleep};
+pub use driver::{
+    sleep::{sleep, sleep_until, Sleep},
+    TimeDriver,
+};
 
 pub mod error;
 

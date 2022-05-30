@@ -1,4 +1,4 @@
-/// Use macro to run async main
+//! Use macro to run async main
 
 #[monoio::main(entries = 512)]
 async fn main() {

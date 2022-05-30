@@ -3,7 +3,7 @@ use fxhash::FxHashMap;
 use lazy_static::lazy_static;
 use std::{sync::Mutex, task::Waker};
 
-use super::UnparkHandle;
+use crate::driver::UnparkHandle;
 
 lazy_static! {
     // Global unpark map

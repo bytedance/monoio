@@ -1,7 +1,10 @@
 //! Slab.
 //! Part of code and design forked from tokio.
 
-use std::mem::MaybeUninit;
+use std::{
+    mem::MaybeUninit,
+    ops::{Deref, DerefMut},
+};
 
 /// Pre-allocated storage for a uniform data type
 #[derive(Default)]
@@ -32,6 +35,7 @@ impl<T> Slab<T> {
     }
 
     /// Get slab len.
+    #[allow(unused)]
     pub(crate) fn len(&self) -> usize {
         self.pages.iter().fold(0, |acc, page| match page {
             Some(page) => acc + page.used,
@@ -39,25 +43,22 @@ impl<T> Slab<T> {
         })
     }
 
-    /// Get a key ref.
-    #[allow(unused)]
-    pub(crate) fn get(&self, key: usize) -> Option<&T> {
+    pub(crate) fn get(&mut self, key: usize) -> Option<Ref<'_, T>> {
         let page_id = get_page_id(key);
-        let page = match unsafe { self.pages.get_unchecked(page_id) } {
-            Some(page) => page,
-            None => return None,
-        };
-        page.get(key - page.prev_len)
-    }
-
-    /// Get a key mut ref.
-    pub(crate) fn get_mut(&mut self, key: usize) -> Option<&mut T> {
-        let page_id = get_page_id(key);
+        // here we make 2 mut ref so we must make it safe.
+        let slab = unsafe { &mut *(self as *mut Slab<T>) };
         let page = match unsafe { self.pages.get_unchecked_mut(page_id) } {
             Some(page) => page,
             None => return None,
         };
-        page.get_mut(key - page.prev_len)
+        let index = key - page.prev_len;
+        match page.get_entry_mut(index) {
+            None => None,
+            Some(entry) => match entry {
+                Entry::Vacant(_) => None,
+                Entry::Occupied(_) => Some(Ref { slab, page, index }),
+            },
+        }
     }
 
     /// Insert an element into slab. The key is returned.
@@ -89,6 +90,7 @@ impl<T> Slab<T> {
     }
 
     /// Remove an element from slab.
+    #[allow(unused)]
     pub(crate) fn remove(&mut self, key: usize) -> Option<T> {
         let page_id = get_page_id(key);
         let page = match unsafe { self.pages.get_unchecked_mut(page_id) } {
@@ -96,6 +98,11 @@ impl<T> Slab<T> {
             None => return None,
         };
         let val = page.remove(key - page.prev_len);
+        self.mark_remove();
+        val
+    }
+
+    pub(crate) fn mark_remove(&mut self) {
         // compact
         self.generation = self.generation.wrapping_add(1);
         if self.generation % COMPACT_INTERVAL == 0 {
@@ -116,7 +123,6 @@ impl<T> Slab<T> {
                 }
             }
         }
-        val
     }
 }
 
@@ -127,6 +133,54 @@ fn get_page_id(key: usize) -> usize {
 
     let slot_shifted = (key.saturating_add(PAGE_INITIAL_SIZE)) >> PAGE_INDEX_SHIFT;
     ((POINTER_WIDTH - slot_shifted.leading_zeros()) as usize).min(NUM_PAGES - 1)
+}
+
+/// Ref point to a valid slot.
+pub(crate) struct Ref<'a, T> {
+    slab: &'a mut Slab<T>,
+    page: &'a mut Page<T>,
+    index: usize,
+}
+
+impl<'a, T> Ref<'a, T> {
+    #[allow(unused)]
+    pub(crate) fn remove(self) -> T {
+        // # Safety
+        // We make sure the index is valid.
+        let val = unsafe { self.page.remove(self.index).unwrap_unchecked() };
+        self.slab.mark_remove();
+        val
+    }
+}
+
+impl<'a, T> AsRef<T> for Ref<'a, T> {
+    fn as_ref(&self) -> &T {
+        // # Safety
+        // We make sure the index is valid.
+        unsafe { self.page.get(self.index).unwrap_unchecked() }
+    }
+}
+
+impl<'a, T> AsMut<T> for Ref<'a, T> {
+    fn as_mut(&mut self) -> &mut T {
+        // # Safety
+        // We make sure the index is valid.
+        unsafe { self.page.get_mut(self.index).unwrap_unchecked() }
+    }
+}
+
+impl<'a, T> Deref for Ref<'a, T> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        self.as_ref()
+    }
+}
+
+impl<'a, T> DerefMut for Ref<'a, T> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        self.as_mut()
+    }
 }
 
 enum Entry<T> {
@@ -245,6 +299,13 @@ impl<T> Page<T> {
         unsafe { self.slots.get_unchecked_mut(slot).assume_init_mut() }.as_mut()
     }
 
+    fn get_entry_mut(&mut self, slot: usize) -> Option<&mut Entry<T>> {
+        if slot >= self.initialized {
+            return None;
+        }
+        unsafe { Some(self.slots.get_unchecked_mut(slot).assume_init_mut()) }
+    }
+
     fn remove(&mut self, slot: usize) -> Option<T> {
         if slot >= self.initialized {
             return None;
@@ -288,7 +349,7 @@ mod tests {
     fn insert_get_remove_one() {
         let mut slab = Slab::default();
         let key = slab.insert(10);
-        assert_eq!(slab.get(key), Some(&10));
+        assert_eq!(slab.get(key).unwrap().as_mut(), &10);
         assert_eq!(slab.remove(key), Some(10));
         assert!(slab.get(key).is_none());
         assert_eq!(slab.len(), 0);
@@ -305,7 +366,7 @@ mod tests {
 
                 let key = slab.insert(val);
                 keys.push((key, val));
-                assert_eq!(slab.get(key).unwrap(), &val);
+                assert_eq!(slab.get(key).unwrap().as_mut(), &val);
             }
 
             for (key, val) in keys.drain(..) {

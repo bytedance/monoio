@@ -8,7 +8,7 @@ version = "0.0.0"
 # [dependencies] instead. In additional, if you want to know how runtime
 # works, you can enable "debug" feature.
 [dev-dependencies]
-monoio = {path = "../monoio", features = ["sync", "utils", "bytes", "macros"]}
+monoio = {path = "../monoio", default-features = false, features = ["async-cancel", "bytes", "iouring", "legacy", "macros", "utils"]}
 
 # Enable tracing and tracing-subscriber for print out runtime debug
 # tracing information. Add these only when you enable "debug" feature.
@@ -26,12 +26,20 @@ local-sync = "0.0.5"
 pin-project-lite = "0.2"
 
 [[example]]
+name = "accept"
+path = "accept.rs"
+
+[[example]]
 name = "builder"
 path = "builder.rs"
 
 [[example]]
-name = "connect"
-path = "connect.rs"
+name = "tcp_legacy"
+path = "tcp_legacy.rs"
+
+[[example]]
+name = "tcp_uring"
+path = "tcp_uring.rs"
 
 [[example]]
 name = "uds"

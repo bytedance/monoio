@@ -29,25 +29,24 @@ use std::path::Path;
 /// ```no_run
 /// use monoio::fs::File;
 ///
-/// fn main() -> Result<(), Box<dyn std::error::Error>> {
-///     monoio::start(async {
-///         // Open a file
-///         let file = File::create("hello.txt").await?;
+/// #[monoio::main]
+/// async fn main() -> Result<(), Box<dyn std::error::Error>> {
+///     // Open a file
+///     let file = File::create("hello.txt").await?;
 ///
-///         // Write some data
-///         let (res, buf) = file.write_at(&b"hello world"[..], 0).await;
-///         let n = res?;
+///     // Write some data
+///     let (res, buf) = file.write_at(&b"hello world"[..], 0).await;
+///     let n = res?;
 ///
-///         println!("wrote {} bytes", n);
+///     println!("wrote {} bytes", n);
 ///
-///         // Sync data to the file system.
-///         file.sync_all().await?;
+///     // Sync data to the file system.
+///     file.sync_all().await?;
 ///
-///         // Close the file
-///         file.close().await?;
+///     // Close the file
+///     file.close().await?;
 ///
-///         Ok(())
-///     })
+///     Ok(())
 /// }
 /// ```
 pub struct File {
@@ -70,14 +69,13 @@ impl File {
     /// ```no_run
     /// use monoio::fs::File;
     ///
-    /// fn main() -> Result<(), Box<dyn std::error::Error>> {
-    ///     monoio::start(async {
-    ///         let f = File::open("foo.txt").await?;
+    /// #[monoio::main]
+    /// async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    ///     let f = File::open("foo.txt").await?;
     ///
-    ///         // Close the file
-    ///         f.close().await?;
-    ///         Ok(())
-    ///     })
+    ///     // Close the file
+    ///     f.close().await?;
+    ///     Ok(())
     /// }
     /// ```
     pub async fn open(path: impl AsRef<Path>) -> io::Result<File> {
@@ -96,14 +94,13 @@ impl File {
     /// ```no_run
     /// use monoio::fs::File;
     ///
-    /// fn main() -> Result<(), Box<dyn std::error::Error>> {
-    ///     monoio::start(async {
-    ///         let f = File::create("foo.txt").await?;
+    /// #[monoio::main]
+    /// async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    ///     let f = File::create("foo.txt").await?;
     ///
-    ///         // Close the file
-    ///         f.close().await?;
-    ///         Ok(())
-    ///     })
+    ///     // Close the file
+    ///     f.close().await?;
+    ///     Ok(())
     /// }
     /// ```
     pub async fn create(path: impl AsRef<Path>) -> io::Result<File> {
@@ -147,21 +144,20 @@ impl File {
     /// ```no_run
     /// use monoio::fs::File;
     ///
-    /// fn main() -> Result<(), Box<dyn std::error::Error>> {
-    ///     monoio::start(async {
-    ///         let f = File::open("foo.txt").await?;
-    ///         let buffer = vec![0; 10];
+    /// #[monoio::main]
+    /// async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    ///     let f = File::open("foo.txt").await?;
+    ///     let buffer = vec![0; 10];
     ///
-    ///         // Read up to 10 bytes
-    ///         let (res, buffer) = f.read_at(buffer, 0).await;
-    ///         let n = res?;
+    ///     // Read up to 10 bytes
+    ///     let (res, buffer) = f.read_at(buffer, 0).await;
+    ///     let n = res?;
     ///
-    ///         println!("The bytes: {:?}", &buffer[..n]);
+    ///     println!("The bytes: {:?}", &buffer[..n]);
     ///
-    ///         // Close the file
-    ///         f.close().await?;
-    ///         Ok(())
-    ///     })
+    ///     // Close the file
+    ///     f.close().await?;
+    ///     Ok(())
     /// }
     /// ```
     pub async fn read_at<T: IoBufMut>(&self, buf: T, pos: u64) -> crate::BufResult<usize, T> {
@@ -200,21 +196,20 @@ impl File {
     /// ```no_run
     /// use monoio::fs::File;
     ///
-    /// fn main() -> Result<(), Box<dyn std::error::Error>> {
-    ///     monoio::start(async {
-    ///         let f = File::open("foo.txt").await?;
-    ///         let buffer = vec![0; 10];
+    /// #[monoio::main]
+    /// async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    ///     let f = File::open("foo.txt").await?;
+    ///     let buffer = vec![0; 10];
     ///
-    ///         // Read up to 10 bytes
-    ///         let (res, buffer) = f.read_exact_at(buffer, 0).await;
-    ///         res?;
+    ///     // Read up to 10 bytes
+    ///     let (res, buffer) = f.read_exact_at(buffer, 0).await;
+    ///     res?;
     ///
-    ///         println!("The bytes: {:?}", buffer);
+    ///     println!("The bytes: {:?}", buffer);
     ///
-    ///         // Close the file
-    ///         f.close().await?;
-    ///         Ok(())
-    ///     })
+    ///     // Close the file
+    ///     f.close().await?;
+    ///     Ok(())
     /// }
     /// ```
     ///
@@ -280,20 +275,19 @@ impl File {
     /// ```no_run
     /// use monoio::fs::File;
     ///
-    /// fn main() -> Result<(), Box<dyn std::error::Error>> {
-    ///     monoio::start(async {
-    ///         let file = File::create("foo.txt").await?;
+    /// #[monoio::main]
+    /// async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    ///     let file = File::create("foo.txt").await?;
     ///
-    ///         // Writes some prefix of the byte string, not necessarily all of it.
-    ///         let (res, _) = file.write_at(&b"some bytes"[..], 0).await;
-    ///         let n = res?;
+    ///     // Writes some prefix of the byte string, not necessarily all of it.
+    ///     let (res, _) = file.write_at(&b"some bytes"[..], 0).await;
+    ///     let n = res?;
     ///
-    ///         println!("wrote {} bytes", n);
+    ///     println!("wrote {} bytes", n);
     ///
-    ///         // Close the file
-    ///         file.close().await?;
-    ///         Ok(())
-    ///     })
+    ///     // Close the file
+    ///     file.close().await?;
+    ///     Ok(())
     /// }
     /// ```
     ///
@@ -327,20 +321,19 @@ impl File {
     /// ```no_run
     /// use monoio::fs::File;
     ///
-    /// fn main() -> Result<(), Box<dyn std::error::Error>> {
-    ///     monoio::start(async {
-    ///         let file = File::create("foo.txt").await?;
+    /// #[monoio::main]
+    /// async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    ///     let file = File::create("foo.txt").await?;
     ///
-    ///         // Writes some prefix of the byte string, not necessarily all of it.
-    ///         let (res, _) = file.write_all_at(&b"some bytes"[..], 0).await;
-    ///         res?;
+    ///     // Writes some prefix of the byte string, not necessarily all of it.
+    ///     let (res, _) = file.write_all_at(&b"some bytes"[..], 0).await;
+    ///     res?;
     ///
-    ///         println!("wrote all bytes");
+    ///     println!("wrote all bytes");
     ///
-    ///         // Close the file
-    ///         file.close().await?;
-    ///         Ok(())
-    ///     })
+    ///     // Close the file
+    ///     file.close().await?;
+    ///     Ok(())
     /// }
     /// ```
     ///
@@ -386,25 +379,24 @@ impl File {
     /// ```no_run
     /// use monoio::fs::File;
     ///
-    /// fn main() -> Result<(), Box<dyn std::error::Error>> {
-    ///     monoio::start(async {
-    ///         let f = File::create("foo.txt").await?;
-    ///         let (res, buf) = f.write_at(&b"Hello, world!"[..], 0).await;
-    ///         let n = res?;
+    /// #[monoio::main]
+    /// async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    ///     let f = File::create("foo.txt").await?;
+    ///     let (res, buf) = f.write_at(&b"Hello, world!"[..], 0).await;
+    ///     let n = res?;
     ///
-    ///         f.sync_all().await?;
+    ///     f.sync_all().await?;
     ///
-    ///         // Close the file
-    ///         f.close().await?;
-    ///         Ok(())
-    ///     })
+    ///     // Close the file
+    ///     f.close().await?;
+    ///     Ok(())
     /// }
     /// ```
     pub async fn sync_all(&self) -> io::Result<()> {
         let op = Op::fsync(&self.fd).unwrap();
         let completion = op.await;
 
-        completion.result?;
+        completion.meta.result?;
         Ok(())
     }
 
@@ -427,25 +419,24 @@ impl File {
     /// ```no_run
     /// use monoio::fs::File;
     ///
-    /// fn main() -> Result<(), Box<dyn std::error::Error>> {
-    ///     monoio::start(async {
-    ///         let f = File::create("foo.txt").await?;
-    ///         let (res, buf) = f.write_at(&b"Hello, world!"[..], 0).await;
-    ///         let n = res?;
+    /// #[monoio::main]
+    /// async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    ///     let f = File::create("foo.txt").await?;
+    ///     let (res, buf) = f.write_at(&b"Hello, world!"[..], 0).await;
+    ///     let n = res?;
     ///
-    ///         f.sync_data().await?;
+    ///     f.sync_data().await?;
     ///
-    ///         // Close the file
-    ///         f.close().await?;
-    ///         Ok(())
-    ///     })
+    ///     // Close the file
+    ///     f.close().await?;
+    ///     Ok(())
     /// }
     /// ```
     pub async fn sync_data(&self) -> io::Result<()> {
         let op = Op::datasync(&self.fd).unwrap();
         let completion = op.await;
 
-        completion.result?;
+        completion.meta.result?;
         Ok(())
     }
 
@@ -463,15 +454,14 @@ impl File {
     /// ```no_run
     /// use monoio::fs::File;
     ///
-    /// fn main() -> Result<(), Box<dyn std::error::Error>> {
-    ///     monoio::start(async {
-    ///         // Open the file
-    ///         let f = File::open("foo.txt").await?;
-    ///         // Close the file
-    ///         f.close().await?;
+    /// #[monoio::main]
+    /// async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    ///     // Open the file
+    ///     let f = File::open("foo.txt").await?;
+    ///     // Close the file
+    ///     f.close().await?;
     ///
-    ///         Ok(())
-    ///     })
+    ///     Ok(())
     /// }
     /// ```
     pub async fn close(self) -> io::Result<()> {

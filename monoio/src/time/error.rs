@@ -41,7 +41,7 @@ impl From<Kind> for Error {
 }
 
 /// Error returned by `Timeout`.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct Elapsed(());
 
 #[derive(Debug)]

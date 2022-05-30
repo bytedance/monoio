@@ -1,17 +1,30 @@
-/// A example to show how to use TcpStream.
-use futures::channel::oneshot;
-use monoio::{
-    io::{AsyncReadRent, AsyncWriteRentExt},
-    net::{TcpListener, TcpStream},
-};
+//! An example to show how to use TcpStream.
 
-const ADDRESS: &str = "127.0.0.1:50000";
+#[cfg(not(target_os = "linux"))]
+fn main() {}
 
+#[cfg(target_os = "linux")]
 fn main() {
-    let (mut tx, rx) = oneshot::channel::<()>();
+    println!("Will run with IoUringDriver(you must be on linux and enable iouring feature)");
+    run::<monoio::IoUringDriver>();
+}
 
+#[cfg(target_os = "linux")]
+fn run<D>()
+where
+    D: monoio::Buildable + monoio::Driver,
+{
+    use futures::channel::oneshot;
+    use monoio::{
+        io::{AsyncReadRent, AsyncWriteRentExt},
+        net::{TcpListener, TcpStream},
+    };
+
+    const ADDRESS: &str = "127.0.0.1:50000";
+
+    let (mut tx, rx) = oneshot::channel::<()>();
     let client_thread = std::thread::spawn(|| {
-        monoio::start(async move {
+        monoio::start::<D, _>(async move {
             println!("[Client] Waiting for server ready");
             tx.cancellation().await;
 
@@ -26,7 +39,7 @@ fn main() {
     });
 
     let server_thread = std::thread::spawn(|| {
-        monoio::start(async move {
+        monoio::start::<D, _>(async move {
             let listener = TcpListener::bind(ADDRESS)
                 .unwrap_or_else(|_| panic!("[Server] Unable to bind to {}", ADDRESS));
             println!("[Server] Bind ready");

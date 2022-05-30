@@ -8,7 +8,7 @@ use monoio::{
 ///
 /// Verifies that the implementation of `AsyncWrite::poll_shutdown` shutdowns the stream for
 /// writing by reading to the end of stream on the other side of the connection.
-#[monoio::test(entries = 1024)]
+#[monoio::test_all(entries = 1024)]
 async fn split() -> std::io::Result<()> {
     let (mut a, mut b) = UnixStream::pair()?;
 

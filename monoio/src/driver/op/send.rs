@@ -1,5 +1,13 @@
-use super::{super::shared_fd::SharedFd, Op};
+use super::{super::shared_fd::SharedFd, Op, OpAble};
 use crate::{buf::IoBuf, BufResult};
+
+#[cfg(all(target_os = "linux", feature = "iouring"))]
+use io_uring::{opcode, types};
+#[cfg(feature = "legacy")]
+use {
+    crate::{driver::legacy::ready::Direction, syscall_u32},
+    std::os::unix::prelude::AsRawFd,
+};
 
 use std::io;
 
@@ -14,8 +22,21 @@ pub(crate) struct Send<T> {
 
 impl<T: IoBuf> Op<Send<T>> {
     pub(crate) fn send(fd: &SharedFd, buf: T) -> io::Result<Self> {
-        use io_uring::{opcode, types};
+        Op::submit_with(Send {
+            fd: fd.clone(),
+            buf,
+        })
+    }
 
+    pub(crate) async fn write(self) -> BufResult<usize, T> {
+        let complete = self.await;
+        (complete.meta.result.map(|v| v as _), complete.data.buf)
+    }
+}
+
+impl<T: IoBuf> OpAble for Send<T> {
+    #[cfg(all(target_os = "linux", feature = "iouring"))]
+    fn uring_op(self: &mut std::pin::Pin<Box<Self>>) -> io_uring::squeue::Entry {
         #[cfg(feature = "zero-copy")]
         fn zero_copy_flag_guard<T: IoBuf>(buf: &T) -> i32 {
             // TODO: use libc const after supported.
@@ -32,29 +53,43 @@ impl<T: IoBuf> Op<Send<T>> {
         }
 
         #[cfg(feature = "zero-copy")]
-        let flags = zero_copy_flag_guard(&buf);
+        let flags = zero_copy_flag_guard(&self.buf);
         #[cfg(not(feature = "zero-copy"))]
         let flags = libc::MSG_NOSIGNAL;
 
-        Op::submit_with(
-            Send {
-                fd: fd.clone(),
-                buf,
-            },
-            |send| {
-                opcode::Send::new(
-                    types::Fd(fd.raw_fd()),
-                    send.buf.read_ptr(),
-                    send.buf.bytes_init() as _,
-                )
-                .flags(flags)
-                .build()
-            },
+        opcode::Send::new(
+            types::Fd(self.fd.raw_fd()),
+            self.buf.read_ptr(),
+            self.buf.bytes_init() as _,
         )
+        .flags(flags)
+        .build()
     }
 
-    pub(crate) async fn write(self) -> BufResult<usize, T> {
-        let complete = self.await;
-        (complete.result.map(|v| v as _), complete.data.buf)
+    #[cfg(feature = "legacy")]
+    fn legacy_interest(&self) -> Option<(Direction, usize)> {
+        self.fd
+            .registered_index()
+            .map(|idx| (Direction::Write, idx))
+    }
+
+    #[cfg(feature = "legacy")]
+    fn legacy_call(self: &mut std::pin::Pin<Box<Self>>) -> io::Result<u32> {
+        let fd = self.fd.as_raw_fd();
+        #[cfg(target_os = "linux")]
+        let flags = libc::MSG_NOSIGNAL;
+        #[cfg(not(target_os = "linux"))]
+        let flags = 0;
+
+        if self.buf.bytes_init() == 0 {
+            return Ok(0);
+        }
+
+        syscall_u32!(send(
+            fd,
+            self.buf.read_ptr() as _,
+            self.buf.bytes_init(),
+            flags
+        ))
     }
 }
