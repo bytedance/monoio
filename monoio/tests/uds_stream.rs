@@ -16,7 +16,7 @@ async fn accept_read_write() -> std::io::Result<()> {
 
     let accept = listener.accept();
     let connect = UnixStream::connect(&sock_path);
-    let ((server, _), client) = try_join(accept, connect).await?;
+    let ((mut server, _), mut client) = try_join(accept, connect).await?;
 
     let write_len = client.write_all(b"hello").await.0?;
     assert_eq!(write_len, 5);
@@ -43,7 +43,7 @@ async fn shutdown() -> std::io::Result<()> {
 
     let accept = listener.accept();
     let connect = UnixStream::connect(&sock_path);
-    let ((server, _), client) = try_join(accept, connect).await?;
+    let ((mut server, _), mut client) = try_join(accept, connect).await?;
 
     // Shut down the client
     client.shutdown().await?;

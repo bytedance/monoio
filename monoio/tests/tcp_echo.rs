@@ -15,7 +15,7 @@ async fn echo_server() {
     let msg = "foo bar baz";
     let iov_msg = "iovec_is_so_good";
     monoio::spawn(async move {
-        let stream = TcpStream::connect(&addr).await.unwrap();
+        let mut stream = TcpStream::connect(&addr).await.unwrap();
 
         let mut buf_vec_to_write: Option<Vec<Vec<u8>>> = Some(vec![
             iov_msg.as_bytes()[..9].into(),
@@ -54,9 +54,9 @@ async fn echo_server() {
     });
 
     let (mut stream, _) = srv.accept().await.unwrap();
-    let (rd, wr) = stream.split();
+    let (mut rd, mut wr) = stream.split();
 
-    let n = io::copy(&rd, &wr).await.unwrap();
+    let n = io::copy(&mut rd, &mut wr).await.unwrap();
     assert_eq!(n, (ITER * (msg.len() + 16)) as u64);
 
     assert!(rx.await.is_ok());

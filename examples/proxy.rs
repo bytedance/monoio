@@ -1,7 +1,7 @@
 //! An example TCP proxy.
 
 use monoio::{
-    io::{AsyncReadRent, AsyncWriteRentExt},
+    io::{AsyncReadRent, AsyncWriteRent, AsyncWriteRentExt},
     net::{TcpListener, TcpStream},
 };
 
@@ -13,13 +13,15 @@ async fn main() {
     let listener = TcpListener::bind(LISTEN_ADDRESS)
         .unwrap_or_else(|_| panic!("[Server] Unable to bind to {}", LISTEN_ADDRESS));
     loop {
-        if let Ok((in_conn, _addr)) = listener.accept().await {
+        if let Ok((mut in_conn, _addr)) = listener.accept().await {
             let out_conn = TcpStream::connect(TARGET_ADDRESS).await;
-            if let Ok(out_conn) = out_conn {
+            if let Ok(mut out_conn) = out_conn {
                 monoio::spawn(async move {
+                    let (mut in_r, mut in_w) = in_conn.split();
+                    let (mut out_r, mut out_w) = out_conn.split();
                     let _ = monoio::join!(
-                        copy_one_direction(&in_conn, &out_conn),
-                        copy_one_direction(&out_conn, &in_conn),
+                        copy_one_direction(&mut in_r, &mut out_w),
+                        copy_one_direction(&mut out_r, &mut in_w),
                     );
                     println!("relay finished");
                 });
@@ -33,7 +35,10 @@ async fn main() {
     }
 }
 
-async fn copy_one_direction(from: &TcpStream, to: &TcpStream) -> Result<Vec<u8>, std::io::Error> {
+async fn copy_one_direction<FROM: AsyncReadRent, TO: AsyncWriteRent>(
+    mut from: FROM,
+    to: &mut TO,
+) -> Result<Vec<u8>, std::io::Error> {
     let mut buf = Vec::with_capacity(8 * 1024);
     loop {
         // read

@@ -69,6 +69,7 @@ impl From<TcpStreamCompat> for TcpStream {
     }
 }
 
+#[allow(clippy::cast_ref_to_mut)]
 impl AsyncRead for TcpStreamCompat {
     fn poll_read(
         self: std::pin::Pin<&mut Self>,
@@ -79,7 +80,7 @@ impl AsyncRead for TcpStreamCompat {
         let mut fut = this.read_fut.take().unwrap_or_else(|| {
             // we can read at most that length
             let mut owned_buf = this.read_owned_buf.take().unwrap();
-            let stream = unsafe { &*(&this.stream as *const TcpStream) };
+            let stream = unsafe { &mut *(&this.stream as *const TcpStream as *mut TcpStream) };
 
             let cap = owned_buf.capacity();
             let remaining = buf.remaining();
@@ -115,6 +116,7 @@ impl AsyncRead for TcpStreamCompat {
     }
 }
 
+#[allow(clippy::cast_ref_to_mut)]
 impl AsyncWrite for TcpStreamCompat {
     fn poll_write(
         self: Pin<&mut Self>,
@@ -124,7 +126,7 @@ impl AsyncWrite for TcpStreamCompat {
         let this = self.get_mut();
         let mut fut = this.write_fut.take().unwrap_or_else(|| {
             let mut owned_buf = this.write_owned_buf.take().unwrap();
-            let stream = unsafe { &*(&this.stream as *const TcpStream) };
+            let stream = unsafe { &mut *(&this.stream as *const TcpStream as *mut TcpStream) };
 
             owned_buf.clear();
             owned_buf.extend_from_slice(buf);

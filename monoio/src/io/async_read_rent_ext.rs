@@ -14,7 +14,7 @@ pub trait AsyncReadRentExt {
         T: 'a;
 
     /// Read until buf capacity is fulfilled
-    fn read_exact<T: 'static>(&self, buf: T) -> Self::ReadExactFuture<'_, T>
+    fn read_exact<T: 'static>(&mut self, buf: T) -> Self::ReadExactFuture<'_, T>
     where
         T: 'static + IoBufMut;
 
@@ -25,7 +25,7 @@ pub trait AsyncReadRentExt {
         T: 'a;
 
     /// Readv until buf capacity is fulfilled
-    fn read_vectored_exact<T: 'static>(&self, buf: T) -> Self::ReadVectoredExactFuture<'_, T>
+    fn read_vectored_exact<T: 'static>(&mut self, buf: T) -> Self::ReadVectoredExactFuture<'_, T>
     where
         T: 'static + IoVecBufMut;
 }
@@ -36,7 +36,7 @@ where
 {
     type ReadExactFuture<'a, T> = impl Future<Output = BufResult<usize, T>> where A: 'a, T: 'a;
 
-    fn read_exact<T>(&self, mut buf: T) -> Self::ReadExactFuture<'_, T>
+    fn read_exact<T>(&mut self, mut buf: T) -> Self::ReadExactFuture<'_, T>
     where
         T: 'static + IoBufMut,
     {
@@ -68,7 +68,10 @@ where
 
     type ReadVectoredExactFuture<'a, T> = impl Future<Output = BufResult<usize, T>> where A: 'a, T: 'a;
 
-    fn read_vectored_exact<T: 'static>(&self, mut buf: T) -> Self::ReadVectoredExactFuture<'_, T>
+    fn read_vectored_exact<T: 'static>(
+        &mut self,
+        mut buf: T,
+    ) -> Self::ReadVectoredExactFuture<'_, T>
     where
         T: 'static + IoVecBufMut,
     {
