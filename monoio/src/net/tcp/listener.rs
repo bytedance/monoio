@@ -45,7 +45,10 @@ impl TcpListener {
         };
         let sys_listener =
             socket2::Socket::new(domain, socket2::Type::STREAM, Some(socket2::Protocol::TCP))?;
+
+        #[cfg(feature = "legacy")]
         Self::set_non_blocking(&sys_listener)?;
+
         let addr = socket2::SockAddr::from(addr);
 
         if config.reuse_port {
@@ -135,17 +138,11 @@ impl TcpListener {
             })
     }
 
+    #[cfg(feature = "legacy")]
     fn set_non_blocking(_socket: &socket2::Socket) -> io::Result<()> {
-        #[cfg(all(
-            not(all(target_os = "linux", feature = "iouring")),
-            not(feature = "legacy")
-        ))]
-        unreachable!();
-        #[cfg(any(all(target_os = "linux", feature = "iouring"), feature = "legacy"))]
         crate::driver::CURRENT.with(|x| match x {
             #[cfg(all(target_os = "linux", feature = "iouring"))]
             crate::driver::Inner::Uring(_) => Ok(()),
-            #[cfg(feature = "legacy")]
             crate::driver::Inner::Legacy(_) => _socket.set_nonblocking(true),
         })
     }
