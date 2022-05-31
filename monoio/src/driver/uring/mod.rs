@@ -242,7 +242,7 @@ impl IoUringDriver {
         inner
             .shared_waker
             .awake
-            .store(true, std::sync::atomic::Ordering::Relaxed);
+            .store(true, std::sync::atomic::Ordering::Release);
 
         // Process CQ
         inner.tick();
