@@ -15,7 +15,7 @@ async fn main() {
         let listener = monoio::net::TcpListener::bind(ADDRESS).unwrap();
         oneshot_rx.close();
         let (conn, _) = listener.accept().await.unwrap();
-        let mut compat_conn: TcpStreamCompat = conn.into();
+        let mut compat_conn = unsafe { TcpStreamCompat::new(conn) };
 
         let mut buf = [0u8; 10];
         compat_conn.read_exact(&mut buf).await.unwrap();
@@ -25,7 +25,7 @@ async fn main() {
     let client = async {
         oneshot_tx.closed().await;
         let conn = monoio::net::TcpStream::connect(ADDRESS).await.unwrap();
-        let mut compat_conn: TcpStreamCompat = conn.into();
+        let mut compat_conn = unsafe { TcpStreamCompat::new(conn) };
 
         let mut buf = [65u8; 10];
         compat_conn.write_all(&buf).await.unwrap();
@@ -48,3 +48,8 @@ We implement a simple checking mechanism to ensure that the data is the same bet
 For example, running `h2` server based on this wrapper will fail. Inside the `h2`, it will try to send a data frame with `poll_write`, and if it get `Pending`, it will assume the data not be sent yet. If there is another data frame with a higher priority, it will `poll_write` the new frame instead. But the old data frame will be sent with our wrapper.
 
 The core problem is caused by incompatible between `poll`-like interface and asynchronous system call.
+
+## TcpStreamCompat and TcpStreamCompatUnsafe
+TcpStreamCompat: Will copy data into owned buffer first, then construct save the future. If user does not follow the rule, it will panic.
+
+TcpStreamCompatUnsafe: Will only save user-provided buffer pointer and length. It will not copy the data, so it is more efficient than TcpStreamCompat. But if user does not follow the rule, it will cause memory corruption.
