@@ -11,9 +11,9 @@ repository = "https://github.com/bytedance/monoio"
 version = "0.0.6"
 
 [dependencies]
-monoio = {version = "0.0.5", path = "../monoio", default-features = false}
+monoio = {version = "0.0.6", path = "../monoio", default-features = false}
 reusable-box-future = "0.2"
 tokio = {version = "1", default-features = false, features = ["io-util"]}
 
 [dev-dependencies]
-monoio = {version = "0.0.5", path = "../monoio", features = ["async-cancel", "macros"]}
+monoio = {version = "0.0.6", path = "../monoio", features = ["async-cancel", "macros"]}

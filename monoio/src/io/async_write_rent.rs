@@ -1,9 +1,8 @@
-use std::future::Future;
-
 use crate::{
     buf::{IoBuf, IoBufMut, IoVecBuf},
     BufResult,
 };
+use std::future::Future;
 
 /// AsyncWriteRent: async write with a ownership of a buffer
 pub trait AsyncWriteRent {

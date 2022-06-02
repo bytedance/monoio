@@ -15,6 +15,9 @@ pub use io_vec_buf::{IoVecBuf, IoVecBufMut, VecBuf};
 mod slice;
 pub use slice::{Slice, SliceMut};
 
+mod raw_buf;
+pub use raw_buf::RawBuf;
+
 mod vec_wrapper;
 pub(crate) use vec_wrapper::{read_vec_meta, write_vec_meta};
 
