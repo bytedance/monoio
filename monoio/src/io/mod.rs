@@ -14,4 +14,4 @@ pub use async_write_rent::{AsyncWriteRent, AsyncWriteRentAt};
 pub use async_write_rent_ext::AsyncWriteRentExt;
 
 mod util;
-pub use util::{copy, BufReader, BufWriter};
+pub use util::{copy, BufReader, BufWriter, PrefixedReadIo};
