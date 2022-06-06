@@ -10,10 +10,8 @@
 //! it pass which infact not a good solution but the only way to
 //! make it work without modifying hyper.
 
-use std::pin::Pin;
-
-use futures::Future;
 use monoio_compat::TcpStreamCompat;
+use std::{future::Future, pin::Pin};
 
 #[derive(Clone)]
 struct HyperExecutor;

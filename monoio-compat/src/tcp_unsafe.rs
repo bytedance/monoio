@@ -39,6 +39,7 @@ pub struct TcpStreamCompat {
 
     read_fut: MaybeArmedBoxFuture<BufResult<usize, RawBuf>>,
     write_fut: MaybeArmedBoxFuture<BufResult<usize, RawBuf>>,
+    flush_fut: MaybeArmedBoxFuture<io::Result<()>>,
     shutdown_fut: MaybeArmedBoxFuture<io::Result<()>>,
 }
 
@@ -61,6 +62,7 @@ impl TcpStreamCompat {
             write_dst: Default::default(),
             read_fut: Default::default(),
             write_fut: Default::default(),
+            flush_fut: Default::default(),
             shutdown_fut: Default::default(),
         }
     }
@@ -131,10 +133,16 @@ impl tokio::io::AsyncWrite for TcpStreamCompat {
 
     fn poll_flush(
         self: std::pin::Pin<&mut Self>,
-        _: &mut std::task::Context<'_>,
+        cx: &mut std::task::Context<'_>,
     ) -> std::task::Poll<Result<(), std::io::Error>> {
-        // Monoio does not have a flush-like function now.
-        std::task::Poll::Ready(Ok(()))
+        let this = self.get_mut();
+
+        if !this.flush_fut.armed() {
+            #[allow(clippy::cast_ref_to_mut)]
+            let stream = unsafe { &mut *(&this.stream as *const TcpStream as *mut TcpStream) };
+            this.flush_fut.arm_future(stream.flush());
+        }
+        this.flush_fut.poll(cx)
     }
 
     fn poll_shutdown(

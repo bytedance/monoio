@@ -1,5 +1,6 @@
 use std::{
-    cell::UnsafeCell, error::Error, fmt, io, net::SocketAddr, os::unix::prelude::AsRawFd, rc::Rc,
+    cell::UnsafeCell, error::Error, fmt, future::Future, io, net::SocketAddr,
+    os::unix::prelude::AsRawFd, rc::Rc,
 };
 
 use crate::{
@@ -43,11 +44,13 @@ impl<'t> AsyncReadRent for ReadHalf<'t> {
 
 #[allow(clippy::cast_ref_to_mut)]
 impl<'t> AsyncWriteRent for WriteHalf<'t> {
-    type WriteFuture<'a, B> = impl std::future::Future<Output = crate::BufResult<usize, B>> where
+    type WriteFuture<'a, B> = impl Future<Output = crate::BufResult<usize, B>> where
         't: 'a, B: 'a;
-    type WritevFuture<'a, B> = impl std::future::Future<Output = crate::BufResult<usize, B>> where
+    type WritevFuture<'a, B> = impl Future<Output = crate::BufResult<usize, B>> where
         't: 'a, B: 'a;
-    type ShutdownFuture<'a> = impl std::future::Future<Output = Result<(), std::io::Error>> where
+    type FlushFuture<'a> = impl Future<Output = io::Result<()>> where
+        't: 'a;
+    type ShutdownFuture<'a> = impl Future<Output = io::Result<()>> where
         't: 'a;
 
     fn write<T: IoBuf>(&mut self, buf: T) -> Self::WriteFuture<'_, T> {
@@ -59,6 +62,11 @@ impl<'t> AsyncWriteRent for WriteHalf<'t> {
     fn writev<T: IoVecBuf>(&mut self, buf_vec: T) -> Self::WritevFuture<'_, T> {
         let raw_stream = unsafe { &mut *(self.0 as *const TcpStream as *mut TcpStream) };
         raw_stream.writev(buf_vec)
+    }
+
+    fn flush(&mut self) -> Self::FlushFuture<'_> {
+        // Tcp stream does not need flush.
+        async move { Ok(()) }
     }
 
     fn shutdown(&mut self) -> Self::ShutdownFuture<'_> {
@@ -177,11 +185,12 @@ impl OwnedWriteHalf {
 }
 
 impl AsyncWriteRent for OwnedWriteHalf {
-    type WriteFuture<'a, B> = impl std::future::Future<Output = crate::BufResult<usize, B>> where
+    type WriteFuture<'a, B> = impl Future<Output = crate::BufResult<usize, B>> where
         B: 'a;
-    type WritevFuture<'a, B> = impl std::future::Future<Output = crate::BufResult<usize, B>> where
+    type WritevFuture<'a, B> = impl Future<Output = crate::BufResult<usize, B>> where
         B: 'a;
-    type ShutdownFuture<'a> = impl std::future::Future<Output = Result<(), std::io::Error>>;
+    type FlushFuture<'a> = impl Future<Output = io::Result<()>>;
+    type ShutdownFuture<'a> = impl Future<Output = io::Result<()>>;
 
     fn write<T: IoBuf>(&mut self, buf: T) -> Self::WriteFuture<'_, T> {
         // Submit the write operation
@@ -192,6 +201,11 @@ impl AsyncWriteRent for OwnedWriteHalf {
     fn writev<T: IoVecBuf>(&mut self, buf_vec: T) -> Self::WritevFuture<'_, T> {
         let raw_stream = unsafe { &mut *self.0.get() };
         raw_stream.writev(buf_vec)
+    }
+
+    fn flush(&mut self) -> Self::FlushFuture<'_> {
+        // Tcp stream does not need flush.
+        async move { Ok(()) }
     }
 
     fn shutdown(&mut self) -> Self::ShutdownFuture<'_> {

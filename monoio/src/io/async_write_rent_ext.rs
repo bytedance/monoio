@@ -1,6 +1,6 @@
-use super::AsyncWriteRent;
 use crate::{
     buf::{IoBuf, IoVecBuf},
+    io::AsyncWriteRent,
     BufResult,
 };
 use std::future::Future;

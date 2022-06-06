@@ -31,7 +31,7 @@ To use monoio, you need the latest nightly rust toolchain. If you already instal
 
 To force using nightly, create a file named `rust-toolchain` and write `nightly` in it. Also, you can use `cargo +nightly` to build or run.
 
-Also, since we use io_uring, you must make sure your kernel supports it([5.6+](docs/en/platform-support.md)). And, memlock is [configured as a proper number](docs/en/memlock.md).
+Also, since we use io_uring, you must make sure your kernel supports it([5.6+](docs/en/platform-support.md)). And, memlock is [configured as a proper number](docs/en/memlock.md). If your kernel version does not meet the requirements, you can try to use the legacy driver to start, currently supports Linux and macOS.
 
 Here is a basic example of how to use Monoio.
 
@@ -87,7 +87,7 @@ async fn echo(stream: TcpStream) -> std::io::Result<()> {
 You can find more example code in `examples` of this repository.
 
 ## Limitations
-1. Since we rely on io_uring, currently monoio depends on Linux 5.6 or later. Epoll or other multiplex I/O will be supported soon.
+1. On Linux 5.6 or newer, Monoio can use uring or epoll as io driver. On lower versions of Linux, it can only run in epoll mode. On macOS, kqueue can be used. Other platforms are currently not supported.
 2. Monoio can not solve all problems. If the workload is very unbalanced, it may cause performance degradation than Tokio since CPU cores may not be fully utilized.
 
 ## Contributors
