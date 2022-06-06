@@ -17,8 +17,13 @@ pub trait AsyncWriteRent {
         Self: 'a,
         T: 'a;
 
+    /// The future of flush
+    type FlushFuture<'a>: Future<Output = std::io::Result<()>>
+    where
+        Self: 'a;
+
     /// The future of shutdown
-    type ShutdownFuture<'a>: Future<Output = Result<(), std::io::Error>>
+    type ShutdownFuture<'a>: Future<Output = std::io::Result<()>>
     where
         Self: 'a;
 
@@ -27,6 +32,9 @@ pub trait AsyncWriteRent {
 
     /// Same as writev(2)
     fn writev<T: IoVecBuf>(&mut self, buf_vec: T) -> Self::WritevFuture<'_, T>;
+
+    /// Flush buffered data if needed
+    fn flush(&mut self) -> Self::FlushFuture<'_>;
 
     /// Same as shutdown
     fn shutdown(&mut self) -> Self::ShutdownFuture<'_>;
@@ -55,6 +63,10 @@ impl<A: ?Sized + AsyncWriteRent> AsyncWriteRent for &mut A {
         Self: 'a,
         T: 'a;
 
+    type FlushFuture<'a> = A::FlushFuture<'a>
+    where
+        Self: 'a;
+
     type ShutdownFuture<'a> = A::ShutdownFuture<'a>
     where
         Self: 'a;
@@ -65,6 +77,10 @@ impl<A: ?Sized + AsyncWriteRent> AsyncWriteRent for &mut A {
 
     fn writev<T: IoVecBuf>(&mut self, buf_vec: T) -> Self::WritevFuture<'_, T> {
         (&mut **self).writev(buf_vec)
+    }
+
+    fn flush(&mut self) -> Self::FlushFuture<'_> {
+        (&mut **self).flush()
     }
 
     fn shutdown(&mut self) -> Self::ShutdownFuture<'_> {

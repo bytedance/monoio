@@ -4,8 +4,8 @@ use crate::{
     net::ListenerConfig,
     stream::Stream,
 };
-use futures::Future;
 use std::{
+    future::Future,
     io,
     os::unix::prelude::{AsRawFd, FromRawFd, IntoRawFd, RawFd},
     path::Path,

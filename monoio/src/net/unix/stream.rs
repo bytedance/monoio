@@ -9,6 +9,7 @@ use crate::{
     io::{AsyncReadRent, AsyncWriteRent},
 };
 use std::{
+    future::Future,
     io,
     os::unix::prelude::{AsRawFd, FromRawFd, IntoRawFd, RawFd},
     path::Path,
@@ -121,11 +122,12 @@ impl std::fmt::Debug for UnixStream {
 }
 
 impl AsyncWriteRent for UnixStream {
-    type WriteFuture<'a, B> = impl std::future::Future<Output = crate::BufResult<usize, B>> where
+    type WriteFuture<'a, B> = impl Future<Output = crate::BufResult<usize, B>> where
         B: 'a;
-    type WritevFuture<'a, B> = impl std::future::Future<Output = crate::BufResult<usize, B>> where
+    type WritevFuture<'a, B> = impl Future<Output = crate::BufResult<usize, B>> where
         B: 'a;
-    type ShutdownFuture<'a> = impl std::future::Future<Output = Result<(), std::io::Error>>;
+    type FlushFuture<'a> = impl Future<Output = io::Result<()>>;
+    type ShutdownFuture<'a> = impl Future<Output = io::Result<()>>;
 
     fn write<T: IoBuf>(&mut self, buf: T) -> Self::WriteFuture<'_, T> {
         // Submit the write operation
@@ -136,6 +138,11 @@ impl AsyncWriteRent for UnixStream {
     fn writev<T: IoVecBuf>(&mut self, buf_vec: T) -> Self::WritevFuture<'_, T> {
         let op = Op::writev(&self.fd, buf_vec).unwrap();
         op.write()
+    }
+
+    fn flush(&mut self) -> Self::FlushFuture<'_> {
+        // Unix stream does not need flush.
+        async move { Ok(()) }
     }
 
     fn shutdown(&mut self) -> Self::ShutdownFuture<'_> {
