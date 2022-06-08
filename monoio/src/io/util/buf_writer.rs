@@ -100,8 +100,11 @@ impl<W: AsyncWriteRent> AsyncWriteRent for BufWriter<W> {
         async move {
             let owned_buf = self.buf.as_ref().unwrap();
             let owned_len = owned_buf.len();
-            if self.pos + buf.bytes_init() > owned_len {
-                // we must flush buf first
+            let amt = buf.bytes_init();
+
+            if self.pos + amt > owned_len {
+                // Buf can not be copied directly into OwnedBuf,
+                // we must flush OwnedBuf first.
                 match self.flush_buf().await {
                     Ok(_) => (),
                     Err(e) => {
@@ -109,7 +112,13 @@ impl<W: AsyncWriteRent> AsyncWriteRent for BufWriter<W> {
                     }
                 }
             }
-            let amt = buf.bytes_init();
+
+            // Now there are two situations here:
+            // 1. OwnedBuf has data, and self.pos + amt <= owned_len,
+            // which means the data can be copied into OwnedBuf.
+            // 2. OwnedBuf is empty. If we can copy buf into OwnedBuf,
+            // we will copy it, otherwise we will send it directly(in
+            // this situation, the OwnedBuf must be already empty).
             if amt > owned_len {
                 self.inner.write(buf).await
             } else {
@@ -117,6 +126,7 @@ impl<W: AsyncWriteRent> AsyncWriteRent for BufWriter<W> {
                     let owned_buf = self.buf.as_mut().unwrap();
                     owned_buf
                         .as_mut_ptr()
+                        .add(self.pos)
                         .copy_from_nonoverlapping(buf.read_ptr(), amt);
                 }
                 self.cap += amt;
