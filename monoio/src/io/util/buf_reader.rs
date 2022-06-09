@@ -97,7 +97,7 @@ impl<R: AsyncReadRent> AsyncReadRent for BufReader<R> {
                 buf.set_init(amt);
             }
             self.consume(amt);
-            (Ok(0), buf)
+            (Ok(amt), buf)
         }
     }
 

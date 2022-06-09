@@ -148,7 +148,7 @@ pub(crate) fn socket_addr(path: &Path) -> io::Result<(libc::sockaddr_un, libc::s
     sockaddr.sun_family = libc::AF_UNIX as libc::sa_family_t;
 
     let bytes = path.as_os_str().as_bytes();
-    match (bytes.get(0), bytes.len().cmp(&sockaddr.sun_path.len())) {
+    match (bytes.first(), bytes.len().cmp(&sockaddr.sun_path.len())) {
         // Abstract paths don't need a null terminator
         (Some(&0), Ordering::Greater) => {
             return Err(io::Error::new(
@@ -172,7 +172,7 @@ pub(crate) fn socket_addr(path: &Path) -> io::Result<(libc::sockaddr_un, libc::s
     let offset = path_offset(&sockaddr);
     let mut socklen = offset + bytes.len();
 
-    match bytes.get(0) {
+    match bytes.first() {
         // The struct has already been zeroes so the null byte for pathname
         // addresses is already there.
         Some(&0) | None => {}
