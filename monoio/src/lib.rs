@@ -32,7 +32,6 @@ pub mod buf;
 pub mod fs;
 pub mod io;
 pub mod net;
-pub mod stream;
 pub mod task;
 pub mod utils;
 

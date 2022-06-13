@@ -7,6 +7,9 @@ mod async_write_rent_ext;
 
 mod async_buf_read;
 
+pub mod sink;
+pub mod stream;
+
 pub use async_buf_read::AsyncBufRead;
 pub use async_read_rent::{AsyncReadRent, AsyncReadRentAt};
 pub use async_read_rent_ext::AsyncReadRentExt;

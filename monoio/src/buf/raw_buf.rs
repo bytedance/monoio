@@ -16,6 +16,7 @@ impl RawBuf {
     /// Create a empty RawBuf.
     /// # Safety
     /// do not use uninitialized RawBuf directly.
+    #[inline]
     pub unsafe fn uninit() -> Self {
         Self {
             ptr: null(),
@@ -26,30 +27,36 @@ impl RawBuf {
     /// Create a new RawBuf with given pointer and length.
     /// # Safety
     /// make sure the pointer and length is valid when RawBuf is used.
+    #[inline]
     pub unsafe fn new(ptr: *const u8, len: usize) -> Self {
         Self { ptr, len }
     }
 }
 
 unsafe impl IoBuf for RawBuf {
+    #[inline]
     fn read_ptr(&self) -> *const u8 {
         self.ptr
     }
 
+    #[inline]
     fn bytes_init(&self) -> usize {
         self.len
     }
 }
 
 unsafe impl IoBufMut for RawBuf {
+    #[inline]
     fn write_ptr(&mut self) -> *mut u8 {
         self.ptr as *mut u8
     }
 
+    #[inline]
     fn bytes_total(&self) -> usize {
         self.len
     }
 
+    #[inline]
     unsafe fn set_init(&mut self, _pos: usize) {}
 }
 
@@ -57,6 +64,7 @@ impl RawBuf {
     /// Create a new RawBuf with the first iovec part.
     /// # Safety
     /// make sure the pointer and length is valid when RawBuf is used.
+    #[inline]
     pub unsafe fn new_from_iovec_mut<T: IoVecBufMut>(data: &mut T) -> Option<Self> {
         if data.write_iovec_len() == 0 {
             return None;
@@ -68,6 +76,7 @@ impl RawBuf {
     /// Create a new RawBuf with the first iovec part.
     /// # Safety
     /// make sure the pointer and length is valid when RawBuf is used.
+    #[inline]
     pub unsafe fn new_from_iovec<T: IoVecBuf>(data: &T) -> Option<Self> {
         if data.read_iovec_len() == 0 {
             return None;
