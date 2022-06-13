@@ -1,5 +1,5 @@
 use crate::{
-    buf::{IoBufMut, IoVecBufMut},
+    buf::{IoBufMut, IoVecBufMut, RawBuf},
     BufResult,
 };
 use std::future::Future;
@@ -52,5 +52,36 @@ impl<A: ?Sized + AsyncReadRent> AsyncReadRent for &mut A {
 
     fn readv<T: IoVecBufMut>(&mut self, buf: T) -> Self::ReadvFuture<'_, T> {
         (&mut **self).readv(buf)
+    }
+}
+
+impl AsyncReadRent for &[u8] {
+    type ReadFuture<'a, B> = impl std::future::Future<Output = crate::BufResult<usize, B>> where
+        B: 'a, Self: 'a;
+    type ReadvFuture<'a, B> = impl std::future::Future<Output = crate::BufResult<usize, B>> where
+        B: 'a, Self: 'a;
+
+    fn read<T: IoBufMut>(&mut self, mut buf: T) -> Self::ReadFuture<'_, T> {
+        let amt = std::cmp::min(self.len(), buf.bytes_total());
+        let (a, b) = self.split_at(amt);
+        unsafe {
+            buf.write_ptr().copy_from_nonoverlapping(a.as_ptr(), amt);
+            buf.set_init(amt);
+        }
+        *self = b;
+        async move { (Ok(amt), buf) }
+    }
+
+    fn readv<T: IoVecBufMut>(&mut self, mut buf: T) -> Self::ReadvFuture<'_, T> {
+        async move {
+            let n = match unsafe { RawBuf::new_from_iovec_mut(&mut buf) } {
+                Some(raw_buf) => self.read(raw_buf).await.0,
+                None => Ok(0),
+            };
+            if let Ok(n) = n {
+                unsafe { buf.set_init(n) };
+            }
+            (n, buf)
+        }
     }
 }

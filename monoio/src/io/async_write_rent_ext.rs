@@ -1,5 +1,5 @@
 use crate::{
-    buf::{IoBuf, IoVecBuf},
+    buf::{IoBuf, IoVecBuf, RawBuf},
     io::AsyncWriteRent,
     BufResult,
 };
@@ -36,18 +36,17 @@ where
 {
     type WriteExactFuture<'a, T> = impl Future<Output = BufResult<usize, T>> where A: 'a, T: 'a;
 
-    fn write_all<T>(&mut self, mut buf: T) -> Self::WriteExactFuture<'_, T>
+    fn write_all<T>(&mut self, buf: T) -> Self::WriteExactFuture<'_, T>
     where
         T: 'static + IoBuf,
     {
         async move {
+            let ptr = buf.read_ptr();
             let len = buf.bytes_init();
             let mut written = 0;
             while written < len {
-                let slice = unsafe { buf.slice_unchecked(written..len) };
-                let (res, slice) = self.write(slice).await;
-                buf = slice.into_inner();
-                match res {
+                let raw_buf = unsafe { RawBuf::new(ptr.add(written), len - written) };
+                match self.write(raw_buf).await.0 {
                     Ok(0) => {
                         return (
                             Err(std::io::Error::new(

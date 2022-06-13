@@ -1,5 +1,4 @@
-//! Stream related.
-//! Why not futures stream? Because the GAT >_<
+//! Stream trait in GAT style.
 
 mod iter;
 mod stream_ext;
@@ -7,30 +6,21 @@ mod stream_ext;
 pub use iter::{iter, Iter};
 pub use stream_ext::StreamExt;
 
-/// A stream of values produced asynchronously.
-///
-/// If `Future<Output = T>` is an asynchronous version of `T`, then `Stream<Item
-/// = T>` is an asynchronous version of `Iterator<Item = T>`. A stream
-/// represents a sequence of value-producing events that occur asynchronously to
-/// the caller.
-///
-/// The trait is modeled after `Future`, but allows `poll_next` to be called
-/// even after a value has been produced, yielding `None` once the stream has
-/// been fully exhausted.
+/// A stream of values produced asynchronously in pure async/await.
 #[must_use = "streams do nothing unless polled"]
 pub trait Stream {
     /// Values yielded by the stream.
     type Item;
 
     /// Future representing the next value of the stream.
-    type Future<'a>: std::future::Future<Output = Option<Self::Item>>
+    type NextFuture<'a>: std::future::Future<Output = Option<Self::Item>>
     where
         Self: 'a;
 
     /// Attempt to pull out the next value of this stream, registering the
     /// current task for wakeup if the value is not yet available, and returning
     /// `None` if the stream is exhausted.
-    fn next(&mut self) -> Self::Future<'_>;
+    fn next(&mut self) -> Self::NextFuture<'_>;
 
     /// Returns the bounds on the remaining length of the stream.
     ///
@@ -61,6 +51,18 @@ pub trait Stream {
     #[inline]
     fn size_hint(&self) -> (usize, Option<usize>) {
         (0, None)
+    }
+}
+
+impl<S: ?Sized + Stream> Stream for &mut S {
+    type Item = S::Item;
+
+    type NextFuture<'a> = S::NextFuture<'a>
+    where
+        Self: 'a;
+
+    fn next(&mut self) -> Self::NextFuture<'_> {
+        (&mut **self).next()
     }
 }
 

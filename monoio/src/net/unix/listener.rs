@@ -1,8 +1,8 @@
 use super::{socket_addr::SocketAddr, UnixStream};
 use crate::{
     driver::{op::Op, shared_fd::SharedFd},
+    io::stream::Stream,
     net::ListenerConfig,
-    stream::Stream,
 };
 use std::{
     future::Future,
@@ -89,9 +89,9 @@ impl UnixListener {
 impl Stream for UnixListener {
     type Item = io::Result<(UnixStream, SocketAddr)>;
 
-    type Future<'a> = impl Future<Output = Option<Self::Item>>;
+    type NextFuture<'a> = impl Future<Output = Option<Self::Item>>;
 
-    fn next(&mut self) -> Self::Future<'_> {
+    fn next(&mut self) -> Self::NextFuture<'_> {
         async move { Some(self.accept().await) }
     }
 }

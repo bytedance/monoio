@@ -5,8 +5,8 @@ use std::{future::Future, io, net::ToSocketAddrs, os::unix::prelude::IntoRawFd};
 
 use crate::{
     driver::{op::Op, shared_fd::SharedFd},
+    io::stream::Stream,
     net::ListenerConfig,
-    stream::Stream,
 };
 
 use super::stream::TcpStream;
@@ -151,9 +151,9 @@ impl TcpListener {
 impl Stream for TcpListener {
     type Item = io::Result<(TcpStream, SocketAddr)>;
 
-    type Future<'a> = impl Future<Output = Option<Self::Item>>;
+    type NextFuture<'a> = impl Future<Output = Option<Self::Item>>;
 
-    fn next(&mut self) -> Self::Future<'_> {
+    fn next(&mut self) -> Self::NextFuture<'_> {
         async move { Some(self.accept().await) }
     }
 }
