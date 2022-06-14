@@ -228,7 +228,7 @@ impl Inner {
     async fn closed(&self) {
         use std::task::Poll;
 
-        futures::future::poll_fn(|cx| {
+        crate::macros::support::poll_fn(|cx| {
             let state = unsafe { &mut *self.state.get() };
 
             #[allow(irrefutable_let_patterns)]

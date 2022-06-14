@@ -1,5 +1,5 @@
+use crate::macros::support::poll_fn;
 use crate::time::{sleep_until, Duration, Instant, Sleep};
-use futures::future::poll_fn;
 
 use std::pin::Pin;
 use std::task::{Context, Poll};
