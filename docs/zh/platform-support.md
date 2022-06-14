@@ -6,11 +6,11 @@ author: ihciah
 
 # 平台支持
 
-目前仅支持 Linux 平台，且需要内核支持 io_uring，最低版本为 5.6。
+目前支持 Linux 和 macOS。在 Linux 平台上，我们可以使用 io_uring 或 epoll 作为 IO 驱动；在 macOS 平台上，我们会使用 kqueue 作为 IO 驱动。
+
+如何使用 Legacy 驱动可以参考[这里](/docs/zh/use-legacy-driver.md)。
 
 ## 未来计划
-未来将会支持 epoll/kqueue 作为 **fallback**。注意，即便支持了 epoll/kqueue，也希望你能在多数场景下利用 io_uring，否则使用 Monoio 的意义不大。
+可能会支持 Windows，但短期内暂无该计划。
 
-Monoio 使用类似 Tokio-uring 的带有 buffer 所有权的 IO 接口，这套接口与 Tokio 不兼容，且需要组件单独适配支持。所以如果你的大部分运行环境支持 io_uring，且你十分注重性能，那么欢迎使用 Monoio。
-
-Windows 支持起来较为困难，且开发意义和生产意义不大，目前暂无支持计划。
+如果你想在 Windows 开发，在 Linux 部署，那么你可以尝试使用 wsl。

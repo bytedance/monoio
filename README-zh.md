@@ -1,5 +1,5 @@
 # Monoio
-一个基于 io_uring 和 thread-per-core 模型 Rust Runtime。
+一个基于 io_uring/epoll/kqueue 和 thread-per-core 模型 Rust Runtime。
 
 [![Crates.io][crates-badge]][crates-url]
 [![MIT/Apache-2 licensed][license-badge]][license-url]
@@ -18,7 +18,7 @@
 [en-readme-url]: README.md
 
 ## 设计目标
-作为一个基于 io_uring 的 Runtime，Monoio 目标是成为最高效、性能最优的 Rust Runtime。
+作为一个基于 io_uring/epoll/kqueue 的 Runtime，Monoio 目标是在兼顾平台兼容性的情况下，做最高效、性能最优的 thread-per-core Rust Runtime。
 
 我们的出发点很简单：跨线程任务调度会带来额外开销，且对 Task 本身有 `Send` 和 `Sync` 约束，导致无法很好地使用 thread local storage。而很多场景并不需要跨线程调度。如 `nginx` 这种负载均衡代理，我们往往可以以 thread-per-core 的模式编写。这样可以减少跨线程通信的开销，提高性能；也可以尽可能地利用 thread local 来做极低成本的任务间通信。当任务不需要被跨线程调度时，它就没有了实现 `Send` 和 `Sync` 的约束。另一点是 io_uring 相比 epoll 在性能上有很大提升，我们也希望能够尽可能利用它达到最佳性能。所以基于 io_uring 做一套 thread-per-core 的 Runtime 理论上可以获得一些场景下的最佳性能。
 
@@ -33,7 +33,7 @@ Monoio 就是这样一个 Runtime：它并不像 Tokio 那样通过公平调度�
 
 在项目中创建 `rust-toolchain` 文件并在其中写入 `nightly` 即可强制指定；也可以使用 `cargo +nightly` 来构建或运行。
 
-同时，由于使用了 io_uring，你必须确保你当前的内核版本是较新的([5.6+](docs/zh/platform-support.md))；并且 memlock 是一个[合适的配置](docs/zh/memlock.md)。如果你的内核版本不满足需求，可以尝试使用 legacy driver 启动，当前支持 Linux 和 macOS。
+同时，如果你想使用 io_uring，你需要确保你当前的内核版本是较新的([5.6+](docs/zh/platform-support.md))；并且 memlock 是一个[合适的配置](docs/zh/memlock.md)。如果你的内核版本不满足需求，可以尝试使用 legacy driver 启动([参考这里](/docs/zh/use-legacy-driver.md))，当前支持 Linux 和 macOS。
 
 这是一个非常简单的例子，基于 Monoio 实现一个简单的 echo 服务。运行起来之后你可以通过 `nc 127.0.0.1 50002` 来连接它。
 
@@ -99,6 +99,13 @@ async fn echo(stream: TcpStream) -> std::io::Result<()> {
 
 ## 社区
 Monoio 是 [CloudWego](https://www.cloudwego.io/) 的子项目，我们致力于建设云原生生态系统。
+
+## 关联项目
+- [local-sync](https://github.com/monoio-rs/local-sync)：一个线程内的 channel 实现
+- [monoio-tls](https://github.com/monoio-rs/monoio-tls)：Monoio TLS 支持
+- [monoio-codec](https://github.com/monoio-rs/monoio-codec)：Monoio Codec 支持
+
+HTTP 框架和 RPC 框架在做了在做了(咕咕咕)。
 
 ## 协议
 Monoio 基于 MIT 或 Apache 协议授权。

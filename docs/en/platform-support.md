@@ -6,11 +6,11 @@ author: ihciah
 
 # Platform Support
 
-Currently only linux with io_uring is supported, 5.6+ should be ok.
+Linux and macOS are currently supported. On the Linux platform, we can use io_uring or epoll as the IO driver; on the macOS platform, we will use kqueue as the IO driver.
 
-## Plans
-Later we will support epoll/kqueue by using mio as **fallback**. If you do not use io_uring, there will be less meaningful to use Monoio.
+How to use Legacy driver can refer to [here](/docs/en/use-legacy-driver.md).
 
-IO interfaces with ownership of buffer is hard to use but has better performance in io_uring mode. So if you have io_uring in most of your environment, and care performance much, using Monoio is a good choice.
+## Future Plans
+Windows may be supported, but there are no plans for that in the short term.
 
-Windows is a little bit hard to support. We do not consider support it yet.
+If you want to develop on Windows and deploy on Linux, then you can try wsl.
