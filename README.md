@@ -1,5 +1,5 @@
 # Monoio
-A thread-per-core Rust runtime with io_uring.
+A thread-per-core Rust runtime with io_uring/epoll/kqueue.
 
 [![Crates.io][crates-badge]][crates-url]
 [![MIT/Apache-2 licensed][license-badge]][license-url]
@@ -18,7 +18,7 @@ A thread-per-core Rust runtime with io_uring.
 [zh-readme-url]: README-zh.md
 
 ## Design Goal
-As a runtime based on io_uring, Monoio is designed to be the most efficient and performant Rust runtime.
+As a runtime based on io_uring/epoll/kqueue, Monoio is designed to be the most efficient and performant thread-per-core Rust runtime with good platform compatibility.
 
 For some use cases, it is not necessary to make task schedulable between threads. For example, if we want to implement a load balancer like nginx, we may want to write it in a thread-per-core way. The thread local data need not to be shared between threads, so the `Sync` and `Send` will not have to be implemented.
 
@@ -31,7 +31,7 @@ To use monoio, you need the latest nightly rust toolchain. If you already instal
 
 To force using nightly, create a file named `rust-toolchain` and write `nightly` in it. Also, you can use `cargo +nightly` to build or run.
 
-Also, since we use io_uring, you must make sure your kernel supports it([5.6+](docs/en/platform-support.md)). And, memlock is [configured as a proper number](docs/en/memlock.md). If your kernel version does not meet the requirements, you can try to use the legacy driver to start, currently supports Linux and macOS.
+Also, if you want to use io_uring, you must make sure your kernel supports it([5.6+](docs/en/platform-support.md)). And, memlock is [configured as a proper number](docs/en/memlock.md). If your kernel version does not meet the requirements, you can try to use the legacy driver to start, currently supports Linux and macOS([ref here](/docs/en/use-legacy-driver.md)).
 
 Here is a basic example of how to use Monoio.
 
@@ -97,6 +97,13 @@ Thanks for their contributions!
 
 ## Community
 Monoio is a subproject of [CloudWeGo](https://www.cloudwego.io/). We are committed to building a cloud native ecosystem.
+
+## Associated Projects
+- [local-sync](https://github.com/monoio-rs/local-sync): A thread local channel.
+- [monoio-tls](https://github.com/monoio-rs/monoio-tls): TLS wrapper for Monoio.
+- [monoio-codec](https://github.com/monoio-rs/monoio-codec): Codec utility for Monoio.
+
+HTTP framework and RPC framework are on the way.
 
 ## Licenses
 Monoio is licensed under the MIT license or Apache license.
