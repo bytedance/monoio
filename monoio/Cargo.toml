@@ -8,12 +8,11 @@ license = "MIT/Apache-2.0"
 name = "monoio"
 readme = "README.md"
 repository = "https://github.com/bytedance/monoio"
-version = "0.0.6"
+version = "0.0.7"
 
 [dependencies]
 monoio-macros = {version = "0.0.3", path = "../monoio-macros", optional = true}
 
-futures = "0.3"
 fxhash = "0.2"
 libc = "0.2"
 os_socketaddr = "0.2"
@@ -33,6 +32,7 @@ io-uring = {version = "0.5", features = ["unstable"]}
 
 [dev-dependencies]
 local-sync = "0.0.5"
+futures = "0.3"
 tempfile = "3.2"
 
 [features]
