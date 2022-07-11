@@ -1,5 +1,5 @@
 use crate::{
-    buf::RawBuf,
+    buf::IoVecWrapperMut,
     io::{AsyncBufRead, AsyncReadRent, AsyncWriteRent},
 };
 use std::future::Future;
@@ -71,7 +71,7 @@ impl<R: AsyncReadRent> AsyncReadRent for BufReader<R> {
     type ReadFuture<'a, T>  = impl Future<Output = crate::BufResult<usize, T>> where
         T: 'a, R: 'a;
 
-    type ReadvFuture<'a, T>= impl Future<Output = crate::BufResult<usize, T>> where
+    type ReadvFuture<'a, T> = impl Future<Output = crate::BufResult<usize, T>> where
         T: 'a, R: 'a;
 
     fn read<T: crate::buf::IoBufMut>(&mut self, mut buf: T) -> Self::ReadFuture<'_, T> {
@@ -103,14 +103,17 @@ impl<R: AsyncReadRent> AsyncReadRent for BufReader<R> {
 
     fn readv<T: crate::buf::IoVecBufMut>(&mut self, mut buf: T) -> Self::ReadvFuture<'_, T> {
         async move {
-            let n = match unsafe { RawBuf::new_from_iovec_mut(&mut buf) } {
-                Some(raw_buf) => self.read(raw_buf).await.0,
-                None => Ok(0),
+            let slice = match IoVecWrapperMut::new(buf) {
+                Ok(slice) => slice,
+                Err(buf) => return (Ok(0), buf),
             };
-            if let Ok(n) = n {
+
+            let (result, slice) = self.read(slice).await;
+            buf = slice.into_inner();
+            if let Ok(n) = result {
                 unsafe { buf.set_init(n) };
             }
-            (n, buf)
+            (result, buf)
         }
     }
 }

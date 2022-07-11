@@ -1,6 +1,6 @@
 use super::AsyncReadRent;
 use crate::{
-    buf::{IoBufMut, IoVecBufMut, RawBuf},
+    buf::{IoBufMut, IoVecBufMut, SliceMut},
     BufResult,
 };
 use std::future::Future;
@@ -107,12 +107,13 @@ where
         T: 'static + IoBufMut,
     {
         async move {
-            let ptr = buf.write_ptr();
             let len = buf.bytes_total();
             let mut read = 0;
             while read < len {
-                let raw_buf = unsafe { RawBuf::new(ptr.add(read), len - read) };
-                match self.read(raw_buf).await.0 {
+                let buf_slice = unsafe { SliceMut::new_unchecked(buf, read, len) };
+                let (result, buf_slice) = self.read(buf_slice).await;
+                buf = buf_slice.into_inner();
+                match result {
                     Ok(0) => {
                         return (
                             Err(std::io::Error::new(

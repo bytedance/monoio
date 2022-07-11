@@ -47,11 +47,11 @@ impl<A: ?Sized + AsyncReadRent> AsyncReadRent for &mut A {
         T: 'a;
 
     fn read<T: IoBufMut>(&mut self, buf: T) -> Self::ReadFuture<'_, T> {
-        (&mut **self).read(buf)
+        (**self).read(buf)
     }
 
     fn readv<T: IoVecBufMut>(&mut self, buf: T) -> Self::ReadvFuture<'_, T> {
-        (&mut **self).readv(buf)
+        (**self).readv(buf)
     }
 }
 
@@ -73,15 +73,25 @@ impl AsyncReadRent for &[u8] {
     }
 
     fn readv<T: IoVecBufMut>(&mut self, mut buf: T) -> Self::ReadvFuture<'_, T> {
-        async move {
-            let n = match unsafe { RawBuf::new_from_iovec_mut(&mut buf) } {
-                Some(raw_buf) => self.read(raw_buf).await.0,
-                None => Ok(0),
-            };
-            if let Ok(n) = n {
-                unsafe { buf.set_init(n) };
+        // # Safety
+        // We do it in pure sync way.
+        let n = match unsafe { RawBuf::new_from_iovec_mut(&mut buf) } {
+            Some(mut raw_buf) => {
+                // copy from read to avoid await
+                let amt = std::cmp::min(self.len(), raw_buf.bytes_total());
+                let (a, b) = self.split_at(amt);
+                unsafe {
+                    raw_buf
+                        .write_ptr()
+                        .copy_from_nonoverlapping(a.as_ptr(), amt);
+                    raw_buf.set_init(amt);
+                }
+                *self = b;
+                amt
             }
-            (n, buf)
-        }
+            None => 0,
+        };
+        unsafe { buf.set_init(n) };
+        async move { (Ok(n), buf) }
     }
 }

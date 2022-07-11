@@ -40,7 +40,7 @@ unsafe impl IoBufMut for RawBuf {
         self.ptr as *mut u8
     }
 
-    fn bytes_total(&self) -> usize {
+    fn bytes_total(&mut self) -> usize {
         self.len
     }
 
@@ -77,7 +77,7 @@ unsafe impl IoBufMut for Buf {
         self.data.as_ptr() as *mut u8
     }
 
-    fn bytes_total(&self) -> usize {
+    fn bytes_total(&mut self) -> usize {
         self.capacity
     }
 

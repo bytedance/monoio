@@ -52,7 +52,7 @@ unsafe impl IoBufMut for RawBuf {
     }
 
     #[inline]
-    fn bytes_total(&self) -> usize {
+    fn bytes_total(&mut self) -> usize {
         self.len
     }
 

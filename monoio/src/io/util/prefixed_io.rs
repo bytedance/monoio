@@ -1,5 +1,5 @@
 use crate::{
-    buf::RawBuf,
+    buf::IoVecWrapperMut,
     io::{AsyncReadRent, AsyncWriteRent},
 };
 
@@ -71,14 +71,17 @@ impl<I: AsyncReadRent, P: std::io::Read> AsyncReadRent for PrefixedReadIo<I, P> 
 
     fn readv<T: crate::buf::IoVecBufMut>(&mut self, mut buf: T) -> Self::ReadvFuture<'_, T> {
         async move {
-            let n = match unsafe { RawBuf::new_from_iovec_mut(&mut buf) } {
-                Some(raw_buf) => self.read(raw_buf).await.0,
-                None => Ok(0),
+            let slice = match IoVecWrapperMut::new(buf) {
+                Ok(slice) => slice,
+                Err(buf) => return (Ok(0), buf),
             };
-            if let Ok(n) = n {
+
+            let (result, slice) = self.read(slice).await;
+            buf = slice.into_inner();
+            if let Ok(n) = result {
                 unsafe { buf.set_init(n) };
             }
-            (n, buf)
+            (result, buf)
         }
     }
 }

@@ -93,7 +93,7 @@ unsafe impl IoVecBufMut for IoVecMeta {
         unsafe { self.data.as_mut_ptr().add(self.offset) }
     }
 
-    fn write_iovec_len(&self) -> usize {
+    fn write_iovec_len(&mut self) -> usize {
         self.data.len()
     }
 

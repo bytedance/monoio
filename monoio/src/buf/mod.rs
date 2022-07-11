@@ -13,7 +13,7 @@ mod io_vec_buf;
 pub use io_vec_buf::{IoVecBuf, IoVecBufMut, VecBuf};
 
 mod slice;
-pub use slice::{Slice, SliceMut};
+pub use slice::{IoVecWrapper, IoVecWrapperMut, Slice, SliceMut};
 
 mod raw_buf;
 pub use raw_buf::RawBuf;

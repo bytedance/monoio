@@ -72,18 +72,18 @@ impl<A: ?Sized + AsyncWriteRent> AsyncWriteRent for &mut A {
         Self: 'a;
 
     fn write<T: IoBuf>(&mut self, buf: T) -> Self::WriteFuture<'_, T> {
-        (&mut **self).write(buf)
+        (**self).write(buf)
     }
 
     fn writev<T: IoVecBuf>(&mut self, buf_vec: T) -> Self::WritevFuture<'_, T> {
-        (&mut **self).writev(buf_vec)
+        (**self).writev(buf_vec)
     }
 
     fn flush(&mut self) -> Self::FlushFuture<'_> {
-        (&mut **self).flush()
+        (**self).flush()
     }
 
     fn shutdown(&mut self) -> Self::ShutdownFuture<'_> {
-        (&mut **self).shutdown()
+        (**self).shutdown()
     }
 }

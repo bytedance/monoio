@@ -71,7 +71,7 @@ where
 
         // poll the future
         let waker_ref = waker_ref::<T, S>(self.header());
-        let cx = Context::from_waker(&*waker_ref);
+        let cx = Context::from_waker(std::ops::Deref::deref(&waker_ref));
         let res = poll_future(&self.core().stage, cx);
 
         if res == Poll::Ready(()) {

@@ -47,14 +47,14 @@ impl<T, S: ?Sized + Sink<T>> Sink<T> for &mut S {
         Self: 'a;
 
     fn send(&mut self, item: T) -> Self::SendFuture<'_> {
-        (&mut **self).send(item)
+        (**self).send(item)
     }
 
     fn flush(&mut self) -> Self::FlushFuture<'_> {
-        (&mut **self).flush()
+        (**self).flush()
     }
 
     fn close(&mut self) -> Self::CloseFuture<'_> {
-        (&mut **self).close()
+        (**self).close()
     }
 }

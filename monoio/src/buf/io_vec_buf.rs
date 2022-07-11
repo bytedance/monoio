@@ -149,7 +149,7 @@ pub unsafe trait IoVecBufMut: Unpin + 'static {
     fn write_iovec_ptr(&mut self) -> *mut libc::iovec;
 
     /// Returns the count of iovec struct behind the pointer.
-    fn write_iovec_len(&self) -> usize;
+    fn write_iovec_len(&mut self) -> usize;
 
     /// Updates the number of initialized bytes.
     ///
@@ -167,7 +167,7 @@ unsafe impl IoVecBufMut for VecBuf {
         self.read_iovec_ptr() as *mut _
     }
 
-    fn write_iovec_len(&self) -> usize {
+    fn write_iovec_len(&mut self) -> usize {
         self.read_iovec_len()
     }
 

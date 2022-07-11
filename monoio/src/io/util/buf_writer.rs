@@ -1,7 +1,7 @@
 use std::{future::Future, io};
 
 use crate::{
-    buf::{RawBuf, Slice},
+    buf::{IoVecWrapper, Slice},
     io::{AsyncBufRead, AsyncReadRent, AsyncWriteRent, AsyncWriteRentExt},
 };
 
@@ -136,13 +136,15 @@ impl<W: AsyncWriteRent> AsyncWriteRent for BufWriter<W> {
     }
 
     // TODO: implement it as real io_vec
-    fn writev<T: crate::buf::IoVecBuf>(&mut self, buf_vec: T) -> Self::WritevFuture<'_, T> {
+    fn writev<T: crate::buf::IoVecBuf>(&mut self, buf: T) -> Self::WritevFuture<'_, T> {
         async move {
-            let n = match unsafe { RawBuf::new_from_iovec(&buf_vec) } {
-                Some(raw_buf) => self.write(raw_buf).await.0,
-                None => Ok(0),
+            let slice = match IoVecWrapper::new(buf) {
+                Ok(slice) => slice,
+                Err(buf) => return (Ok(0), buf),
             };
-            (n, buf_vec)
+
+            let (result, slice) = self.write(slice).await;
+            (result, slice.into_inner())
         }
     }
 
