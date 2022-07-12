@@ -2,6 +2,8 @@ use crate::buf::{IoBuf, IoBufMut};
 
 use std::ops;
 
+use super::{IoVecBuf, IoVecBufMut};
+
 /// An owned view into a contiguous sequence of bytes.
 /// SliceMut implements IoBuf and IoBufMut.
 ///
@@ -31,7 +33,7 @@ pub struct SliceMut<T> {
 
 impl<T: IoBuf + IoBufMut> SliceMut<T> {
     /// Create a SliceMut from a buffer and range.
-    pub fn new(buf: T, begin: usize, end: usize) -> Self {
+    pub fn new(mut buf: T, begin: usize, end: usize) -> Self {
         assert!(end <= buf.bytes_total());
         assert!(begin <= buf.bytes_init());
         assert!(begin <= end);
@@ -173,7 +175,7 @@ unsafe impl<T: IoBufMut> IoBufMut for SliceMut<T> {
     }
 
     #[inline]
-    fn bytes_total(&self) -> usize {
+    fn bytes_total(&mut self) -> usize {
         self.end - self.begin
     }
 
@@ -252,4 +254,74 @@ unsafe impl<T: IoBuf> IoBuf for Slice<T> {
     fn bytes_init(&self) -> usize {
         self.end - self.begin
     }
+}
+
+/// A wrapper to make IoVecBuf impl IoBuf.
+pub struct IoVecWrapper<T> {
+    // we must make sure raw contains at least one iovec.
+    raw: T,
+}
+
+impl<T: IoVecBuf> IoVecWrapper<T> {
+    /// Create a new IoVecWrapper with something that impl IoVecBuf.
+    pub fn new(iovec_buf: T) -> Result<Self, T> {
+        if iovec_buf.read_iovec_len() == 0 {
+            return Err(iovec_buf);
+        }
+        Ok(Self { raw: iovec_buf })
+    }
+
+    /// Consume self and return raw iovec buf.
+    pub fn into_inner(self) -> T {
+        self.raw
+    }
+}
+
+unsafe impl<T: IoVecBuf> IoBuf for IoVecWrapper<T> {
+    #[inline]
+    fn read_ptr(&self) -> *const u8 {
+        let iovec = unsafe { *self.raw.read_iovec_ptr() };
+        iovec.iov_base as *const u8
+    }
+
+    #[inline]
+    fn bytes_init(&self) -> usize {
+        let iovec = unsafe { *self.raw.read_iovec_ptr() };
+        iovec.iov_len
+    }
+}
+
+/// A wrapper to make IoVecBufMut impl IoBufMut.
+pub struct IoVecWrapperMut<T> {
+    // we must make sure raw contains at least one iovec.
+    raw: T,
+}
+
+impl<T: IoVecBufMut> IoVecWrapperMut<T> {
+    /// Create a new IoVecWrapperMut with something that impl IoVecBufMut.
+    pub fn new(mut iovec_buf: T) -> Result<Self, T> {
+        if iovec_buf.write_iovec_len() == 0 {
+            return Err(iovec_buf);
+        }
+        Ok(Self { raw: iovec_buf })
+    }
+
+    /// Consume self and return raw iovec buf.
+    pub fn into_inner(self) -> T {
+        self.raw
+    }
+}
+
+unsafe impl<T: IoVecBufMut> IoBufMut for IoVecWrapperMut<T> {
+    fn write_ptr(&mut self) -> *mut u8 {
+        let iovec = unsafe { *self.raw.write_iovec_ptr() };
+        iovec.iov_base as *mut u8
+    }
+
+    fn bytes_total(&mut self) -> usize {
+        let iovec = unsafe { *self.raw.write_iovec_ptr() };
+        iovec.iov_len
+    }
+
+    unsafe fn set_init(&mut self, _pos: usize) {}
 }

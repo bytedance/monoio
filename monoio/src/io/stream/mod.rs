@@ -62,7 +62,7 @@ impl<S: ?Sized + Stream> Stream for &mut S {
         Self: 'a;
 
     fn next(&mut self) -> Self::NextFuture<'_> {
-        (&mut **self).next()
+        (**self).next()
     }
 }
 

@@ -1,4 +1,7 @@
 //! Sink trait in GAT style.
+mod sink_ext;
+
+pub use sink_ext::SinkExt;
 
 /// A `Sink` is a value into which other values can be sent in pure async/await.
 #[must_use = "sinks do nothing unless polled"]
@@ -47,14 +50,14 @@ impl<T, S: ?Sized + Sink<T>> Sink<T> for &mut S {
         Self: 'a;
 
     fn send(&mut self, item: T) -> Self::SendFuture<'_> {
-        (&mut **self).send(item)
+        (**self).send(item)
     }
 
     fn flush(&mut self) -> Self::FlushFuture<'_> {
-        (&mut **self).flush()
+        (**self).flush()
     }
 
     fn close(&mut self) -> Self::CloseFuture<'_> {
-        (&mut **self).close()
+        (**self).close()
     }
 }

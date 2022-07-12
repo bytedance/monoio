@@ -208,7 +208,7 @@ pub unsafe trait IoBufMut: Unpin + 'static {
     /// expected for users to call it directly.
     ///
     /// For `Vec`, this is identical to `capacity()`.
-    fn bytes_total(&self) -> usize;
+    fn bytes_total(&mut self) -> usize;
 
     /// Updates the number of initialized bytes.
     ///
@@ -235,7 +235,7 @@ pub unsafe trait IoBufMut: Unpin + 'static {
     /// buf.slice(5..10);
     /// ```
     #[inline]
-    fn slice_mut(self, range: impl ops::RangeBounds<usize>) -> SliceMut<Self>
+    fn slice_mut(mut self, range: impl ops::RangeBounds<usize>) -> SliceMut<Self>
     where
         Self: Sized,
         Self: IoBuf,
@@ -249,7 +249,7 @@ pub unsafe trait IoBufMut: Unpin + 'static {
     /// # Safety
     /// Begin must within the initialized bytes, end must be within the capacity.
     #[inline]
-    unsafe fn slice_mut_unchecked(self, range: impl ops::RangeBounds<usize>) -> SliceMut<Self>
+    unsafe fn slice_mut_unchecked(mut self, range: impl ops::RangeBounds<usize>) -> SliceMut<Self>
     where
         Self: Sized,
     {
@@ -265,7 +265,7 @@ unsafe impl IoBufMut for Vec<u8> {
     }
 
     #[inline]
-    fn bytes_total(&self) -> usize {
+    fn bytes_total(&mut self) -> usize {
         self.capacity()
     }
 
@@ -282,7 +282,7 @@ unsafe impl IoBufMut for Box<[u8]> {
     }
 
     #[inline]
-    fn bytes_total(&self) -> usize {
+    fn bytes_total(&mut self) -> usize {
         self.len()
     }
 
@@ -297,7 +297,7 @@ unsafe impl<const N: usize> IoBufMut for Box<[u8; N]> {
     }
 
     #[inline]
-    fn bytes_total(&self) -> usize {
+    fn bytes_total(&mut self) -> usize {
         self.len()
     }
 
@@ -312,7 +312,7 @@ unsafe impl<const N: usize> IoBufMut for [u8; N] {
     }
 
     #[inline]
-    fn bytes_total(&self) -> usize {
+    fn bytes_total(&mut self) -> usize {
         self.len()
     }
 
@@ -327,7 +327,7 @@ unsafe impl<const N: usize> IoBufMut for &'static mut [u8; N] {
     }
 
     #[inline]
-    fn bytes_total(&self) -> usize {
+    fn bytes_total(&mut self) -> usize {
         self.len()
     }
 
@@ -343,7 +343,7 @@ unsafe impl IoBufMut for bytes::BytesMut {
     }
 
     #[inline]
-    fn bytes_total(&self) -> usize {
+    fn bytes_total(&mut self) -> usize {
         self.capacity()
     }
 
