@@ -22,7 +22,7 @@ impl Handle {
 
     /// Access the driver's inner structure
     pub(super) fn get(&self) -> &super::Inner {
-        self.inner.as_ref()
+        &self.inner
     }
 }
 

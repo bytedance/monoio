@@ -1,4 +1,7 @@
 //! Sink trait in GAT style.
+mod sink_ext;
+
+pub use sink_ext::SinkExt;
 
 /// A `Sink` is a value into which other values can be sent in pure async/await.
 #[must_use = "sinks do nothing unless polled"]
