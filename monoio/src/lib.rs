@@ -13,6 +13,7 @@
 #![feature(box_into_inner)]
 #![feature(new_uninit)]
 #![feature(io_error_more)]
+#![feature(stmt_expr_attributes)]
 
 #[macro_use]
 pub mod macros;
@@ -39,12 +40,15 @@ pub use builder::{Buildable, RuntimeBuilder};
 pub use driver::Driver;
 pub use runtime::{spawn, Runtime};
 
-#[cfg(any(all(target_os = "linux", feature = "iouring"), feature = "legacy"))]
+#[cfg(all(
+    unix,
+    any(all(target_os = "linux", feature = "iouring"), feature = "legacy")
+))]
 pub use {builder::FusionDriver, runtime::FusionRuntime};
 
 #[cfg(all(target_os = "linux", feature = "iouring"))]
 pub use driver::IoUringDriver;
-#[cfg(feature = "legacy")]
+#[cfg(all(unix, feature = "legacy"))]
 pub use driver::LegacyDriver;
 
 #[cfg(feature = "macros")]

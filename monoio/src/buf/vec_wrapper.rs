@@ -1,6 +1,7 @@
 use super::{IoVecBuf, IoVecBufMut};
 
 pub(crate) struct IoVecMeta {
+    #[cfg(unix)]
     data: Vec<libc::iovec>,
     offset: usize,
     len: usize,
@@ -8,69 +9,86 @@ pub(crate) struct IoVecMeta {
 
 /// Read IoVecBuf meta data into a Vec.
 pub(crate) fn read_vec_meta<T: IoVecBuf>(iovec_buf: &T) -> IoVecMeta {
-    let ptr = iovec_buf.read_iovec_ptr();
-    let iovec_len = iovec_buf.read_iovec_len();
+    #[cfg(unix)]
+    {
+        let ptr = iovec_buf.read_iovec_ptr();
+        let iovec_len = iovec_buf.read_iovec_len();
 
-    let mut data = Vec::with_capacity(iovec_len);
-    let mut len = 0;
-    for i in 0..iovec_len {
-        let iovec = unsafe { *ptr.add(i) };
-        data.push(iovec);
-        len += iovec.iov_len;
+        let mut data = Vec::with_capacity(iovec_len);
+        let mut len = 0;
+        for i in 0..iovec_len {
+            let iovec = unsafe { *ptr.add(i) };
+            data.push(iovec);
+            len += iovec.iov_len;
+        }
+        IoVecMeta {
+            data,
+            offset: 0,
+            len,
+        }
     }
-    IoVecMeta {
-        data,
-        offset: 0,
-        len,
+    #[cfg(windows)]
+    {
+        unimplemented!()
     }
 }
 
 /// Read IoVecBufMut meta data into a Vec.
 pub(crate) fn write_vec_meta<T: IoVecBufMut>(iovec_buf: &mut T) -> IoVecMeta {
-    let ptr = iovec_buf.write_iovec_ptr();
-    let iovec_len = iovec_buf.write_iovec_len();
+    #[cfg(unix)]
+    {
+        let ptr = iovec_buf.write_iovec_ptr();
+        let iovec_len = iovec_buf.write_iovec_len();
 
-    let mut data = Vec::with_capacity(iovec_len);
-    let mut len = 0;
-    for i in 0..iovec_len {
-        let iovec = unsafe { *ptr.add(i) };
-        data.push(iovec);
-        len += iovec.iov_len;
+        let mut data = Vec::with_capacity(iovec_len);
+        let mut len = 0;
+        for i in 0..iovec_len {
+            let iovec = unsafe { *ptr.add(i) };
+            data.push(iovec);
+            len += iovec.iov_len;
+        }
+        IoVecMeta {
+            data,
+            offset: 0,
+            len,
+        }
     }
-    IoVecMeta {
-        data,
-        offset: 0,
-        len,
+    #[cfg(windows)]
+    {
+        unimplemented!()
     }
 }
 
 impl IoVecMeta {
     pub(crate) fn consume(&mut self, mut amt: usize) {
-        if amt == 0 {
-            return;
-        }
-        let mut offset = self.offset;
-        while let Some(iovec) = self.data.get_mut(offset) {
-            match iovec.iov_len.cmp(&amt) {
-                std::cmp::Ordering::Less => {
-                    amt -= iovec.iov_len;
-                    offset += 1;
-                    continue;
-                }
-                std::cmp::Ordering::Equal => {
-                    offset += 1;
-                    self.offset = offset;
-                    return;
-                }
-                std::cmp::Ordering::Greater => {
-                    unsafe { iovec.iov_base.add(amt) };
-                    iovec.iov_len -= amt;
-                    self.offset = offset;
-                    return;
+        #[cfg(unix)]
+        {
+            if amt == 0 {
+                return;
+            }
+            let mut offset = self.offset;
+            while let Some(iovec) = self.data.get_mut(offset) {
+                match iovec.iov_len.cmp(&amt) {
+                    std::cmp::Ordering::Less => {
+                        amt -= iovec.iov_len;
+                        offset += 1;
+                        continue;
+                    }
+                    std::cmp::Ordering::Equal => {
+                        offset += 1;
+                        self.offset = offset;
+                        return;
+                    }
+                    std::cmp::Ordering::Greater => {
+                        unsafe { iovec.iov_base.add(amt) };
+                        iovec.iov_len -= amt;
+                        self.offset = offset;
+                        return;
+                    }
                 }
             }
+            panic!("try to consume more than owned")
         }
-        panic!("try to consume more than owned")
     }
 
     pub(crate) fn len(&self) -> usize {
@@ -79,22 +97,29 @@ impl IoVecMeta {
 }
 
 unsafe impl IoVecBuf for IoVecMeta {
+    #[cfg(unix)]
     fn read_iovec_ptr(&self) -> *const libc::iovec {
         unsafe { self.data.as_ptr().add(self.offset) }
     }
-
+    #[cfg(unix)]
     fn read_iovec_len(&self) -> usize {
         self.data.len()
     }
 }
 
 unsafe impl IoVecBufMut for IoVecMeta {
+    #[cfg(unix)]
     fn write_iovec_ptr(&mut self) -> *mut libc::iovec {
         unsafe { self.data.as_mut_ptr().add(self.offset) }
     }
 
     fn write_iovec_len(&mut self) -> usize {
-        self.data.len()
+        #[cfg(unix)]
+        {
+            self.data.len()
+        }
+        #[cfg(windows)]
+        unimplemented!()
     }
 
     unsafe fn set_init(&mut self, pos: usize) {
@@ -102,6 +127,7 @@ unsafe impl IoVecBufMut for IoVecMeta {
     }
 }
 
+#[cfg(unix)]
 #[cfg(test)]
 mod tests {
     use crate::buf::VecBuf;

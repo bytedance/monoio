@@ -1,5 +1,6 @@
 use monoio::fs::File;
 use std::io::prelude::*;
+#[cfg(unix)]
 use std::os::unix::io::{AsRawFd, FromRawFd, RawFd};
 use tempfile::NamedTempFile;
 
@@ -14,6 +15,7 @@ async fn read_hello(file: &File) {
     assert_eq!(&buf, &HELLO[..n]);
 }
 
+#[cfg(unix)]
 #[monoio::test_all]
 async fn basic_read() {
     let mut tempfile = tempfile();
@@ -22,7 +24,7 @@ async fn basic_read() {
     let file = File::open(tempfile.path()).await.unwrap();
     read_hello(&file).await;
 }
-
+#[cfg(unix)]
 #[monoio::test_all]
 async fn basic_read_exact() {
     let mut tempfile = tempfile();
@@ -38,7 +40,7 @@ async fn basic_read_exact() {
     let (res, _) = file.read_exact_at(buf, 0).await;
     assert_eq!(res.unwrap_err().kind(), std::io::ErrorKind::UnexpectedEof);
 }
-
+#[cfg(unix)]
 #[monoio::test_all]
 async fn basic_write() {
     let tempfile = tempfile();
@@ -49,7 +51,7 @@ async fn basic_write() {
     let file = std::fs::read(tempfile.path()).unwrap();
     assert_eq!(file, HELLO);
 }
-
+#[cfg(unix)]
 #[monoio::test_all]
 async fn basic_write_all() {
     let tempfile = tempfile();
@@ -60,7 +62,7 @@ async fn basic_write_all() {
     let file = std::fs::read(tempfile.path()).unwrap();
     assert_eq!(file, HELLO);
 }
-
+#[cfg(unix)]
 #[monoio::test(driver = "uring")]
 async fn cancel_read() {
     let mut tempfile = tempfile();
@@ -73,7 +75,7 @@ async fn cancel_read() {
 
     read_hello(&file).await;
 }
-
+#[cfg(unix)]
 #[monoio::test_all]
 async fn explicit_close() {
     let mut tempfile = tempfile();
@@ -86,7 +88,7 @@ async fn explicit_close() {
 
     assert_invalid_fd(fd);
 }
-
+#[cfg(unix)]
 #[monoio::test_all]
 async fn drop_open() {
     let tempfile = tempfile();
@@ -101,7 +103,7 @@ async fn drop_open() {
     let file = std::fs::read(tempfile.path()).unwrap();
     assert_eq!(file, HELLO);
 }
-
+#[cfg(unix)]
 #[test]
 fn drop_off_runtime() {
     #[cfg(target_os = "linux")]
@@ -120,7 +122,7 @@ fn drop_off_runtime() {
 
     assert_invalid_fd(fd);
 }
-
+#[cfg(unix)]
 #[monoio::test_all]
 async fn sync_doesnt_kill_anything() {
     let tempfile = tempfile();
@@ -132,11 +134,12 @@ async fn sync_doesnt_kill_anything() {
     file.sync_all().await.unwrap();
     file.sync_data().await.unwrap();
 }
+#[cfg(unix)]
 
 fn tempfile() -> NamedTempFile {
     NamedTempFile::new().expect("unable to create tempfile")
 }
-
+#[cfg(unix)]
 #[allow(unused)]
 async fn poll_once(future: impl std::future::Future) {
     use futures::future::poll_fn;
@@ -151,6 +154,7 @@ async fn poll_once(future: impl std::future::Future) {
     })
     .await;
 }
+#[cfg(unix)]
 
 fn assert_invalid_fd(fd: RawFd) {
     use std::fs::File;

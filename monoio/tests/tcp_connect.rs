@@ -1,6 +1,7 @@
 use std::net::{IpAddr, SocketAddr};
 
 use monoio::net::{TcpListener, TcpStream};
+#[cfg(unix)]
 
 macro_rules! test_connect_ip {
     ($(($ident:ident, $target:expr, $addr_f:path),)*) => {
@@ -28,11 +29,13 @@ macro_rules! test_connect_ip {
         )*
     }
 }
+#[cfg(unix)]
 
 test_connect_ip! {
     (connect_v4, "127.0.0.1:0", SocketAddr::is_ipv4),
     (connect_v6, "[::1]:0", SocketAddr::is_ipv6),
 }
+#[cfg(unix)]
 
 macro_rules! test_connect {
     ($(($ident:ident, $mapping:tt),)*) => {
@@ -56,6 +59,7 @@ macro_rules! test_connect {
         )*
     }
 }
+#[cfg(unix)]
 
 test_connect! {
     (ip_string, (|listener: &TcpListener| {
@@ -80,7 +84,7 @@ test_connect! {
         ("127.0.0.1", addr.port())
     })),
 }
-
+#[cfg(unix)]
 #[monoio::test_all(timer_enabled = true)]
 async fn connect_timeout_dst() {
     let drop_flag = DropFlag::default();
@@ -99,7 +103,7 @@ async fn connect_timeout_dst() {
     }
     drop_flag.assert_dropped();
 }
-
+#[cfg(unix)]
 #[monoio::test_all]
 async fn connect_invalid_dst() {
     assert!(TcpStream::connect("127.0.0.1:1").await.is_err());

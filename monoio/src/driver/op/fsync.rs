@@ -1,6 +1,6 @@
 use super::{super::shared_fd::SharedFd, Op, OpAble};
 
-#[cfg(feature = "legacy")]
+#[cfg(all(unix, feature = "legacy"))]
 use crate::{driver::legacy::ready::Direction, syscall_u32};
 #[cfg(all(target_os = "linux", feature = "iouring"))]
 use io_uring::{opcode, types};
@@ -42,12 +42,12 @@ impl OpAble for Fsync {
         opc.build()
     }
 
-    #[cfg(feature = "legacy")]
+    #[cfg(all(unix, feature = "legacy"))]
     fn legacy_interest(&self) -> Option<(Direction, usize)> {
         None
     }
 
-    #[cfg(all(not(target_os = "linux"), feature = "legacy"))]
+    #[cfg(all(unix, not(target_os = "linux"), feature = "legacy"))]
     fn legacy_call(self: &mut std::pin::Pin<Box<Self>>) -> io::Result<u32> {
         syscall_u32!(fsync(self.fd.raw_fd()))
     }

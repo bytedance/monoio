@@ -12,6 +12,7 @@ pub use tcp_safe::TcpStreamCompat;
 pub use tcp_unsafe::TcpStreamCompat as TcpStreamCompatUnsafe;
 pub use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 
+#[cfg(unix)]
 #[cfg(test)]
 mod tests {
     use crate::{AsyncReadExt, AsyncWriteExt, TcpStreamCompat, TcpStreamCompatUnsafe};

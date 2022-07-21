@@ -3,7 +3,7 @@ use crate::{buf::IoBuf, BufResult};
 
 #[cfg(all(target_os = "linux", feature = "iouring"))]
 use io_uring::{opcode, types};
-#[cfg(feature = "legacy")]
+#[cfg(all(unix, feature = "legacy"))]
 use {
     crate::{driver::legacy::ready::Direction, syscall_u32},
     std::os::unix::prelude::AsRawFd,
@@ -66,14 +66,14 @@ impl<T: IoBuf> OpAble for Send<T> {
         .build()
     }
 
-    #[cfg(feature = "legacy")]
+    #[cfg(all(unix, feature = "legacy"))]
     fn legacy_interest(&self) -> Option<(Direction, usize)> {
         self.fd
             .registered_index()
             .map(|idx| (Direction::Write, idx))
     }
 
-    #[cfg(feature = "legacy")]
+    #[cfg(all(unix, feature = "legacy"))]
     fn legacy_call(self: &mut std::pin::Pin<Box<Self>>) -> io::Result<u32> {
         let fd = self.fd.as_raw_fd();
         #[cfg(target_os = "linux")]

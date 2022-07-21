@@ -1,5 +1,9 @@
 /// Bind error
+#[cfg(unix)]
 pub type BindError<T> = nix::Result<T>;
+
+#[cfg(windows)]
+pub type BindError<T> = std::io::Result<T>;
 
 /// Bind current thread to given cpus
 #[cfg(any(target_os = "android", target_os = "dragonfly", target_os = "linux"))]
@@ -13,7 +17,15 @@ pub fn bind_to_cpu_set(cpus: impl IntoIterator<Item = usize>) -> BindError<()> {
 }
 
 /// Bind current thread to given cpus(but not works for non-linux)
-#[cfg(not(any(target_os = "android", target_os = "dragonfly", target_os = "linux")))]
+#[cfg(all(
+    unix,
+    not(any(target_os = "android", target_os = "dragonfly", target_os = "linux"))
+))]
+pub fn bind_to_cpu_set(_: impl IntoIterator<Item = usize>) -> BindError<()> {
+    Ok(())
+}
+
+#[cfg(windows)]
 pub fn bind_to_cpu_set(_: impl IntoIterator<Item = usize>) -> BindError<()> {
     Ok(())
 }
@@ -25,7 +37,10 @@ mod tests {
     #[test]
     fn bind_cpu() {
         assert!(bind_to_cpu_set(Some(0)).is_ok());
-        #[cfg(any(target_os = "android", target_os = "dragonfly", target_os = "linux"))]
+        #[cfg(all(
+            unix,
+            any(target_os = "android", target_os = "dragonfly", target_os = "linux")
+        ))]
         assert!(bind_to_cpu_set(Some(100000)).is_err());
     }
 }

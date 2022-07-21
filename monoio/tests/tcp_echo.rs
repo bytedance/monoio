@@ -2,7 +2,7 @@ use monoio::{
     io::{self, AsyncReadRentExt, AsyncWriteRentExt},
     net::{TcpListener, TcpStream},
 };
-
+#[cfg(unix)]
 #[monoio::test_all]
 async fn echo_server() {
     const ITER: usize = 1024;

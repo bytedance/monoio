@@ -11,10 +11,16 @@ mod entry;
 mod select;
 
 use proc_macro::TokenStream;
-
+#[cfg(unix)]
 #[proc_macro_attribute]
 pub fn main(args: TokenStream, item: TokenStream) -> TokenStream {
     entry::main(args, item)
+}
+
+#[cfg(windows)]
+#[proc_macro_attribute]
+pub fn main(_args: TokenStream, _item: TokenStream) -> TokenStream {
+    unimplemented!()
 }
 
 #[proc_macro_attribute]

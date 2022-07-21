@@ -10,9 +10,14 @@ use std::{
     future::Future,
     io,
     net::{SocketAddr, ToSocketAddrs},
-    os::unix::prelude::{AsRawFd, FromRawFd, IntoRawFd, RawFd},
     time::Duration,
 };
+
+#[cfg(unix)]
+use std::os::unix::prelude::{AsRawFd, FromRawFd, IntoRawFd, RawFd};
+
+#[cfg(windows)]
+use std::os::windows::prelude::{AsRawHandle, IntoRawHandle, RawHandle};
 
 /// TcpStream
 pub struct TcpStream {
@@ -22,7 +27,10 @@ pub struct TcpStream {
 
 impl TcpStream {
     pub(crate) fn from_shared_fd(fd: SharedFd) -> Self {
+        #[cfg(unix)]
         let meta = StreamMeta::new(fd.raw_fd());
+        #[cfg(windows)]
+        let meta = StreamMeta::new(fd.raw_handle());
         #[cfg(feature = "zero-copy")]
         // enable SOCK_ZEROCOPY
         meta.set_zero_copy();
@@ -44,6 +52,7 @@ impl TcpStream {
         Self::connect_addr(addr).await
     }
 
+    #[cfg(unix)]
     /// Establishe a connection to the specified `addr`.
     pub async fn connect_addr(addr: SocketAddr) -> io::Result<Self> {
         let op = Op::connect(libc::SOCK_STREAM, addr)?;
@@ -62,6 +71,12 @@ impl TcpStream {
             return Err(e);
         }
         Ok(stream)
+    }
+
+    #[cfg(windows)]
+    /// Establishe a connection to the specified `addr`.
+    pub async fn connect_addr(addr: SocketAddr) -> io::Result<Self> {
+        unimplemented!()
     }
 
     /// Return the local address that this stream is bound to.
@@ -106,6 +121,7 @@ impl TcpStream {
     }
 }
 
+#[cfg(unix)]
 impl IntoRawFd for TcpStream {
     fn into_raw_fd(self) -> RawFd {
         self.fd
@@ -113,10 +129,25 @@ impl IntoRawFd for TcpStream {
             .expect("unexpected multiple reference to rawfd")
     }
 }
-
+#[cfg(unix)]
 impl AsRawFd for TcpStream {
     fn as_raw_fd(&self) -> RawFd {
         self.fd.raw_fd()
+    }
+}
+
+#[cfg(windows)]
+impl IntoRawHandle for TcpStream {
+    fn into_raw_handle(self) -> RawHandle {
+        self.fd
+            .try_unwrap()
+            .expect("unexpected multiple reference to rawfd")
+    }
+}
+#[cfg(windows)]
+impl AsRawHandle for TcpStream {
+    fn as_raw_handle(&self) -> RawHandle {
+        self.fd.raw_handle()
     }
 }
 
@@ -149,7 +180,7 @@ impl AsyncWriteRent for TcpStream {
         // Tcp stream does not need flush.
         async move { Ok(()) }
     }
-
+    #[cfg(unix)]
     fn shutdown(&mut self) -> Self::ShutdownFuture<'_> {
         // We could use shutdown op here, which requires kernel 5.11+.
         // However, for simplicity, we just close the socket using direct syscall.
@@ -160,6 +191,10 @@ impl AsyncWriteRent for TcpStream {
                 _ => Ok(()),
             }
         }
+    }
+    #[cfg(windows)]
+    fn shutdown(&mut self) -> Self::ShutdownFuture<'_> {
+        async { unimplemented!() }
     }
 }
 
@@ -194,11 +229,16 @@ struct Meta {
 }
 
 impl StreamMeta {
+    #[cfg(unix)]
     fn new(fd: RawFd) -> Self {
         Self {
             socket: unsafe { Some(socket2::Socket::from_raw_fd(fd)) },
             meta: Default::default(),
         }
+    }
+    #[cfg(windows)]
+    fn new(fd: RawHandle) -> Self {
+        unimplemented!()
     }
 
     fn local_addr(&self) -> io::Result<SocketAddr> {
@@ -258,6 +298,7 @@ impl StreamMeta {
         if let Some(interval) = interval {
             t = t.with_interval(interval)
         }
+        #[cfg(unix)]
         if let Some(retries) = retries {
             t = t.with_retries(retries)
         }
@@ -283,6 +324,9 @@ impl StreamMeta {
 
 impl Drop for StreamMeta {
     fn drop(&mut self) {
+        #[cfg(unix)]
         self.socket.take().unwrap().into_raw_fd();
+        #[cfg(windows)]
+        unimplemented!()
     }
 }
