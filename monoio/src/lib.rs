@@ -14,6 +14,8 @@
 #![feature(new_uninit)]
 #![feature(io_error_more)]
 #![feature(stmt_expr_attributes)]
+#![feature(unboxed_closures)]
+
 
 #[macro_use]
 pub mod macros;

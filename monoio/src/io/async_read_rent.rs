@@ -10,12 +10,12 @@ pub trait AsyncReadRent {
     type ReadFuture<'a, T>: Future<Output = BufResult<usize, T>>
     where
         Self: 'a,
-        T: 'a;
+        T: IoBufMut + 'a;
     /// The future of readv Result<size, buffer>
     type ReadvFuture<'a, T>: Future<Output = BufResult<usize, T>>
     where
         Self: 'a,
-        T: 'a;
+        T: IoVecBufMut + 'a;
 
     /// Same as read(2)
     fn read<T: IoBufMut>(&mut self, buf: T) -> Self::ReadFuture<'_, T>;
@@ -39,12 +39,12 @@ impl<A: ?Sized + AsyncReadRent> AsyncReadRent for &mut A {
     type ReadFuture<'a, T> = A::ReadFuture<'a, T>
     where
         Self: 'a,
-        T: 'a;
+        T: IoBufMut + 'a;
 
     type ReadvFuture<'a, T> = A::ReadvFuture<'a, T>
     where
         Self: 'a,
-        T: 'a;
+        T: IoVecBufMut + 'a;
 
     fn read<T: IoBufMut>(&mut self, buf: T) -> Self::ReadFuture<'_, T> {
         (**self).read(buf)
@@ -57,9 +57,9 @@ impl<A: ?Sized + AsyncReadRent> AsyncReadRent for &mut A {
 
 impl AsyncReadRent for &[u8] {
     type ReadFuture<'a, B> = impl std::future::Future<Output = crate::BufResult<usize, B>> where
-        B: 'a, Self: 'a;
+        B: IoBufMut + 'a, Self: 'a;
     type ReadvFuture<'a, B> = impl std::future::Future<Output = crate::BufResult<usize, B>> where
-        B: 'a, Self: 'a;
+        B: IoVecBufMut + 'a, Self: 'a;
 
     fn read<T: IoBufMut>(&mut self, mut buf: T) -> Self::ReadFuture<'_, T> {
         let amt = std::cmp::min(self.len(), buf.bytes_total());
