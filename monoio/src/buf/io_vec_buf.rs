@@ -1,5 +1,5 @@
 // use super::shared_buf::Shared;
-
+use super::{IoBuf, IoBufMut};
 /// An `io_uring` compatible iovec buffer.
 ///
 /// # Safety
@@ -28,12 +28,12 @@ pub unsafe trait IoVecBuf: Unpin + 'static {
 
 /// A intermediate struct that impl IoVecBuf and IoVecBufMut.
 #[derive(Clone)]
-pub struct VecBuf {
+pub struct VecBuf<B> {
     iovecs: Vec<libc::iovec>,
-    raw: Vec<Vec<u8>>,
+    raw: Vec<B>,
 }
 
-unsafe impl IoVecBuf for VecBuf {
+unsafe impl<B: IoBuf> IoVecBuf for VecBuf<B> {
     fn read_iovec_ptr(&self) -> *const libc::iovec {
         self.iovecs.read_iovec_ptr()
     }
@@ -53,21 +53,21 @@ unsafe impl IoVecBuf for Vec<libc::iovec> {
     }
 }
 
-impl From<Vec<Vec<u8>>> for VecBuf {
-    fn from(vs: Vec<Vec<u8>>) -> Self {
+impl<B: IoBuf> From<Vec<B>> for VecBuf<B> {
+    fn from(vs: Vec<B>) -> Self {
         let iovecs = vs
             .iter()
             .map(|v| libc::iovec {
-                iov_base: v.as_ptr() as _,
-                iov_len: v.len(),
+                iov_base: v.read_ptr() as _,
+                iov_len: v.bytes_init(),
             })
             .collect();
         Self { iovecs, raw: vs }
     }
 }
 
-impl From<VecBuf> for Vec<Vec<u8>> {
-    fn from(vb: VecBuf) -> Self {
+impl<B: IoBuf> From<VecBuf<B>> for Vec<B> {
+    fn from(vb: VecBuf<B>) -> Self {
         vb.raw
     }
 }
@@ -127,7 +127,7 @@ impl From<VecBuf> for Vec<Vec<u8>> {
 //     pub fn write_all(&mut self, data: &[u8]) -> Result<(), std::io::Error> {
 //         unimplemented!()
 //     }
-// }
+// }use super::IoBuf;use super::IoBuf;
 
 /// A mutable `io_uring` compatible iovec buffer.
 ///
@@ -162,7 +162,7 @@ pub unsafe trait IoVecBufMut: Unpin + 'static {
     unsafe fn set_init(&mut self, pos: usize);
 }
 
-unsafe impl IoVecBufMut for VecBuf {
+unsafe impl<B: IoBufMut + IoBuf> IoVecBufMut for VecBuf<B> {
     fn write_iovec_ptr(&mut self) -> *mut libc::iovec {
         self.read_iovec_ptr() as *mut _
     }
@@ -175,11 +175,11 @@ unsafe impl IoVecBufMut for VecBuf {
         for (idx, iovec) in self.iovecs.iter_mut().enumerate() {
             if iovec.iov_len <= len {
                 // set_init all
-                self.raw[idx].set_len(iovec.iov_len);
+                self.raw[idx].set_init(iovec.iov_len);
                 len -= iovec.iov_len;
             } else {
                 if len > 0 {
-                    self.raw[idx].set_len(len);
+                    self.raw[idx].set_init(len);
                 }
                 break;
             }
