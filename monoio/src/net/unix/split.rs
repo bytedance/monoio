@@ -22,9 +22,9 @@ pub(crate) fn split(stream: &mut UnixStream) -> (ReadHalf<'_>, WriteHalf<'_>) {
 #[allow(clippy::cast_ref_to_mut)]
 impl<'t> AsyncReadRent for ReadHalf<'t> {
     type ReadFuture<'a, B> = impl Future<Output = crate::BufResult<usize, B>> where
-        't: 'a, B: 'a,;
+        't: 'a, B: IoBufMut + 'a,;
     type ReadvFuture<'a, B> = impl Future<Output = crate::BufResult<usize, B>> where
-        't: 'a, B: 'a,;
+        't: 'a, B: IoVecBufMut + 'a,;
 
     fn read<T: IoBufMut>(&mut self, buf: T) -> Self::ReadFuture<'_, T> {
         // Submit the read operation
@@ -42,9 +42,9 @@ impl<'t> AsyncReadRent for ReadHalf<'t> {
 #[allow(clippy::cast_ref_to_mut)]
 impl<'t> AsyncWriteRent for WriteHalf<'t> {
     type WriteFuture<'a, B> = impl Future<Output = crate::BufResult<usize, B>> where
-        't: 'a, B: 'a;
+        't: 'a, B: IoBuf + 'a;
     type WritevFuture<'a, B> = impl Future<Output = crate::BufResult<usize, B>> where
-        't: 'a, B: 'a,;
+        't: 'a, B: IoVecBuf + 'a,;
     type FlushFuture<'a> = impl Future<Output = io::Result<()>> where
         't: 'a,;
     type ShutdownFuture<'a> = impl Future<Output = io::Result<()>> where
@@ -145,9 +145,9 @@ impl OwnedReadHalf {
 
 impl AsyncReadRent for OwnedReadHalf {
     type ReadFuture<'a, B> = impl std::future::Future<Output = crate::BufResult<usize, B>> where
-        B: 'a;
+        B: IoBufMut + 'a;
     type ReadvFuture<'a, B> = impl std::future::Future<Output = crate::BufResult<usize, B>> where
-        B: 'a;
+        B: IoVecBufMut + 'a;
 
     fn read<T: IoBufMut>(&mut self, buf: T) -> Self::ReadFuture<'_, T> {
         // Submit the read operation
@@ -164,9 +164,9 @@ impl AsyncReadRent for OwnedReadHalf {
 
 impl AsyncWriteRent for OwnedWriteHalf {
     type WriteFuture<'a, B> = impl Future<Output = crate::BufResult<usize, B>> where
-        B: 'a;
+        B: IoBuf + 'a;
     type WritevFuture<'a, B> = impl Future<Output = crate::BufResult<usize, B>> where
-        B: 'a;
+        B: IoVecBuf + 'a;
     type FlushFuture<'a> = impl Future<Output = io::Result<()>>;
     type ShutdownFuture<'a> = impl Future<Output = io::Result<()>>;
 

@@ -13,6 +13,7 @@
 #![feature(box_into_inner)]
 #![feature(new_uninit)]
 #![feature(io_error_more)]
+#![feature(unboxed_closures)]
 
 #[macro_use]
 pub mod macros;

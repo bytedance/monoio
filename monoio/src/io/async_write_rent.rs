@@ -10,12 +10,12 @@ pub trait AsyncWriteRent {
     type WriteFuture<'a, T>: Future<Output = BufResult<usize, T>>
     where
         Self: 'a,
-        T: 'a;
+        T: IoBuf + 'a;
     /// The future of writev Result<size, buffer>
     type WritevFuture<'a, T>: Future<Output = BufResult<usize, T>>
     where
         Self: 'a,
-        T: 'a;
+        T: IoVecBuf + 'a;
 
     /// The future of flush
     type FlushFuture<'a>: Future<Output = std::io::Result<()>>
@@ -56,12 +56,12 @@ impl<A: ?Sized + AsyncWriteRent> AsyncWriteRent for &mut A {
     type WriteFuture<'a, T> = A::WriteFuture<'a, T>
     where
         Self: 'a,
-        T: 'a;
+        T: IoBuf + 'a;
 
     type WritevFuture<'a, T> = A::WritevFuture<'a, T>
     where
         Self: 'a,
-        T: 'a;
+        T: IoVecBuf + 'a;
 
     type FlushFuture<'a> = A::FlushFuture<'a>
     where

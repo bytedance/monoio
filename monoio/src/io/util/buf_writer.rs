@@ -1,7 +1,7 @@
 use std::{future::Future, io};
 
 use crate::{
-    buf::{IoVecWrapper, Slice},
+    buf::{IoBuf, IoBufMut, IoVecBuf, IoVecBufMut, IoVecWrapper, Slice},
     io::{AsyncBufRead, AsyncReadRent, AsyncWriteRent, AsyncWriteRentExt},
 };
 
@@ -85,10 +85,10 @@ impl<W: AsyncWriteRent> BufWriter<W> {
 
 impl<W: AsyncWriteRent> AsyncWriteRent for BufWriter<W> {
     type WriteFuture<'a, T> = impl Future<Output = crate::BufResult<usize, T>> where
-        T: 'a, W: 'a;
+        T: IoBuf + 'a, W: 'a;
 
     type WritevFuture<'a, T> = impl Future<Output = crate::BufResult<usize, T>> where
-        T: 'a, W: 'a;
+        T: IoVecBuf + 'a, W: 'a;
 
     type FlushFuture<'a> = impl Future<Output = io::Result<()>> where
         W: 'a;
@@ -96,7 +96,7 @@ impl<W: AsyncWriteRent> AsyncWriteRent for BufWriter<W> {
     type ShutdownFuture<'a> = impl Future<Output = io::Result<()>> where
         W: 'a;
 
-    fn write<T: crate::buf::IoBuf>(&mut self, buf: T) -> Self::WriteFuture<'_, T> {
+    fn write<T: IoBuf>(&mut self, buf: T) -> Self::WriteFuture<'_, T> {
         async move {
             let owned_buf = self.buf.as_ref().unwrap();
             let owned_len = owned_buf.len();
@@ -136,7 +136,7 @@ impl<W: AsyncWriteRent> AsyncWriteRent for BufWriter<W> {
     }
 
     // TODO: implement it as real io_vec
-    fn writev<T: crate::buf::IoVecBuf>(&mut self, buf: T) -> Self::WritevFuture<'_, T> {
+    fn writev<T: IoVecBuf>(&mut self, buf: T) -> Self::WritevFuture<'_, T> {
         async move {
             let slice = match IoVecWrapper::new(buf) {
                 Ok(slice) => slice,
@@ -165,16 +165,16 @@ impl<W: AsyncWriteRent> AsyncWriteRent for BufWriter<W> {
 
 impl<W: AsyncWriteRent + AsyncReadRent> AsyncReadRent for BufWriter<W> {
     type ReadFuture<'a, T> = W::ReadFuture<'a, T> where
-        T: 'a, W: 'a;
+        T: IoBufMut + 'a, W: 'a;
 
     type ReadvFuture<'a, T> = W::ReadvFuture<'a, T> where
-        T: 'a, W: 'a;
+        T: IoVecBufMut + 'a, W: 'a;
 
-    fn read<T: crate::buf::IoBufMut>(&mut self, buf: T) -> Self::ReadFuture<'_, T> {
+    fn read<T: IoBufMut>(&mut self, buf: T) -> Self::ReadFuture<'_, T> {
         self.inner.read(buf)
     }
 
-    fn readv<T: crate::buf::IoVecBufMut>(&mut self, buf: T) -> Self::ReadvFuture<'_, T> {
+    fn readv<T: IoVecBufMut>(&mut self, buf: T) -> Self::ReadvFuture<'_, T> {
         self.inner.readv(buf)
     }
 }
