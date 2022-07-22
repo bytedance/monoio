@@ -41,7 +41,8 @@ pub trait StreamExt: Stream {
 
 impl<T> StreamExt for T where T: Stream {}
 
-type ForEachFut<T: Stream, Fut, F> = impl Future<Output = ()>;
+type ForEachFut<T: Stream, Fut: Future<Output = ()>, F: FnMut(<T as Stream>::Item) -> Fut> =
+    impl Future<Output = ()>;
 
 #[must_use = "streams do nothing unless polled"]
 pub struct Map<St, F> {

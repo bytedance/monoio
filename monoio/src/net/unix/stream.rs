@@ -123,9 +123,9 @@ impl std::fmt::Debug for UnixStream {
 
 impl AsyncWriteRent for UnixStream {
     type WriteFuture<'a, B> = impl Future<Output = crate::BufResult<usize, B>> where
-        B: 'a;
+        B: IoBuf + 'a;
     type WritevFuture<'a, B> = impl Future<Output = crate::BufResult<usize, B>> where
-        B: 'a;
+        B: IoVecBuf + 'a;
     type FlushFuture<'a> = impl Future<Output = io::Result<()>>;
     type ShutdownFuture<'a> = impl Future<Output = io::Result<()>>;
 
@@ -160,9 +160,9 @@ impl AsyncWriteRent for UnixStream {
 
 impl AsyncReadRent for UnixStream {
     type ReadFuture<'a, B> = impl std::future::Future<Output = crate::BufResult<usize, B>> where
-        B: 'a;
+        B: IoBufMut + 'a;
     type ReadvFuture<'a, B> = impl std::future::Future<Output = crate::BufResult<usize, B>> where
-        B: 'a;
+        B: IoVecBufMut + 'a;
 
     fn read<T: IoBufMut>(&mut self, buf: T) -> Self::ReadFuture<'_, T> {
         // Submit the read operation
