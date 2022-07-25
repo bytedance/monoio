@@ -16,7 +16,6 @@
 #![feature(stmt_expr_attributes)]
 #![feature(unboxed_closures)]
 
-
 #[macro_use]
 pub mod macros;
 #[cfg(feature = "macros")]
