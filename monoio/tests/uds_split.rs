@@ -1,13 +1,13 @@
-use monoio::{
-    io::{AsyncReadRent, AsyncReadRentExt, AsyncWriteRent, AsyncWriteRentExt},
-    net::UnixStream,
-};
+use monoio::io::{AsyncReadRent, AsyncReadRentExt, AsyncWriteRent, AsyncWriteRentExt};
+#[cfg(unix)]
+use monoio::net::UnixStream;
 
 /// Checks that `UnixStream` can be split into a read half and a write half using
 /// `UnixStream::split` and `UnixStream::split_mut`.
 ///
 /// Verifies that the implementation of `AsyncWrite::poll_shutdown` shutdowns the stream for
 /// writing by reading to the end of stream on the other side of the connection.
+#[cfg(unix)]
 #[monoio::test_all(entries = 1024)]
 async fn split() -> std::io::Result<()> {
     let (mut a, mut b) = UnixStream::pair()?;
@@ -26,6 +26,7 @@ async fn split() -> std::io::Result<()> {
 
     Ok(())
 }
+#[cfg(unix)]
 
 async fn send_recv_all<R: AsyncReadRent, W: AsyncWriteRent>(
     read: &mut R,

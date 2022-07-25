@@ -17,8 +17,10 @@ pub unsafe trait IoVecBuf: Unpin + 'static {
     /// The implementation must ensure that, while the runtime owns the value,
     /// the pointer returned by `stable_mut_ptr` **does not** change.
     /// Also, the value pointed must be a valid iovec struct.
+    #[cfg(unix)]
     fn read_iovec_ptr(&self) -> *const libc::iovec;
 
+    #[cfg(unix)]
     /// Returns the count of iovec struct behind the pointer.
     ///
     /// # Safety
@@ -29,19 +31,22 @@ pub unsafe trait IoVecBuf: Unpin + 'static {
 /// A intermediate struct that impl IoVecBuf and IoVecBufMut.
 #[derive(Clone)]
 pub struct VecBuf {
+    #[cfg(unix)]
     iovecs: Vec<libc::iovec>,
     raw: Vec<Vec<u8>>,
 }
 
+#[cfg(unix)]
 unsafe impl IoVecBuf for VecBuf {
     fn read_iovec_ptr(&self) -> *const libc::iovec {
         self.iovecs.read_iovec_ptr()
     }
-
     fn read_iovec_len(&self) -> usize {
         self.iovecs.read_iovec_len()
     }
 }
+
+#[cfg(unix)]
 
 unsafe impl IoVecBuf for Vec<libc::iovec> {
     fn read_iovec_ptr(&self) -> *const libc::iovec {
@@ -55,14 +60,21 @@ unsafe impl IoVecBuf for Vec<libc::iovec> {
 
 impl From<Vec<Vec<u8>>> for VecBuf {
     fn from(vs: Vec<Vec<u8>>) -> Self {
-        let iovecs = vs
-            .iter()
-            .map(|v| libc::iovec {
-                iov_base: v.as_ptr() as _,
-                iov_len: v.len(),
-            })
-            .collect();
-        Self { iovecs, raw: vs }
+        #[cfg(unix)]
+        {
+            let iovecs = vs
+                .iter()
+                .map(|v| libc::iovec {
+                    iov_base: v.as_ptr() as _,
+                    iov_len: v.len(),
+                })
+                .collect();
+            Self { iovecs, raw: vs }
+        }
+        #[cfg(windows)]
+        {
+            unimplemented!()
+        }
     }
 }
 
@@ -134,6 +146,7 @@ impl From<VecBuf> for Vec<Vec<u8>> {
 /// # Safety
 /// See the safety note of the methods.
 pub unsafe trait IoVecBufMut: Unpin + 'static {
+    #[cfg(unix)]
     /// Returns a raw mutable pointer to iovec struct.
     /// struct iovec {
     ///     void  *iov_base;    /* Starting address */
@@ -162,6 +175,7 @@ pub unsafe trait IoVecBufMut: Unpin + 'static {
     unsafe fn set_init(&mut self, pos: usize);
 }
 
+#[cfg(unix)]
 unsafe impl IoVecBufMut for VecBuf {
     fn write_iovec_ptr(&mut self) -> *mut libc::iovec {
         self.read_iovec_ptr() as *mut _

@@ -2,7 +2,10 @@ use super::CURRENT;
 
 use std::cell::UnsafeCell;
 use std::io;
+#[cfg(unix)]
 use std::os::unix::io::{AsRawFd, FromRawFd, RawFd};
+#[cfg(windows)]
+use std::os::windows::io::{AsRawHandle, FromRawHandle, RawHandle};
 use std::rc::Rc;
 
 // Tracks in-flight operations on a file descriptor. Ensures all in-flight
@@ -14,7 +17,11 @@ pub(crate) struct SharedFd {
 
 struct Inner {
     // Open file descriptor
+    #[cfg(unix)]
     fd: RawFd,
+
+    #[cfg(windows)]
+    fd: RawHandle,
 
     // Waker to notify when the close operation completes.
     state: UnsafeCell<State>,
@@ -23,7 +30,7 @@ struct Inner {
 enum State {
     #[cfg(all(target_os = "linux", feature = "iouring"))]
     Uring(UringState),
-    #[cfg(feature = "legacy")]
+    #[cfg(all(unix, feature = "legacy"))]
     Legacy(Option<usize>),
 }
 
@@ -48,16 +55,25 @@ enum UringState {
     Closed,
 }
 
+#[cfg(unix)]
 impl AsRawFd for SharedFd {
     fn as_raw_fd(&self) -> RawFd {
         self.raw_fd()
     }
 }
 
+#[cfg(windows)]
+impl AsRawHandle for SharedFd {
+    fn as_raw_handle(&self) -> RawHandle {
+        self.raw_handle()
+    }
+}
+
 impl SharedFd {
+    #[cfg(unix)]
     #[allow(unreachable_code, unused)]
     pub(crate) fn new(fd: RawFd) -> io::Result<SharedFd> {
-        #[cfg(feature = "legacy")]
+        #[cfg(all(unix, feature = "legacy"))]
         const RW_INTERESTS: mio::Interest = mio::Interest::READABLE.add(mio::Interest::WRITABLE);
 
         #[cfg(all(target_os = "linux", feature = "iouring", feature = "legacy"))]
@@ -79,7 +95,11 @@ impl SharedFd {
         #[cfg(all(not(feature = "legacy"), target_os = "linux", feature = "iouring"))]
         let state = State::Uring(UringState::Init);
 
-        #[cfg(all(feature = "legacy", not(all(target_os = "linux", feature = "iouring"))))]
+        #[cfg(all(
+            unix,
+            feature = "legacy",
+            not(all(target_os = "linux", feature = "iouring"))
+        ))]
         let state = {
             let reg = CURRENT.with(|inner| match inner {
                 super::Inner::Legacy(inner) => {
@@ -107,12 +127,18 @@ impl SharedFd {
         })
     }
 
+    #[cfg(windows)]
+    pub(crate) fn new(fd: RawHandle) -> io::Result<SharedFd> {
+        unimplemented!()
+    }
+
+    #[cfg(unix)]
     #[allow(unreachable_code, unused)]
     pub(crate) fn new_without_register(fd: RawFd) -> io::Result<SharedFd> {
         let state = CURRENT.with(|inner| match inner {
             #[cfg(all(target_os = "linux", feature = "iouring"))]
             super::Inner::Uring(_) => State::Uring(UringState::Init),
-            #[cfg(feature = "legacy")]
+            #[cfg(all(unix, feature = "legacy"))]
             super::Inner::Legacy(_) => State::Legacy(None),
             #[cfg(all(
                 not(feature = "legacy"),
@@ -131,21 +157,35 @@ impl SharedFd {
         })
     }
 
+    #[cfg(windows)]
+    #[allow(unreachable_code, unused)]
+    pub(crate) fn new_without_register(fd: RawHandle) -> io::Result<SharedFd> {
+        unimplemented!()
+    }
+
+    #[cfg(unix)]
     /// Returns the RawFd
     pub(crate) fn raw_fd(&self) -> RawFd {
         self.inner.fd
     }
 
+    #[cfg(windows)]
+    /// Returns the RawHandle
+    pub(crate) fn raw_handle(&self) -> RawHandle {
+        self.inner.fd
+    }
+
+    #[cfg(unix)]
     /// Try unwrap Rc, then deregister if registered and return rawfd.
     /// Note: this action will consume self and return rawfd without closing it.
     pub(crate) fn try_unwrap(self) -> Result<RawFd, Self> {
         let fd = self.inner.fd;
         match Rc::try_unwrap(self.inner) {
             Ok(_inner) => {
-                #[cfg(feature = "legacy")]
+                #[cfg(all(unix, feature = "legacy"))]
                 let state = unsafe { &*_inner.state.get() };
 
-                #[cfg(feature = "legacy")]
+                #[cfg(all(unix, feature = "legacy"))]
                 #[allow(irrefutable_let_patterns)]
                 if let State::Legacy(idx) = state {
                     if CURRENT.is_set() {
@@ -176,13 +216,22 @@ impl SharedFd {
         }
     }
 
+    #[cfg(windows)]
+    /// Try unwrap Rc, then deregister if registered and return rawfd.
+    /// Note: this action will consume self and return rawfd without closing it.
+    pub(crate) fn try_unwrap(self) -> Result<RawHandle, Self> {
+        unimplemented!()
+    }
+
     #[allow(unused)]
     pub(crate) fn registered_index(&self) -> Option<usize> {
         let state = unsafe { &*self.inner.state.get() };
         match state {
+            #[cfg(windows)]
+            _ => unimplemented!(),
             #[cfg(all(target_os = "linux", feature = "iouring"))]
             State::Uring(_) => None,
-            #[cfg(feature = "legacy")]
+            #[cfg(all(unix, feature = "legacy"))]
             State::Legacy(s) => *s,
             #[cfg(all(
                 not(feature = "legacy"),
@@ -279,7 +328,7 @@ impl Drop for Inner {
                     let _ = unsafe { std::fs::File::from_raw_fd(fd) };
                 };
             }
-            #[cfg(feature = "legacy")]
+            #[cfg(all(unix, feature = "legacy"))]
             State::Legacy(idx) => {
                 if CURRENT.is_set() {
                     CURRENT.with(|inner| {
@@ -288,7 +337,7 @@ impl Drop for Inner {
                             super::Inner::Uring(_) => {
                                 unreachable!("close legacy fd with uring runtime")
                             }
-                            #[cfg(feature = "legacy")]
+                            #[cfg(all(unix, feature = "legacy"))]
                             super::Inner::Legacy(inner) => {
                                 // deregister it from driver(Poll and slab) and close fd
                                 if let Some(idx) = idx {
@@ -305,6 +354,7 @@ impl Drop for Inner {
                 }
                 let _ = unsafe { std::fs::File::from_raw_fd(fd) };
             }
+            //TODO: windows
             _ => {}
         }
     }

@@ -1,7 +1,7 @@
-use std::{
-    cell::UnsafeCell, error::Error, fmt, future::Future, io, net::SocketAddr,
-    os::unix::prelude::AsRawFd, rc::Rc,
-};
+use std::{cell::UnsafeCell, error::Error, fmt, future::Future, io, net::SocketAddr, rc::Rc};
+
+#[cfg(unix)]
+use std::os::unix::prelude::AsRawFd;
 
 use crate::{
     buf::{IoBuf, IoBufMut, IoVecBuf, IoVecBufMut},
@@ -214,10 +214,18 @@ impl AsyncWriteRent for OwnedWriteHalf {
     }
 }
 
+#[cfg(unix)]
 impl Drop for OwnedWriteHalf {
     fn drop(&mut self) {
         let raw_stream = unsafe { &mut *self.0.get() };
         let fd = raw_stream.as_raw_fd();
         unsafe { libc::shutdown(fd, libc::SHUT_WR) };
+    }
+}
+
+#[cfg(windows)]
+impl Drop for OwnedWriteHalf {
+    fn drop(&mut self) {
+        unimplemented!()
     }
 }

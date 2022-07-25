@@ -11,6 +11,6 @@ author: ihciah
 如何使用 Legacy 驱动可以参考[这里](/docs/zh/use-legacy-driver.md)。
 
 ## 未来计划
-可能会支持 Windows，但短期内暂无该计划。
+🚧实验性的 windows 系统支持正在开发中
 
 如果你想在 Windows 开发，在 Linux 部署，那么你可以尝试使用 wsl。

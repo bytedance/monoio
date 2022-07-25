@@ -1,6 +1,6 @@
 use super::{super::shared_fd::SharedFd, Op, OpAble};
 
-#[cfg(feature = "legacy")]
+#[cfg(all(unix, feature = "legacy"))]
 use crate::driver::legacy::ready::Direction;
 #[cfg(all(target_os = "linux", feature = "iouring"))]
 use io_uring::{opcode, types};
@@ -19,17 +19,22 @@ impl Op<Connect> {
         socket_type: libc::c_int,
         socket_addr: SocketAddr,
     ) -> io::Result<Op<Connect>> {
-        let domain = match socket_addr {
-            SocketAddr::V4(_) => libc::AF_INET,
-            SocketAddr::V6(_) => libc::AF_INET6,
-        };
-        let socket = super::new_socket(domain, socket_type)?;
-        let os_socket_addr = OsSocketAddr::from(socket_addr);
+        #[cfg(unix)]
+        {
+            let domain = match socket_addr {
+                SocketAddr::V4(_) => libc::AF_INET,
+                SocketAddr::V6(_) => libc::AF_INET6,
+            };
+            let socket = super::new_socket(domain, socket_type)?;
+            let os_socket_addr = OsSocketAddr::from(socket_addr);
 
-        Op::submit_with(Connect {
-            fd: SharedFd::new(socket)?,
-            os_socket_addr,
-        })
+            Op::submit_with(Connect {
+                fd: SharedFd::new(socket)?,
+                os_socket_addr,
+            })
+        }
+        #[cfg(windows)]
+        unimplemented!()
     }
 }
 
@@ -44,12 +49,12 @@ impl OpAble for Connect {
         .build()
     }
 
-    #[cfg(feature = "legacy")]
+    #[cfg(all(unix, feature = "legacy"))]
     fn legacy_interest(&self) -> Option<(Direction, usize)> {
         None
     }
 
-    #[cfg(feature = "legacy")]
+    #[cfg(all(unix, feature = "legacy"))]
     fn legacy_call(self: &mut std::pin::Pin<Box<Self>>) -> io::Result<u32> {
         match crate::syscall_u32!(connect(
             self.fd.raw_fd(),
@@ -66,11 +71,15 @@ pub(crate) struct ConnectUnix {
     /// Holds a strong ref to the FD, preventing the file from being closed
     /// while the operation is in-flight.
     pub(crate) fd: SharedFd,
+    #[cfg(unix)]
     socket_addr: libc::sockaddr_un,
+    #[cfg(unix)]
     socket_len: libc::socklen_t,
 }
 
 impl Op<ConnectUnix> {
+    #[cfg(unix)]
+
     /// Submit a request to connect.
     pub(crate) fn connect_unix(
         socket_addr: libc::sockaddr_un,
@@ -97,12 +106,12 @@ impl OpAble for ConnectUnix {
         .build()
     }
 
-    #[cfg(feature = "legacy")]
+    #[cfg(all(unix, feature = "legacy"))]
     fn legacy_interest(&self) -> Option<(Direction, usize)> {
         None
     }
 
-    #[cfg(feature = "legacy")]
+    #[cfg(all(unix, feature = "legacy"))]
     fn legacy_call(self: &mut std::pin::Pin<Box<Self>>) -> io::Result<u32> {
         match crate::syscall_u32!(connect(
             self.fd.raw_fd(),

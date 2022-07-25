@@ -3,8 +3,15 @@ use std::io;
 use std::path::Path;
 
 pub(super) fn cstr(p: &Path) -> io::Result<CString> {
-    use std::os::unix::ffi::OsStrExt;
-    Ok(CString::new(p.as_os_str().as_bytes())?)
+    #[cfg(unix)]
+    {
+        use std::os::unix::ffi::OsStrExt;
+        Ok(CString::new(p.as_os_str().as_bytes())?)
+    }
+    #[cfg(windows)]
+    {
+        unimplemented!()
+    }
 }
 
 // Convert Duration to Timespec
@@ -17,6 +24,7 @@ pub(super) fn timespec(duration: std::time::Duration) -> io_uring::types::Timesp
 }
 
 /// Do syscall and return Result<T, std::io::Error>
+#[cfg(unix)]
 #[macro_export]
 macro_rules! syscall {
     ($fn: ident ( $($arg: expr),* $(,)* ) ) => {{
@@ -26,6 +34,14 @@ macro_rules! syscall {
         } else {
             Ok(res)
         }
+    }};
+}
+
+#[cfg(windows)]
+#[macro_export]
+macro_rules! syscall {
+    ($fn: ident ( $($arg: expr),* $(,)* ) ) => {{
+        unimplemented!()
     }};
 }
 

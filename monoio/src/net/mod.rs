@@ -3,8 +3,10 @@
 
 mod listener_config;
 pub mod tcp;
+#[cfg(unix)]
 pub mod unix;
 
 pub use listener_config::ListenerConfig;
 pub use tcp::{TcpListener, TcpStream};
+#[cfg(unix)]
 pub use unix::{UnixDatagram, UnixListener, UnixStream};

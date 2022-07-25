@@ -2,7 +2,7 @@ use super::{super::shared_fd::SharedFd, Op, OpAble};
 
 #[cfg(all(target_os = "linux", feature = "iouring"))]
 use io_uring::{opcode, types};
-#[cfg(feature = "legacy")]
+#[cfg(all(unix, feature = "legacy"))]
 use {
     crate::{driver::legacy::ready::Direction, syscall_u32},
     std::os::unix::prelude::AsRawFd,
@@ -17,11 +17,14 @@ use std::{
 pub(crate) struct Accept {
     #[allow(unused)]
     pub(crate) fd: SharedFd,
+    #[cfg(unix)]
     pub(crate) addr: MaybeUninit<libc::sockaddr_storage>,
+    #[cfg(unix)]
     pub(crate) addrlen: libc::socklen_t,
 }
 
 impl Op<Accept> {
+    #[cfg(unix)]
     /// Accept a connection
     pub(crate) fn accept(fd: &SharedFd) -> io::Result<Self> {
         Op::submit_with(Accept {
@@ -43,12 +46,12 @@ impl OpAble for Accept {
         .build()
     }
 
-    #[cfg(feature = "legacy")]
+    #[cfg(all(unix, feature = "legacy"))]
     fn legacy_interest(&self) -> Option<(Direction, usize)> {
         self.fd.registered_index().map(|idx| (Direction::Read, idx))
     }
 
-    #[cfg(feature = "legacy")]
+    #[cfg(all(unix, feature = "legacy"))]
     fn legacy_call(self: &mut std::pin::Pin<Box<Self>>) -> io::Result<u32> {
         let fd = self.fd.as_raw_fd();
         let addr = self.addr.as_mut_ptr() as *mut _;

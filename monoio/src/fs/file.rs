@@ -3,8 +3,13 @@ use crate::driver::{op::Op, shared_fd::SharedFd};
 use crate::fs::OpenOptions;
 
 use std::io;
-use std::os::unix::io::{AsRawFd, RawFd};
 use std::path::Path;
+
+#[cfg(unix)]
+use std::os::unix::io::{AsRawFd, RawFd};
+
+#[cfg(windows)]
+use std::os::windows::io::{AsRawHandle, RawHandle};
 
 /// A reference to an open file on the filesystem.
 ///
@@ -55,6 +60,7 @@ pub struct File {
 }
 
 impl File {
+    #[cfg(unix)]
     /// Attempts to open a file in read-only mode.
     ///
     /// See the [`OpenOptions::open`] method for more details.
@@ -82,6 +88,7 @@ impl File {
         OpenOptions::new().read(true).open(path).await
     }
 
+    #[cfg(unix)]
     /// Opens a file in write-only mode.
     ///
     /// This function will create a file if it does not exist,
@@ -470,8 +477,16 @@ impl File {
     }
 }
 
+#[cfg(unix)]
 impl AsRawFd for File {
     fn as_raw_fd(&self) -> RawFd {
         self.fd.raw_fd()
+    }
+}
+
+#[cfg(windows)]
+impl AsRawHandle for File {
+    fn as_raw_handle(&self) -> RawHandle {
+        self.fd.raw_handle()
     }
 }

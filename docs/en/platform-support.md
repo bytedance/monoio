@@ -11,6 +11,6 @@ Linux and macOS are currently supported. On the Linux platform, we can use io_ur
 How to use Legacy driver can refer to [here](/docs/en/use-legacy-driver.md).
 
 ## Future Plans
-Windows may be supported, but there are no plans for that in the short term.
+🚧Experimental windows support is on the way.
 
 If you want to develop on Windows and deploy on Linux, then you can try wsl.

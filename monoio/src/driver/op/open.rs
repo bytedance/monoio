@@ -2,7 +2,7 @@ use super::{Op, OpAble};
 use crate::driver::util::cstr;
 use crate::fs::OpenOptions;
 
-#[cfg(feature = "legacy")]
+#[cfg(all(unix, feature = "legacy"))]
 use crate::{driver::legacy::ready::Direction, syscall_u32};
 #[cfg(all(target_os = "linux", feature = "iouring"))]
 use io_uring::{opcode, types};
@@ -15,10 +15,12 @@ use std::path::Path;
 pub(crate) struct Open {
     pub(crate) path: CString,
     flags: i32,
+    #[cfg(unix)]
     mode: libc::mode_t,
 }
 
 impl Op<Open> {
+    #[cfg(unix)]
     /// Submit a request to open a file.
     pub(crate) fn open<P: AsRef<Path>>(path: P, options: &OpenOptions) -> io::Result<Op<Open>> {
         // Here the path will be copied, so its safe.
@@ -39,12 +41,12 @@ impl OpAble for Open {
             .build()
     }
 
-    #[cfg(feature = "legacy")]
+    #[cfg(all(unix, feature = "legacy"))]
     fn legacy_interest(&self) -> Option<(Direction, usize)> {
         None
     }
 
-    #[cfg(feature = "legacy")]
+    #[cfg(all(unix, feature = "legacy"))]
     fn legacy_call(self: &mut std::pin::Pin<Box<Self>>) -> io::Result<u32> {
         syscall_u32!(open(
             self.path.as_c_str().as_ptr(),

@@ -69,8 +69,15 @@ impl RawBuf {
         if data.write_iovec_len() == 0 {
             return None;
         }
-        let iovec = *data.write_iovec_ptr();
-        Some(Self::new(iovec.iov_base as *const u8, iovec.iov_len))
+        #[cfg(unix)]
+        {
+            let iovec = *data.write_iovec_ptr();
+            Some(Self::new(iovec.iov_base as *const u8, iovec.iov_len))
+        }
+        #[cfg(windows)]
+        {
+            unimplemented!()
+        }
     }
 
     /// Create a new RawBuf with the first iovec part.
@@ -78,10 +85,17 @@ impl RawBuf {
     /// make sure the pointer and length is valid when RawBuf is used.
     #[inline]
     pub unsafe fn new_from_iovec<T: IoVecBuf>(data: &T) -> Option<Self> {
-        if data.read_iovec_len() == 0 {
-            return None;
+        #[cfg(unix)]
+        {
+            if data.read_iovec_len() == 0 {
+                return None;
+            }
+            let iovec = *data.read_iovec_ptr();
+            Some(Self::new(iovec.iov_base as *const u8, iovec.iov_len))
         }
-        let iovec = *data.read_iovec_ptr();
-        Some(Self::new(iovec.iov_base as *const u8, iovec.iov_len))
+        #[cfg(windows)]
+        {
+            unimplemented!()
+        }
     }
 }

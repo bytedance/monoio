@@ -47,9 +47,9 @@ pub(crate) trait OpAble {
     #[cfg(all(target_os = "linux", feature = "iouring"))]
     fn uring_op(self: &mut std::pin::Pin<Box<Self>>) -> io_uring::squeue::Entry;
 
-    #[cfg(feature = "legacy")]
+    #[cfg(all(unix, feature = "legacy"))]
     fn legacy_interest(&self) -> Option<(super::legacy::ready::Direction, usize)>;
-    #[cfg(feature = "legacy")]
+    #[cfg(all(unix, feature = "legacy"))]
     fn legacy_call(self: &mut std::pin::Pin<Box<Self>>) -> io::Result<u32>;
 }
 
@@ -137,6 +137,7 @@ fn new_socket(domain: libc::c_int, socket_type: libc::c_int) -> io::Result<libc:
 
     // Gives a warning for platforms without SOCK_NONBLOCK.
     #[allow(clippy::let_and_return)]
+    #[cfg(unix)]
     let socket = crate::syscall!(socket(domain, socket_type, 0));
 
     // Mimick `libstd` and set `SO_NOSIGPIPE` on apple systems.
@@ -168,6 +169,9 @@ fn new_socket(domain: libc::c_int, socket_type: libc::c_int) -> io::Result<libc:
                 e
             })
     });
+
+    #[cfg(windows)]
+    let socket: std::io::Result<_> = unimplemented!();
 
     socket
 }

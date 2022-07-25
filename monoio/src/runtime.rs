@@ -4,7 +4,7 @@ use crate::driver::Driver;
 use crate::scheduler::{LocalScheduler, TaskQueue};
 #[cfg(all(target_os = "linux", feature = "iouring"))]
 use crate::IoUringDriver;
-#[cfg(feature = "legacy")]
+#[cfg(all(unix, feature = "legacy"))]
 use crate::LegacyDriver;
 
 use crate::task::waker_fn::{dummy_waker, set_poll, should_poll};
@@ -179,7 +179,7 @@ impl<D> Runtime<D> {
 }
 
 /// Fusion Runtime is a wrapper of io_uring driver or legacy driver based runtime.
-#[cfg(feature = "legacy")]
+#[cfg(all(unix, feature = "legacy"))]
 pub enum FusionRuntime<#[cfg(all(target_os = "linux", feature = "iouring"))] L, R> {
     /// Uring driver based runtime.
     #[cfg(all(target_os = "linux", feature = "iouring"))]
@@ -213,7 +213,11 @@ where
     }
 }
 
-#[cfg(all(feature = "legacy", not(all(target_os = "linux", feature = "iouring"))))]
+#[cfg(all(
+    unix,
+    feature = "legacy",
+    not(all(target_os = "linux", feature = "iouring"))
+))]
 impl<R> FusionRuntime<R>
 where
     R: Driver,
@@ -282,7 +286,11 @@ impl From<Runtime<TimeDriver<LegacyDriver>>>
 }
 
 // R -> Fusion<R>
-#[cfg(all(feature = "legacy", not(all(target_os = "linux", feature = "iouring"))))]
+#[cfg(all(
+    unix,
+    feature = "legacy",
+    not(all(target_os = "linux", feature = "iouring"))
+))]
 impl From<Runtime<LegacyDriver>> for FusionRuntime<LegacyDriver> {
     fn from(r: Runtime<LegacyDriver>) -> Self {
         Self::Legacy(r)
@@ -290,7 +298,11 @@ impl From<Runtime<LegacyDriver>> for FusionRuntime<LegacyDriver> {
 }
 
 // TR -> Fusion<TR>
-#[cfg(all(feature = "legacy", not(all(target_os = "linux", feature = "iouring"))))]
+#[cfg(all(
+    unix,
+    feature = "legacy",
+    not(all(target_os = "linux", feature = "iouring"))
+))]
 impl From<Runtime<TimeDriver<LegacyDriver>>> for FusionRuntime<TimeDriver<LegacyDriver>> {
     fn from(r: Runtime<TimeDriver<LegacyDriver>>) -> Self {
         Self::Legacy(r)
