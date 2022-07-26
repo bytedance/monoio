@@ -41,7 +41,7 @@ impl<T: IoBuf> Op<Write<T>> {
 
 impl<T: IoBuf> OpAble for Write<T> {
     #[cfg(all(target_os = "linux", feature = "iouring"))]
-    fn uring_op(self: &mut std::pin::Pin<Box<Self>>) -> io_uring::squeue::Entry {
+    fn uring_op(&mut self) -> io_uring::squeue::Entry {
         opcode::Write::new(
             types::Fd(self.fd.raw_fd()),
             self.buf.read_ptr(),
@@ -59,7 +59,7 @@ impl<T: IoBuf> OpAble for Write<T> {
     }
 
     #[cfg(all(unix, feature = "legacy"))]
-    fn legacy_call(self: &mut std::pin::Pin<Box<Self>>) -> io::Result<u32> {
+    fn legacy_call(&mut self) -> io::Result<u32> {
         let fd = self.fd.as_raw_fd();
         if self.offset != 0 {
             syscall_u32!(lseek(fd, self.offset, libc::SEEK_CUR))?;
@@ -108,7 +108,7 @@ impl<T: IoVecBuf> Op<WriteVec<T>> {
 
 impl<T: IoVecBuf> OpAble for WriteVec<T> {
     #[cfg(all(target_os = "linux", feature = "iouring"))]
-    fn uring_op(self: &mut std::pin::Pin<Box<Self>>) -> io_uring::squeue::Entry {
+    fn uring_op(&mut self) -> io_uring::squeue::Entry {
         let ptr = self.buf_vec.read_iovec_ptr() as *const _;
         let len = self.buf_vec.read_iovec_len() as _;
         opcode::Writev::new(types::Fd(self.fd.raw_fd()), ptr, len).build()
@@ -122,7 +122,7 @@ impl<T: IoVecBuf> OpAble for WriteVec<T> {
     }
 
     #[cfg(all(unix, feature = "legacy"))]
-    fn legacy_call(self: &mut std::pin::Pin<Box<Self>>) -> io::Result<u32> {
+    fn legacy_call(&mut self) -> io::Result<u32> {
         syscall_u32!(writev(
             self.fd.raw_fd(),
             self.buf_vec.read_iovec_ptr(),

@@ -18,9 +18,7 @@ pub(crate) struct Accept {
     #[allow(unused)]
     pub(crate) fd: SharedFd,
     #[cfg(unix)]
-    pub(crate) addr: MaybeUninit<libc::sockaddr_storage>,
-    #[cfg(unix)]
-    pub(crate) addrlen: libc::socklen_t,
+    pub(crate) addr: Box<(MaybeUninit<libc::sockaddr_storage>, libc::socklen_t)>,
 }
 
 impl Op<Accept> {
@@ -29,19 +27,21 @@ impl Op<Accept> {
     pub(crate) fn accept(fd: &SharedFd) -> io::Result<Self> {
         Op::submit_with(Accept {
             fd: fd.clone(),
-            addr: MaybeUninit::uninit(),
-            addrlen: size_of::<libc::sockaddr_storage>() as libc::socklen_t,
+            addr: Box::new((
+                MaybeUninit::uninit(),
+                size_of::<libc::sockaddr_storage>() as libc::socklen_t,
+            )),
         })
     }
 }
 
 impl OpAble for Accept {
     #[cfg(all(target_os = "linux", feature = "iouring"))]
-    fn uring_op(self: &mut std::pin::Pin<Box<Self>>) -> io_uring::squeue::Entry {
+    fn uring_op(&mut self) -> io_uring::squeue::Entry {
         opcode::Accept::new(
             types::Fd(self.fd.raw_fd()),
-            self.addr.as_mut_ptr() as *mut _,
-            &mut self.addrlen,
+            self.addr.0.as_mut_ptr() as *mut _,
+            &mut self.addr.1,
         )
         .build()
     }
@@ -52,10 +52,10 @@ impl OpAble for Accept {
     }
 
     #[cfg(all(unix, feature = "legacy"))]
-    fn legacy_call(self: &mut std::pin::Pin<Box<Self>>) -> io::Result<u32> {
+    fn legacy_call(&mut self) -> io::Result<u32> {
         let fd = self.fd.as_raw_fd();
-        let addr = self.addr.as_mut_ptr() as *mut _;
-        let len = &mut self.addrlen;
+        let addr = self.addr.0.as_mut_ptr() as *mut _;
+        let len = &mut self.addr.1;
         // Here I use copied some code from mio because I don't want the convertion.
 
         // On platforms that support it we can use `accept4(2)` to set `NONBLOCK`

@@ -34,7 +34,7 @@ impl Op<Fsync> {
 
 impl OpAble for Fsync {
     #[cfg(all(target_os = "linux", feature = "iouring"))]
-    fn uring_op(self: &mut std::pin::Pin<Box<Self>>) -> io_uring::squeue::Entry {
+    fn uring_op(&mut self) -> io_uring::squeue::Entry {
         let mut opc = opcode::Fsync::new(types::Fd(self.fd.raw_fd()));
         if self.data_sync {
             opc = opc.flags(types::FsyncFlags::DATASYNC)
@@ -48,12 +48,12 @@ impl OpAble for Fsync {
     }
 
     #[cfg(all(unix, not(target_os = "linux"), feature = "legacy"))]
-    fn legacy_call(self: &mut std::pin::Pin<Box<Self>>) -> io::Result<u32> {
+    fn legacy_call(&mut self) -> io::Result<u32> {
         syscall_u32!(fsync(self.fd.raw_fd()))
     }
 
     #[cfg(all(target_os = "linux", feature = "legacy"))]
-    fn legacy_call(self: &mut std::pin::Pin<Box<Self>>) -> io::Result<u32> {
+    fn legacy_call(&mut self) -> io::Result<u32> {
         if self.data_sync {
             syscall_u32!(fdatasync(self.fd.raw_fd()))
         } else {

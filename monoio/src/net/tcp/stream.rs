@@ -19,6 +19,8 @@ use std::os::unix::prelude::{AsRawFd, FromRawFd, IntoRawFd, RawFd};
 #[cfg(windows)]
 use std::os::windows::prelude::{AsRawHandle, IntoRawHandle, RawHandle};
 
+const EMPTY_SLICE: [u8; 0] = [];
+
 /// TcpStream
 pub struct TcpStream {
     fd: SharedFd,
@@ -62,7 +64,7 @@ impl TcpStream {
         let mut stream = TcpStream::from_shared_fd(completion.data.fd);
         // wait write ready
         // TODO: not use write to detect writable
-        let _ = stream.write([]).await;
+        let _ = stream.write(&EMPTY_SLICE).await;
         // getsockopt
         let sys_socket = unsafe { std::net::TcpStream::from_raw_fd(stream.fd.raw_fd()) };
         let err = sys_socket.take_error();

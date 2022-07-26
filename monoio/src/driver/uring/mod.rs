@@ -5,7 +5,6 @@ use std::{
     io,
     mem::ManuallyDrop,
     os::unix::prelude::{AsRawFd, RawFd},
-    pin::Pin,
     rc::Rc,
     task::{Context, Poll},
     time::Duration,
@@ -326,11 +325,14 @@ impl UringInner {
         Op {
             driver,
             index: inner.ops.insert(),
-            data: Some(Box::pin(data)),
+            data: Some(data),
         }
     }
 
-    pub(crate) fn submit_with<T>(this: &Rc<UnsafeCell<UringInner>>, data: T) -> io::Result<Op<T>>
+    pub(crate) fn submit_with_data<T>(
+        this: &Rc<UnsafeCell<UringInner>>,
+        data: T,
+    ) -> io::Result<Op<T>>
     where
         T: OpAble,
     {
@@ -344,8 +346,8 @@ impl UringInner {
         let mut op = Self::new_op(data, inner, Inner::Uring(this.clone()));
 
         // Configure the SQE
-        let pinned_data = unsafe { op.data.as_mut().unwrap_unchecked() };
-        let sqe = OpAble::uring_op(pinned_data).user_data(op.index as _);
+        let data_mut = unsafe { op.data.as_mut().unwrap_unchecked() };
+        let sqe = OpAble::uring_op(data_mut).user_data(op.index as _);
 
         {
             let mut sq = inner.uring.submission();
@@ -381,7 +383,7 @@ impl UringInner {
     pub(crate) fn drop_op<T: 'static>(
         this: &Rc<UnsafeCell<UringInner>>,
         index: usize,
-        data: &mut Option<Pin<Box<T>>>,
+        data: &mut Option<T>,
     ) {
         let inner = unsafe { &mut *this.get() };
         if index == usize::MAX {

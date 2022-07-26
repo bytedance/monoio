@@ -36,7 +36,7 @@ impl<T: IoBuf> Op<Send<T>> {
 
 impl<T: IoBuf> OpAble for Send<T> {
     #[cfg(all(target_os = "linux", feature = "iouring"))]
-    fn uring_op(self: &mut std::pin::Pin<Box<Self>>) -> io_uring::squeue::Entry {
+    fn uring_op(&mut self) -> io_uring::squeue::Entry {
         #[cfg(feature = "zero-copy")]
         fn zero_copy_flag_guard<T: IoBuf>(buf: &T) -> i32 {
             // TODO: use libc const after supported.
@@ -74,7 +74,7 @@ impl<T: IoBuf> OpAble for Send<T> {
     }
 
     #[cfg(all(unix, feature = "legacy"))]
-    fn legacy_call(self: &mut std::pin::Pin<Box<Self>>) -> io::Result<u32> {
+    fn legacy_call(&mut self) -> io::Result<u32> {
         let fd = self.fd.as_raw_fd();
         #[cfg(target_os = "linux")]
         let flags = libc::MSG_NOSIGNAL;

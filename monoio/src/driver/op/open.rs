@@ -34,7 +34,7 @@ impl Op<Open> {
 
 impl OpAble for Open {
     #[cfg(all(target_os = "linux", feature = "iouring"))]
-    fn uring_op(self: &mut std::pin::Pin<Box<Self>>) -> io_uring::squeue::Entry {
+    fn uring_op(&mut self) -> io_uring::squeue::Entry {
         opcode::OpenAt::new(types::Fd(libc::AT_FDCWD), self.path.as_c_str().as_ptr())
             .flags(self.flags)
             .mode(self.mode)
@@ -47,7 +47,7 @@ impl OpAble for Open {
     }
 
     #[cfg(all(unix, feature = "legacy"))]
-    fn legacy_call(self: &mut std::pin::Pin<Box<Self>>) -> io::Result<u32> {
+    fn legacy_call(&mut self) -> io::Result<u32> {
         syscall_u32!(open(
             self.path.as_c_str().as_ptr(),
             self.flags,

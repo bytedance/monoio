@@ -21,11 +21,11 @@ async fn accept_read_write() -> std::io::Result<()> {
     assert_eq!(write_len, 5);
     drop(client);
 
-    let buf = [0u8; 5];
+    let buf = Box::new([0u8; 5]);
     let (res, buf) = server.read_exact(buf).await;
     assert_eq!(res.unwrap(), 5);
-    assert_eq!(&buf, b"hello");
-    let len = server.read([0u8; 5]).await.0?;
+    assert_eq!(&buf[..], b"hello");
+    let len = server.read(buf).await.0?;
     assert_eq!(len, 0);
     Ok(())
 }
@@ -47,7 +47,7 @@ async fn shutdown() -> std::io::Result<()> {
     // Shut down the client
     client.shutdown().await?;
     // Read from the server should return 0 to indicate the channel has been closed.
-    let n = server.read([0u8; 1]).await.0?;
+    let n = server.read(Box::new([0u8; 1])).await.0?;
     assert_eq!(n, 0);
     Ok(())
 }
