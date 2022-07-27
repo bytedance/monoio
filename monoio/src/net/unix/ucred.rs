@@ -31,19 +31,20 @@ impl UCred {
 
 #[cfg(any(target_os = "linux", target_os = "android", target_os = "openbsd"))]
 pub(crate) use self::impl_linux::get_peer_cred;
-
 #[cfg(any(target_os = "macos", target_os = "ios"))]
 pub(crate) use self::impl_macos::get_peer_cred;
 
 #[cfg(any(target_os = "macos", target_os = "ios"))]
 pub(crate) mod impl_macos {
-    use crate::net::unix::UnixStream;
+    use std::{
+        io,
+        mem::{size_of, MaybeUninit},
+        os::unix::io::AsRawFd,
+    };
 
     use libc::{c_void, getpeereid, getsockopt, pid_t, LOCAL_PEEREPID, SOL_LOCAL};
-    use std::io;
-    use std::mem::size_of;
-    use std::mem::MaybeUninit;
-    use std::os::unix::io::AsRawFd;
+
+    use crate::net::unix::UnixStream;
 
     pub(crate) fn get_peer_cred(sock: &UnixStream) -> io::Result<super::UCred> {
         unsafe {
@@ -84,15 +85,15 @@ pub(crate) mod impl_macos {
 
 #[cfg(any(target_os = "linux", target_os = "android", target_os = "openbsd"))]
 pub(crate) mod impl_linux {
-    use crate::net::unix::UnixStream;
-
-    use libc::{c_void, getsockopt, socklen_t, SOL_SOCKET, SO_PEERCRED};
     use std::{io, mem};
 
     #[cfg(target_os = "openbsd")]
     use libc::sockpeercred as ucred;
     #[cfg(any(target_os = "linux", target_os = "android"))]
     use libc::ucred;
+    use libc::{c_void, getsockopt, socklen_t, SOL_SOCKET, SO_PEERCRED};
+
+    use crate::net::unix::UnixStream;
 
     pub(crate) fn get_peer_cred(sock: &UnixStream) -> io::Result<super::UCred> {
         use std::os::unix::io::AsRawFd;

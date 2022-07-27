@@ -1,8 +1,9 @@
+use std::future::Future;
+
 use crate::{
     buf::{IoBufMut, IoVecBufMut, RawBuf},
     BufResult,
 };
-use std::future::Future;
 
 /// AsyncReadRent: async read with a ownership of a buffer
 pub trait AsyncReadRent {

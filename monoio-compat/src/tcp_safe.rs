@@ -1,12 +1,13 @@
 use std::io;
 
-use monoio::buf::IoBufMut;
-use monoio::io::AsyncWriteRent;
-use monoio::BufResult;
-use monoio::{io::AsyncReadRent, net::TcpStream};
+use monoio::{
+    buf::IoBufMut,
+    io::{AsyncReadRent, AsyncWriteRent},
+    net::TcpStream,
+    BufResult,
+};
 
-use crate::box_future::MaybeArmedBoxFuture;
-use crate::buf::Buf;
+use crate::{box_future::MaybeArmedBoxFuture, buf::Buf};
 
 pub struct TcpStreamCompat {
     stream: TcpStream,

@@ -4,11 +4,12 @@
 //! and http://localhost:23300/monoio in your browser or curl it.
 //! Also you can try `hyper_client.rs` example to request it.
 
+use std::net::SocketAddr;
+
 use futures::Future;
 use hyper::{server::conn::Http, service::service_fn};
 use monoio::net::TcpListener;
 use monoio_compat::TcpStreamCompat;
-use std::net::SocketAddr;
 
 #[derive(Clone)]
 struct HyperExecutor;

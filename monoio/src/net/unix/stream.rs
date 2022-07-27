@@ -1,3 +1,10 @@
+use std::{
+    future::Future,
+    io,
+    os::unix::prelude::{AsRawFd, FromRawFd, IntoRawFd, RawFd},
+    path::Path,
+};
+
 use super::{
     socket_addr::{local_addr, pair, peer_addr, socket_addr, SocketAddr},
     split::{split, split_owned, OwnedReadHalf, OwnedWriteHalf, ReadHalf, WriteHalf},
@@ -7,12 +14,6 @@ use crate::{
     buf::{IoBuf, IoBufMut, IoVecBuf, IoVecBufMut},
     driver::{op::Op, shared_fd::SharedFd},
     io::{AsyncReadRent, AsyncWriteRent},
-};
-use std::{
-    future::Future,
-    io,
-    os::unix::prelude::{AsRawFd, FromRawFd, IntoRawFd, RawFd},
-    path::Path,
 };
 
 const EMPTY_SLICE: [u8; 0] = [];
@@ -70,7 +71,8 @@ impl UnixStream {
         Ok((Self::from_std(a)?, Self::from_std(b)?))
     }
 
-    /// Returns effective credentials of the process which called `connect` or `pair`.
+    /// Returns effective credentials of the process which called `connect` or
+    /// `pair`.
     pub fn peer_cred(&self) -> io::Result<UCred> {
         super::ucred::get_peer_cred(self)
     }

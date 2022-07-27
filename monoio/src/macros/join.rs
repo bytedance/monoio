@@ -45,9 +45,7 @@
 ///
 /// #[monoio::main]
 /// async fn main() {
-///     let (first, second) = monoio::join!(
-///         do_stuff_async(),
-///         more_async_work());
+///     let (first, second) = monoio::join!(do_stuff_async(), more_async_work());
 ///
 ///     // do something with the values
 /// }

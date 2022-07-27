@@ -1,9 +1,14 @@
-use crate::macros::support::poll_fn;
-use crate::time::{sleep_until, Duration, Instant, Sleep};
+use std::{
+    convert::TryInto,
+    future::Future,
+    pin::Pin,
+    task::{Context, Poll},
+};
 
-use std::pin::Pin;
-use std::task::{Context, Poll};
-use std::{convert::TryInto, future::Future};
+use crate::{
+    macros::support::poll_fn,
+    time::{sleep_until, Duration, Instant, Sleep},
+};
 
 /// Creates new [`Interval`] that yields with interval of `period`. The first
 /// tick completes immediately. The default [`MissedTickBehavior`] is
@@ -301,7 +306,8 @@ pub enum MissedTickBehavior {
 }
 
 impl MissedTickBehavior {
-    /// If a tick is missed, this method is called to determine when the next tick should happen.
+    /// If a tick is missed, this method is called to determine when the next
+    /// tick should happen.
     fn next_timeout(&self, timeout: Instant, now: Instant, period: Duration) -> Instant {
         match self {
             Self::Burst => timeout + period,
@@ -365,9 +371,9 @@ impl Interval {
     /// # Examples
     ///
     /// ```
-    /// use monoio::time;
-    ///
     /// use std::time::Duration;
+    ///
+    /// use monoio::time;
     ///
     /// #[monoio::main(timer_enabled = true)]
     /// async fn main() {

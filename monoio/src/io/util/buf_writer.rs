@@ -6,7 +6,8 @@ use crate::{
 };
 
 /// BufWriter is a struct with a buffer. BufWriter implements AsyncWriteRent,
-/// and if the inner io implements AsyncReadRent, it will delegate the implementation.
+/// and if the inner io implements AsyncReadRent, it will delegate the
+/// implementation.
 pub struct BufWriter<W> {
     inner: W,
     buf: Option<Box<[u8]>>,

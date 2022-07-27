@@ -16,24 +16,22 @@ mod wheel;
 
 pub(super) mod sleep;
 
-use crate::driver::Driver;
-use crate::time::error::Error;
-use crate::time::{Clock, Duration, Instant};
+use std::{cell::RefCell, convert::TryInto, fmt, io, num::NonZeroU64, ptr::NonNull, rc::Rc};
 
-use std::cell::RefCell;
-use std::convert::TryInto;
-use std::rc::Rc;
-use std::{fmt, io};
-use std::{num::NonZeroU64, ptr::NonNull};
+use crate::{
+    driver::Driver,
+    time::{error::Error, Clock, Duration, Instant},
+};
 
-/// Time implementation that drives [`Sleep`][sleep], [`Interval`][interval], and [`Timeout`][timeout].
+/// Time implementation that drives [`Sleep`][sleep], [`Interval`][interval],
+/// and [`Timeout`][timeout].
 ///
 /// A `Driver` instance tracks the state necessary for managing time and
 /// notifying the [`Sleep`][sleep] instances once their deadlines are reached.
 ///
-/// It is expected that a single instance manages many individual [`Sleep`][sleep]
-/// instances. The `Driver` implementation is thread-safe and, as such, is able
-/// to handle callers from across threads.
+/// It is expected that a single instance manages many individual
+/// [`Sleep`][sleep] instances. The `Driver` implementation is thread-safe and,
+/// as such, is able to handle callers from across threads.
 ///
 /// After creating the `Driver` instance, the caller must repeatedly call `park`
 /// or `park_timeout`. The time driver will perform no work unless `park` or
@@ -42,9 +40,9 @@ use std::{num::NonZeroU64, ptr::NonNull};
 /// The driver has a resolution of one millisecond. Any unit of time that falls
 /// between milliseconds are rounded up to the next millisecond.
 ///
-/// When an instance is dropped, any outstanding [`Sleep`][sleep] instance that has not
-/// elapsed will be notified with an error. At this point, calling `poll` on the
-/// [`Sleep`][sleep] instance will result in panic.
+/// When an instance is dropped, any outstanding [`Sleep`][sleep] instance that
+/// has not elapsed will be notified with an error. At this point, calling
+/// `poll` on the [`Sleep`][sleep] instance will result in panic.
 ///
 /// # Implementation
 ///
@@ -73,9 +71,9 @@ use std::{num::NonZeroU64, ptr::NonNull};
 /// When the timer processes entries at level zero, it will notify all the
 /// `Sleep` instances as their deadlines have been reached. For all higher
 /// levels, all entries will be redistributed across the wheel at the next level
-/// down. Eventually, as time progresses, entries with [`Sleep`][sleep] instances will
-/// either be canceled (dropped) or their associated entries will reach level
-/// zero and be notified.
+/// down. Eventually, as time progresses, entries with [`Sleep`][sleep]
+/// instances will either be canceled (dropped) or their associated entries will
+/// reach level zero and be notified.
 ///
 /// [paper]: http://www.cs.columbia.edu/~nahum/w6998/papers/ton97-timing-wheels.pdf
 /// [sleep]: crate::time::Sleep
@@ -296,7 +294,8 @@ impl Handle {
                 state.wheel.remove(entry);
             }
 
-            // Now that we have exclusive control of this entry, mint a handle to reinsert it.
+            // Now that we have exclusive control of this entry, mint a handle to reinsert
+            // it.
             let entry = entry.as_ref().handle();
 
             entry.set_expiration(new_tick);

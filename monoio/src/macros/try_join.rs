@@ -45,17 +45,15 @@
 ///
 /// #[monoio::main]
 /// async fn main() {
-///     let res = monoio::try_join!(
-///         do_stuff_async(),
-///         more_async_work());
+///     let res = monoio::try_join!(do_stuff_async(), more_async_work());
 ///
 ///     match res {
-///          Ok((first, second)) => {
-///              // do something with the values
-///          }
-///          Err(err) => {
+///         Ok((first, second)) => {
+///             // do something with the values
+///         }
+///         Err(err) => {
 ///             println!("processing failed; error = {}", err);
-///          }
+///         }
 ///     }
 /// }
 /// ```

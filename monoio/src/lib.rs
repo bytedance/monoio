@@ -1,8 +1,8 @@
 //! Monoio is a pure io_uring based rust runtime. Part of the design is borrowed
 //! from tokio and tokio-uring. However, unlike tokio-uring which use uring over
-//! epoll, monoio is not based on another runtime, which makes it more efficient.
-//! Also, monoio is designed as thread-per-core model. Users don't need to worry
-//! about Send and Sync of tasks and can use thread local storage.
+//! epoll, monoio is not based on another runtime, which makes it more
+//! efficient. Also, monoio is designed as thread-per-core model. Users don't
+//! need to worry about Send and Sync of tasks and can use thread local storage.
 //! For example, if user wants to do collect and submit tasks, he can use thread
 //! local storage to avoid synchronization structures like Mutex; also, the
 //! submit task will always be executed on the same thread.
@@ -37,25 +37,22 @@ pub mod net;
 pub mod task;
 pub mod utils;
 
+use std::future::Future;
+
 pub use builder::{Buildable, RuntimeBuilder};
 pub use driver::Driver;
+#[cfg(all(target_os = "linux", feature = "iouring"))]
+pub use driver::IoUringDriver;
+#[cfg(all(unix, feature = "legacy"))]
+pub use driver::LegacyDriver;
+#[cfg(feature = "macros")]
+pub use monoio_macros::{main, test, test_all};
 pub use runtime::{spawn, Runtime};
-
 #[cfg(all(
     unix,
     any(all(target_os = "linux", feature = "iouring"), feature = "legacy")
 ))]
 pub use {builder::FusionDriver, runtime::FusionRuntime};
-
-#[cfg(all(target_os = "linux", feature = "iouring"))]
-pub use driver::IoUringDriver;
-#[cfg(all(unix, feature = "legacy"))]
-pub use driver::LegacyDriver;
-
-#[cfg(feature = "macros")]
-pub use monoio_macros::{main, test, test_all};
-
-use std::future::Future;
 
 /// Start a monoio runtime.
 ///

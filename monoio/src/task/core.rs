@@ -1,10 +1,9 @@
 use std::{
     cell::UnsafeCell,
+    future::Future,
     pin::Pin,
     task::{Context, Poll, Waker},
 };
-
-use std::future::Future;
 
 use super::{
     raw::{self, Vtable},

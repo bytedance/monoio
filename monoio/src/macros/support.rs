@@ -1,16 +1,15 @@
-pub use crate::utils::thread_rng_n;
+pub use std::{future::Future, pin::Pin, task::Poll};
+
 pub use futures_util_fork::{maybe_done, poll_fn, MaybeDone, PollFn};
 
-pub use std::future::Future;
-pub use std::pin::Pin;
-pub use std::task::Poll;
+pub use crate::utils::thread_rng_n;
 
 mod futures_util_fork {
-    use core::fmt;
-    use core::mem;
-    use core::pin::Pin;
-    use std::future::Future;
-    use std::task::{Context, Poll};
+    use core::{fmt, mem, pin::Pin};
+    use std::{
+        future::Future,
+        task::{Context, Poll},
+    };
 
     /// Future for the [`poll_fn`] function.
     #[must_use = "futures do nothing unless you `.await` or poll them"]
@@ -28,8 +27,10 @@ mod futures_util_fork {
     ///
     /// ```
     /// # futures::executor::block_on(async {
-    /// use futures::future::poll_fn;
-    /// use futures::task::{Context, Poll};
+    /// use futures::{
+    ///     future::poll_fn,
+    ///     task::{Context, Poll},
+    /// };
     ///
     /// fn read_line(_cx: &mut Context<'_>) -> Poll<String> {
     ///     Poll::Ready("Hello, World!".into())
@@ -85,8 +86,7 @@ mod futures_util_fork {
     ///
     /// ```
     /// # futures::executor::block_on(async {
-    /// use futures::future;
-    /// use futures::pin_mut;
+    /// use futures::{future, pin_mut};
     ///
     /// let future = future::maybe_done(async { 5 });
     /// pin_mut!(future);
@@ -101,10 +101,11 @@ mod futures_util_fork {
     }
 
     impl<Fut: Future> MaybeDone<Fut> {
-        /// Returns an [`Option`] containing a mutable reference to the output of the future.
-        /// The output of this method will be [`Some`] if and only if the inner
-        /// future has been completed and [`take_output`](MaybeDone::take_output)
-        /// has not yet been called.
+        /// Returns an [`Option`] containing a mutable reference to the output
+        /// of the future. The output of this method will be [`Some`] if
+        /// and only if the inner future has been completed and
+        /// [`take_output`](MaybeDone::take_output) has not yet been
+        /// called.
         #[inline]
         pub fn output_mut(self: Pin<&mut Self>) -> Option<&mut Fut::Output> {
             unsafe {

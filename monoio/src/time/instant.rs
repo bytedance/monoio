@@ -1,8 +1,6 @@
 #![allow(clippy::trivially_copy_pass_by_ref)]
 
-use std::fmt;
-use std::ops;
-use std::time::Duration;
+use std::{fmt, ops, time::Duration};
 
 /// A measurement of a monotonically nondecreasing clock.
 /// Opaque and useful only with `Duration`.
@@ -82,7 +80,7 @@ impl Instant {
     /// # Examples
     ///
     /// ```
-    /// use monoio::time::{Duration, Instant, sleep};
+    /// use monoio::time::{sleep, Duration, Instant};
     ///
     /// #[monoio::main(timer_enabled = true)]
     /// async fn main() {
@@ -103,7 +101,7 @@ impl Instant {
     /// # Examples
     ///
     /// ```
-    /// use monoio::time::{Duration, Instant, sleep};
+    /// use monoio::time::{sleep, Duration, Instant};
     ///
     /// #[monoio::main(timer_enabled = true)]
     /// async fn main() {
@@ -129,7 +127,7 @@ impl Instant {
     /// # Examples
     ///
     /// ```
-    /// use monoio::time::{Duration, Instant, sleep};
+    /// use monoio::time::{sleep, Duration, Instant};
     ///
     /// #[monoio::main(timer_enabled = true)]
     /// async fn main() {

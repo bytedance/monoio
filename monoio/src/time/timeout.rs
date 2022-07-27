@@ -4,12 +4,15 @@
 //!
 //! [`Timeout`]: struct@Timeout
 
-use crate::time::{error::Elapsed, sleep_until, Duration, Instant, Sleep};
+use std::{
+    future::Future,
+    pin::Pin,
+    task::{self, Poll},
+};
 
 use pin_project_lite::pin_project;
-use std::future::Future;
-use std::pin::Pin;
-use std::task::{self, Poll};
+
+use crate::time::{error::Elapsed, sleep_until, Duration, Instant, Sleep};
 
 /// Require a `Future` to complete before the specified duration has elapsed.
 ///
@@ -24,7 +27,6 @@ use std::task::{self, Poll};
 ///
 /// The original future may be obtained by calling [`Timeout::into_inner`]. This
 /// consumes the `Timeout`.
-///
 pub fn timeout<T>(duration: Duration, future: T) -> Timeout<T>
 where
     T: Future,
@@ -49,7 +51,6 @@ where
 ///
 /// The original future may be obtained by calling [`Timeout::into_inner`]. This
 /// consumes the `Timeout`.
-///
 pub fn timeout_at<T>(deadline: Instant, future: T) -> Timeout<T>
 where
     T: Future,

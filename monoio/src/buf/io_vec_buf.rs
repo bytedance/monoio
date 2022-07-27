@@ -123,8 +123,8 @@ impl From<VecBuf> for Vec<Vec<u8>> {
 //         // let base = self.buf.stable_ptr();
 //         // for (begin, end) in self.indices.iter() {
 //         //     self.iovecs.push(libc::iovec {
-//         //         iov_base: unsafe { base.add(*begin) as *mut libc::c_void },
-//         //         iov_len: end - begin,
+//         //         iov_base: unsafe { base.add(*begin) as *mut libc::c_void
+// },         //         iov_len: end - begin,
 //         //     });
 //         // }
 //         // self.iovecs.as_ptr()

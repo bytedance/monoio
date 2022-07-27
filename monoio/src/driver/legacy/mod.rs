@@ -1,13 +1,5 @@
 //! Monoio Legacy Driver.
 
-use self::{ready::Ready, scheduled_io::ScheduledIo};
-
-use super::{
-    op::{CompletionMeta, Op, OpAble},
-    Driver, Inner, CURRENT,
-};
-use crate::utils::slab::Slab;
-
 use std::{
     cell::UnsafeCell,
     io,
@@ -15,6 +7,13 @@ use std::{
     task::{Context, Poll},
     time::Duration,
 };
+
+use self::{ready::Ready, scheduled_io::ScheduledIo};
+use super::{
+    op::{CompletionMeta, Op, OpAble},
+    Driver, Inner, CURRENT,
+};
+use crate::utils::slab::Slab;
 
 pub(crate) mod ready;
 mod scheduled_io;
@@ -207,8 +206,8 @@ impl LegacyInner {
         let (direction, index) = match data.legacy_interest() {
             Some(x) => x,
             None => {
-                // if there is no index provided, it means the action does not rely on fd readiness.
-                // do syscall right now.
+                // if there is no index provided, it means the action does not rely on fd
+                // readiness. do syscall right now.
                 return Poll::Ready(CompletionMeta {
                     result: OpAble::legacy_call(data),
                     flags: 0,

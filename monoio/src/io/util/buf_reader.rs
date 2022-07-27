@@ -1,8 +1,9 @@
+use std::future::Future;
+
 use crate::{
     buf::{IoBuf, IoBufMut, IoVecBuf, IoVecBufMut, IoVecWrapperMut},
     io::{AsyncBufRead, AsyncReadRent, AsyncWriteRent},
 };
-use std::future::Future;
 
 /// BufReader is a struct with a buffer. BufReader implements AsyncBufRead
 /// and AsyncReadRent, and if the inner io implements AsyncWriteRent, it
@@ -54,7 +55,8 @@ impl<R> BufReader<R> {
 
     /// Returns a reference to the internally buffered data.
     ///
-    /// Unlike `fill_buf`, this will not attempt to fill the buffer if it is empty.
+    /// Unlike `fill_buf`, this will not attempt to fill the buffer if it is
+    /// empty.
     pub fn buffer(&self) -> &[u8] {
         &self.buf.as_ref().expect("unable to take buffer")[self.pos..self.cap]
     }

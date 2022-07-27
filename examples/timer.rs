@@ -1,5 +1,5 @@
-//! You may not call thread::sleep in async runtime, which will block the whole thread.
-//! Instead, you should use monoio::time provided functions.
+//! You may not call thread::sleep in async runtime, which will block the whole
+//! thread. Instead, you should use monoio::time provided functions.
 
 use std::time::Duration;
 

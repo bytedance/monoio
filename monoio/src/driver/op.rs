@@ -1,9 +1,11 @@
-use crate::driver;
+use std::{
+    future::Future,
+    io,
+    pin::Pin,
+    task::{Context, Poll},
+};
 
-use std::future::Future;
-use std::io;
-use std::pin::Pin;
-use std::task::{Context, Poll};
+use crate::driver;
 
 pub(crate) mod close;
 

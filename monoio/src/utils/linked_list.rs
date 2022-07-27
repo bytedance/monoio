@@ -9,11 +9,13 @@
 // Copyright (c) 2021 Tokio Contributors, licensed under the MIT license.
 #![allow(unused)]
 
-use core::cell::UnsafeCell;
-use core::fmt;
-use core::marker::{PhantomData, PhantomPinned};
-use core::mem::ManuallyDrop;
-use core::ptr::{self, NonNull};
+use core::{
+    cell::UnsafeCell,
+    fmt,
+    marker::{PhantomData, PhantomPinned},
+    mem::ManuallyDrop,
+    ptr::{self, NonNull},
+};
 
 /// An intrusive linked list.
 ///
@@ -83,13 +85,15 @@ pub(crate) struct Pointers<T> {
 struct PointersInner<T> {
     /// The previous node in the list. null if there is no previous node.
     ///
-    /// This field is accessed through pointer manipulation, so it is not dead code.
+    /// This field is accessed through pointer manipulation, so it is not dead
+    /// code.
     #[allow(dead_code)]
     prev: Option<NonNull<T>>,
 
     /// The next node in the list. null if there is no previous node.
     ///
-    /// This field is accessed through pointer manipulation, so it is not dead code.
+    /// This field is accessed through pointer manipulation, so it is not dead
+    /// code.
     #[allow(dead_code)]
     next: Option<NonNull<T>>,
 
@@ -335,9 +339,9 @@ impl<T> fmt::Debug for Pointers<T> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
     use std::pin::Pin;
+
+    use super::*;
 
     #[derive(Debug)]
     struct Entry {

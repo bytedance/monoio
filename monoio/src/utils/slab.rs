@@ -251,7 +251,8 @@ impl<T> Page<T> {
     }
 
     // alloc a slot
-    // Safety: after slot is allocated, the caller must guarante it will be initialized
+    // Safety: after slot is allocated, the caller must guarante it will be
+    // initialized
     unsafe fn alloc(&mut self) -> Option<usize> {
         let next = self.next;
         if self.is_full() {

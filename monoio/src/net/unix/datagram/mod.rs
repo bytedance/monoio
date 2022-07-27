@@ -1,10 +1,5 @@
 //! Unix datagram related.
 
-use super::{
-    socket_addr::{local_addr, pair, peer_addr, socket_addr},
-    SocketAddr,
-};
-use crate::driver::{op::Op, shared_fd::SharedFd};
 use std::{
     io,
     os::unix::{
@@ -13,6 +8,12 @@ use std::{
     },
     path::Path,
 };
+
+use super::{
+    socket_addr::{local_addr, pair, peer_addr, socket_addr},
+    SocketAddr,
+};
+use crate::driver::{op::Op, shared_fd::SharedFd};
 
 /// UnixDatagram
 pub struct UnixDatagram {

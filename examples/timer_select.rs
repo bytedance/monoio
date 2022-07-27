@@ -1,8 +1,9 @@
 //! An example to illustrate selecting by macro or manually.
 
+use std::future::Future;
+
 use monoio::time::Duration;
 use pin_project_lite::pin_project;
-use std::future::Future;
 
 #[monoio::main(enable_timer = true)]
 async fn main() {

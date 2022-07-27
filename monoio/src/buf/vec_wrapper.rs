@@ -130,9 +130,8 @@ unsafe impl IoVecBufMut for IoVecMeta {
 #[cfg(unix)]
 #[cfg(test)]
 mod tests {
-    use crate::buf::VecBuf;
-
     use super::*;
+    use crate::buf::VecBuf;
 
     #[test]
     fn test_read_vec_meta() {

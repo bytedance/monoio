@@ -1,7 +1,8 @@
 #![allow(unused)]
 
-use crate::io::{AsyncReadRent, AsyncWriteRent, AsyncWriteRentExt};
 use std::io;
+
+use crate::io::{AsyncReadRent, AsyncWriteRent, AsyncWriteRentExt};
 
 const BUF_SIZE: usize = 4 * 1024;
 

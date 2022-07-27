@@ -1,16 +1,17 @@
-use std::future::Future;
 use std::{
+    future::Future,
     panic,
     ptr::NonNull,
     task::{Context, Poll, Waker},
 };
 
-use crate::task::core::{Cell, Core, CoreStage, Header, Trailer};
-use crate::task::state::Snapshot;
-use crate::task::waker::waker_ref;
-use crate::task::{Schedule, Task};
-
 use super::utils::UnsafeCellExt;
+use crate::task::{
+    core::{Cell, Core, CoreStage, Header, Trailer},
+    state::Snapshot,
+    waker::waker_ref,
+    Schedule, Task,
+};
 
 pub(crate) struct Harness<T: Future, S: 'static> {
     cell: NonNull<Cell<T, S>>,

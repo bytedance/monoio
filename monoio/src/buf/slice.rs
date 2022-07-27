@@ -1,8 +1,7 @@
-use crate::buf::{IoBuf, IoBufMut};
-
 use std::ops;
 
 use super::{IoVecBuf, IoVecBufMut};
+use crate::buf::{IoBuf, IoBufMut};
 
 /// An owned view into a contiguous sequence of bytes.
 /// SliceMut implements IoBuf and IoBufMut.

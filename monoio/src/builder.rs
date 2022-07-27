@@ -2,15 +2,15 @@ use std::{io, marker::PhantomData};
 
 use scoped_tls::scoped_thread_local;
 
-use crate::driver::Driver;
-use crate::time::driver::TimeDriver;
-
-use crate::{time::Clock, Runtime};
-
 #[cfg(all(target_os = "linux", feature = "iouring"))]
 use crate::driver::IoUringDriver;
 #[cfg(all(unix, feature = "legacy"))]
 use crate::driver::LegacyDriver;
+use crate::{
+    driver::Driver,
+    time::{driver::TimeDriver, Clock},
+    Runtime,
+};
 
 // ===== basic builder structure definition =====
 

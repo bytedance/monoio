@@ -1,14 +1,15 @@
-use super::{socket_addr::SocketAddr, UnixStream};
-use crate::{
-    driver::{op::Op, shared_fd::SharedFd},
-    io::stream::Stream,
-    net::ListenerConfig,
-};
 use std::{
     future::Future,
     io,
     os::unix::prelude::{AsRawFd, FromRawFd, IntoRawFd, RawFd},
     path::Path,
+};
+
+use super::{socket_addr::SocketAddr, UnixStream};
+use crate::{
+    driver::{op::Op, shared_fd::SharedFd},
+    io::stream::Stream,
+    net::ListenerConfig,
 };
 
 /// UnixListener
@@ -26,7 +27,8 @@ impl UnixListener {
         }
     }
 
-    /// Creates a new `UnixListener` bound to the specified socket with custom config.
+    /// Creates a new `UnixListener` bound to the specified socket with custom
+    /// config.
     pub fn bind_with_config<P: AsRef<Path>>(
         path: P,
         config: &ListenerConfig,
@@ -56,7 +58,8 @@ impl UnixListener {
         Ok(Self::from_shared_fd(fd))
     }
 
-    /// Creates a new `UnixListener` bound to the specified socket with default config.
+    /// Creates a new `UnixListener` bound to the specified socket with default
+    /// config.
     pub fn bind<P: AsRef<Path>>(path: P) -> io::Result<UnixListener> {
         Self::bind_with_config(path, &ListenerConfig::default())
     }

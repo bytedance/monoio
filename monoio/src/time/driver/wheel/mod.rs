@@ -1,12 +1,13 @@
-use crate::time::driver::{TimerHandle, TimerShared};
-use crate::time::error::InsertError;
+use crate::time::{
+    driver::{TimerHandle, TimerShared},
+    error::InsertError,
+};
 
 mod level;
-pub(crate) use self::level::Expiration;
-use self::level::Level;
-
 use std::ptr::NonNull;
 
+pub(crate) use self::level::Expiration;
+use self::level::Level;
 use super::EntryList;
 
 /// Timing wheel implementation.
@@ -276,8 +277,8 @@ impl Wheel {
         }
     }
 
-    /// Obtains the list of entries that need processing for the given expiration.
-    ///
+    /// Obtains the list of entries that need processing for the given
+    /// expiration.
     fn take_entries(&mut self, expiration: &Expiration) -> EntryList {
         self.levels[expiration.level].take_slot(expiration.slot)
     }

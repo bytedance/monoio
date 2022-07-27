@@ -1,8 +1,7 @@
 //! Copied from tokio.
 //! Ready and Interest.
 
-use std::fmt;
-use std::ops;
+use std::{fmt, ops};
 
 const READABLE: u8 = 0b0_01;
 const WRITABLE: u8 = 0b0_10;

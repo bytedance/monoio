@@ -1,7 +1,6 @@
 //! SocketAddr for UDS.
 //! Forked from mio.
 
-use super::path_offset;
 use std::{
     ascii,
     cmp::Ordering,
@@ -10,6 +9,8 @@ use std::{
     os::unix::prelude::{FromRawFd, OsStrExt, RawFd},
     path::Path,
 };
+
+use super::path_offset;
 
 /// Unix SocketAddr.
 /// There is no way to create a [`net::SocketAddr`] so we forked it from mio.

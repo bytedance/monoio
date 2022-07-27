@@ -1,6 +1,6 @@
-use super::ready::{Direction, Ready};
-
 use std::task::{Context, Poll, Waker};
+
+use super::ready::{Direction, Ready};
 
 pub(crate) struct ScheduledIo {
     readiness: Ready,

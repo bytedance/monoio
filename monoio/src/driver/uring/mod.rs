@@ -10,14 +10,15 @@ use std::{
     time::Duration,
 };
 
+use io_uring::{cqueue, opcode, types::Timespec, IoUring};
+use lifecycle::Lifecycle;
+
 use super::{
     op::{CompletionMeta, Op, OpAble},
     util::timespec,
     Driver, Inner, CURRENT,
 };
 use crate::utils::slab::Slab;
-use io_uring::{cqueue, opcode, types::Timespec, IoUring};
-use lifecycle::Lifecycle;
 
 mod lifecycle;
 #[cfg(feature = "sync")]

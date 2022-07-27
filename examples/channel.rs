@@ -1,8 +1,9 @@
 //! You can use async channel between threads(with `sync` feature).
 //! Remember: it is not efficient. You should rely thread local for hot paths.
 
-use futures::channel::oneshot;
 use std::time::Duration;
+
+use futures::channel::oneshot;
 
 #[monoio::main]
 async fn main() {

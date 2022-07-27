@@ -1,10 +1,7 @@
-use super::split::{split, split_owned, OwnedReadHalf, OwnedWriteHalf, ReadHalf, WriteHalf};
-use crate::{
-    buf::{IoBuf, IoBufMut, IoVecBuf, IoVecBufMut},
-    driver::{op::Op, shared_fd::SharedFd},
-    io::{AsyncReadRent, AsyncWriteRent},
-};
-
+#[cfg(unix)]
+use std::os::unix::prelude::{AsRawFd, FromRawFd, IntoRawFd, RawFd};
+#[cfg(windows)]
+use std::os::windows::prelude::{AsRawHandle, IntoRawHandle, RawHandle};
 use std::{
     cell::UnsafeCell,
     future::Future,
@@ -13,11 +10,12 @@ use std::{
     time::Duration,
 };
 
-#[cfg(unix)]
-use std::os::unix::prelude::{AsRawFd, FromRawFd, IntoRawFd, RawFd};
-
-#[cfg(windows)]
-use std::os::windows::prelude::{AsRawHandle, IntoRawHandle, RawHandle};
+use super::split::{split, split_owned, OwnedReadHalf, OwnedWriteHalf, ReadHalf, WriteHalf};
+use crate::{
+    buf::{IoBuf, IoBufMut, IoVecBuf, IoVecBufMut},
+    driver::{op::Op, shared_fd::SharedFd},
+    io::{AsyncReadRent, AsyncWriteRent},
+};
 
 const EMPTY_SLICE: [u8; 0] = [];
 

@@ -12,13 +12,16 @@ mod uring;
 
 mod util;
 
+use std::{
+    io,
+    task::{Context, Poll},
+    time::Duration,
+};
+
 use scoped_tls::scoped_thread_local;
-use std::io;
-use std::task::{Context, Poll};
-use std::time::Duration;
 
-use self::op::{CompletionMeta, Op, OpAble};
-
+#[cfg(all(unix, feature = "legacy"))]
+pub use self::legacy::LegacyDriver;
 // #[cfg(windows)]
 // pub mod op {
 //     pub struct CompletionMeta {}
@@ -27,16 +30,13 @@ use self::op::{CompletionMeta, Op, OpAble};
 //     }
 //     pub trait OpAble {}
 // }
-
 #[cfg(all(unix, feature = "legacy"))]
 use self::legacy::LegacyInner;
-#[cfg(all(target_os = "linux", feature = "iouring"))]
-use self::uring::UringInner;
-
-#[cfg(all(unix, feature = "legacy"))]
-pub use self::legacy::LegacyDriver;
+use self::op::{CompletionMeta, Op, OpAble};
 #[cfg(all(target_os = "linux", feature = "iouring"))]
 pub use self::uring::IoUringDriver;
+#[cfg(all(target_os = "linux", feature = "iouring"))]
+use self::uring::UringInner;
 
 /// Unpark a runtime of another thread.
 pub(crate) mod unpark {
@@ -44,14 +44,14 @@ pub(crate) mod unpark {
     pub trait Unpark: Sync + Send + 'static {
         /// Unblocks a thread that is blocked by the associated `Park` handle.
         ///
-        /// Calling `unpark` atomically makes available the unpark token, if it is
-        /// not already available.
+        /// Calling `unpark` atomically makes available the unpark token, if it
+        /// is not already available.
         ///
         /// # Panics
         ///
-        /// This function **should** not panic, but ultimately, panics are left as
-        /// an implementation detail. Refer to the documentation for the specific
-        /// `Unpark` implementation
+        /// This function **should** not panic, but ultimately, panics are left
+        /// as an implementation detail. Refer to the documentation for
+        /// the specific `Unpark` implementation
         fn unpark(&self) -> std::io::Result<()>;
     }
 }
