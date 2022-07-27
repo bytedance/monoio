@@ -1,11 +1,9 @@
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::{
+    atomic::{AtomicUsize, Ordering},
+    LazyLock,
+};
 
-use lazy_static::lazy_static;
-
-lazy_static! {
-    // Global id generator
-    static ref ID_GEN: AtomicUsize = AtomicUsize::new(1);
-}
+static ID_GEN: LazyLock<AtomicUsize> = LazyLock::new(|| AtomicUsize::new(1));
 
 /// Used to generate thread id.
 pub(crate) fn gen_id() -> usize {

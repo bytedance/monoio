@@ -15,6 +15,7 @@
 #![feature(io_error_more)]
 #![feature(stmt_expr_attributes)]
 #![feature(unboxed_closures)]
+#![feature(once_cell)]
 
 #[macro_use]
 pub mod macros;
