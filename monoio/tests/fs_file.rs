@@ -1,7 +1,8 @@
-use monoio::fs::File;
 use std::io::prelude::*;
 #[cfg(unix)]
 use std::os::unix::io::{AsRawFd, FromRawFd, RawFd};
+
+use monoio::fs::File;
 use tempfile::NamedTempFile;
 
 const HELLO: &[u8] = b"hello world...";
@@ -142,9 +143,10 @@ fn tempfile() -> NamedTempFile {
 #[cfg(unix)]
 #[allow(unused)]
 async fn poll_once(future: impl std::future::Future) {
+    use std::task::Poll;
+
     use futures::future::poll_fn;
     use monoio::pin;
-    use std::task::Poll;
 
     pin!(future);
 

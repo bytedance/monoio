@@ -1,19 +1,20 @@
-use std::cell::UnsafeCell;
-use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6};
 #[cfg(unix)]
 use std::os::unix::prelude::{AsRawFd, FromRawFd, IntoRawFd, RawFd};
-
 #[cfg(windows)]
 use std::os::windows::prelude::{AsRawHandle, FromRawSocket, RawHandle};
-use std::{future::Future, io, net::ToSocketAddrs};
+use std::{
+    cell::UnsafeCell,
+    future::Future,
+    io,
+    net::{Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6, ToSocketAddrs},
+};
 
+use super::stream::TcpStream;
 use crate::{
     driver::{op::Op, shared_fd::SharedFd},
     io::stream::Stream,
     net::ListenerConfig,
 };
-
-use super::stream::TcpStream;
 
 /// TcpListener
 pub struct TcpListener {
@@ -114,7 +115,8 @@ impl TcpListener {
                     SocketAddr::V4(SocketAddrV4::new(ip, port))
                 }
                 libc::AF_INET6 => {
-                    // Safety: if the ss_family field is AF_INET6 then storage must be a sockaddr_in6.
+                    // Safety: if the ss_family field is AF_INET6 then storage must be a
+                    // sockaddr_in6.
                     let addr: &libc::sockaddr_in6 = &*(storage as *const libc::sockaddr_in6);
                     let ip = Ipv6Addr::from(addr.sin6_addr.s6_addr);
                     let port = u16::from_be(addr.sin6_port);
@@ -159,7 +161,7 @@ impl TcpListener {
     #[cfg(all(unix, feature = "legacy"))]
     fn set_non_blocking(_socket: &socket2::Socket) -> io::Result<()> {
         crate::driver::CURRENT.with(|x| match x {
-            //TODO: windows ioring support
+            // TODO: windows ioring support
             #[cfg(all(target_os = "linux", feature = "iouring"))]
             crate::driver::Inner::Uring(_) => Ok(()),
             crate::driver::Inner::Legacy(_) => _socket.set_nonblocking(true),

@@ -1,15 +1,14 @@
-use crate::buf::{IoBuf, IoBufMut};
-use crate::driver::{op::Op, shared_fd::SharedFd};
-use crate::fs::OpenOptions;
-
-use std::io;
-use std::path::Path;
-
 #[cfg(unix)]
 use std::os::unix::io::{AsRawFd, RawFd};
-
 #[cfg(windows)]
 use std::os::windows::io::{AsRawHandle, RawHandle};
+use std::{io, path::Path};
+
+use crate::{
+    buf::{IoBuf, IoBufMut},
+    driver::{op::Op, shared_fd::SharedFd},
+    fs::OpenOptions,
+};
 
 /// A reference to an open file on the filesystem.
 ///
@@ -188,12 +187,13 @@ impl File {
     ///
     /// # Errors
     ///
-    /// If this function encounters an error of the kind [`ErrorKind::Interrupted`]
-    /// then the error is ignored and the operation will continue.
+    /// If this function encounters an error of the kind
+    /// [`ErrorKind::Interrupted`] then the error is ignored and the
+    /// operation will continue.
     ///
     /// If this function encounters an "end of file" before completely filling
-    /// the buffer, it returns an error of the kind [`ErrorKind::UnexpectedEof`].
-    /// The buffer is returned on error.
+    /// the buffer, it returns an error of the kind
+    /// [`ErrorKind::UnexpectedEof`]. The buffer is returned on error.
     ///
     /// If this function encounters any form of I/O or other error, an error
     /// variant will be returned. The buffer is returned on error.
@@ -304,12 +304,13 @@ impl File {
         op.write().await
     }
 
-    /// Attempts to write an entire buffer into this file at the specified offset.
+    /// Attempts to write an entire buffer into this file at the specified
+    /// offset.
     ///
-    /// This method will continuously call [`write_at`] until there is no more data
-    /// to be written or an error of non-[`ErrorKind::Interrupted`] kind is returned.
-    /// This method will not return until the entire buffer has been successfully
-    /// written or such an error occurs.
+    /// This method will continuously call [`write_at`] until there is no more
+    /// data to be written or an error of non-[`ErrorKind::Interrupted`]
+    /// kind is returned. This method will not return until the entire
+    /// buffer has been successfully written or such an error occurs.
     ///
     /// If the buffer contains no data, this will never call [`write_at`].
     ///

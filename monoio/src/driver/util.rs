@@ -1,6 +1,4 @@
-use std::ffi::CString;
-use std::io;
-use std::path::Path;
+use std::{ffi::CString, io, path::Path};
 
 pub(super) fn cstr(p: &Path) -> io::Result<CString> {
     #[cfg(unix)]

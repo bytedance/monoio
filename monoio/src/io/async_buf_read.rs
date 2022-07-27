@@ -1,5 +1,6 @@
-use crate::io::AsyncReadRent;
 use std::future::Future;
+
+use crate::io::AsyncReadRent;
 
 /// AsyncBufRead: async read with buffered content
 pub trait AsyncBufRead: AsyncReadRent {

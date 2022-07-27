@@ -1,5 +1,6 @@
-use super::{assert_stream, Stream};
 use std::future::Future;
+
+use super::{assert_stream, Stream};
 
 /// Stream for the [`iter`] function.
 #[derive(Debug, Clone)]

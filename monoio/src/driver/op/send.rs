@@ -1,5 +1,4 @@
-use super::{super::shared_fd::SharedFd, Op, OpAble};
-use crate::{buf::IoBuf, BufResult};
+use std::io;
 
 #[cfg(all(target_os = "linux", feature = "iouring"))]
 use io_uring::{opcode, types};
@@ -9,7 +8,8 @@ use {
     std::os::unix::prelude::AsRawFd,
 };
 
-use std::io;
+use super::{super::shared_fd::SharedFd, Op, OpAble};
+use crate::{buf::IoBuf, BufResult};
 
 pub(crate) struct Send<T> {
     /// Holds a strong ref to the FD, preventing the file from being closed

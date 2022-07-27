@@ -187,7 +187,8 @@ fn parse_knobs(
                     )?,
                     name => {
                         let msg = format!(
-                            "Unknown attribute {} is specified; expected one of: `worker_threads`, `entries`, `timer_enabled`",
+                            "Unknown attribute {} is specified; expected one of: \
+                             `worker_threads`, `entries`, `timer_enabled`",
                             name,
                         );
                         return Err(syn::Error::new_spanned(namevalue, msg));
@@ -200,7 +201,11 @@ fn parse_knobs(
                     .ok_or_else(|| syn::Error::new_spanned(&path, "Must have specified ident"))?
                     .to_string()
                     .to_lowercase();
-                let msg = format!("Unknown attribute {} is specified; expected one of: `worker_threads`, `entries`, `timer_enabled`", name);
+                let msg = format!(
+                    "Unknown attribute {} is specified; expected one of: `worker_threads`, \
+                     `entries`, `timer_enabled`",
+                    name
+                );
                 return Err(syn::Error::new_spanned(path, msg));
             }
             other => {

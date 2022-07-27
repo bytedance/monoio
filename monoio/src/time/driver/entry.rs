@@ -52,14 +52,16 @@
 //! `mark_pending` performs a compare-and-swap, it will identify this race and
 //! refuse to mark the timer as pending.
 
-use crate::time::Instant;
-use crate::utils::linked_list;
+use std::{
+    cell::{Cell, RefCell, UnsafeCell},
+    marker::PhantomPinned,
+    pin::Pin,
+    ptr::NonNull,
+    task::{Context, Poll, Waker},
+};
 
 use super::Handle;
-
-use std::cell::{Cell, RefCell, UnsafeCell};
-use std::task::{Context, Poll, Waker};
-use std::{marker::PhantomPinned, pin::Pin, ptr::NonNull};
+use crate::{time::Instant, utils::linked_list};
 
 type TimerResult = Result<(), crate::time::error::Error>;
 
@@ -181,10 +183,8 @@ impl StateCell {
     /// Fires the timer, setting the result to the provided result.
     ///
     /// Returns:
-    /// * `Some(waker) - if fired and a waker needs to be invoked once the
-    ///   driver lock is released
-    /// * `None` - if fired and a waker does not need to be invoked, or if
-    ///   already fired
+    /// * `Some(waker) - if fired and a waker needs to be invoked once the driver lock is released
+    /// * `None` - if fired and a waker does not need to be invoked, or if already fired
     ///
     /// SAFETY: The driver lock must be held.
     unsafe fn fire(&self, result: TimerResult) -> Option<Waker> {

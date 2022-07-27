@@ -1,20 +1,23 @@
+use std::future::Future;
+
 use scoped_tls::scoped_thread_local;
 
-use crate::driver::Driver;
-use crate::scheduler::{LocalScheduler, TaskQueue};
+#[cfg(any(all(target_os = "linux", feature = "iouring"), feature = "legacy"))]
+use crate::time::TimeDriver;
 #[cfg(all(target_os = "linux", feature = "iouring"))]
 use crate::IoUringDriver;
 #[cfg(all(unix, feature = "legacy"))]
 use crate::LegacyDriver;
-
-use crate::task::waker_fn::{dummy_waker, set_poll, should_poll};
-use crate::task::{new_task, JoinHandle};
-use crate::time::driver::Handle as TimeHandle;
-
-#[cfg(any(all(target_os = "linux", feature = "iouring"), feature = "legacy"))]
-use crate::time::TimeDriver;
-
-use std::future::Future;
+use crate::{
+    driver::Driver,
+    scheduler::{LocalScheduler, TaskQueue},
+    task::{
+        new_task,
+        waker_fn::{dummy_waker, set_poll, should_poll},
+        JoinHandle,
+    },
+    time::driver::Handle as TimeHandle,
+};
 
 scoped_thread_local!(pub(crate) static CURRENT: Context);
 
@@ -178,7 +181,8 @@ impl<D> Runtime<D> {
     }
 }
 
-/// Fusion Runtime is a wrapper of io_uring driver or legacy driver based runtime.
+/// Fusion Runtime is a wrapper of io_uring driver or legacy driver based
+/// runtime.
 #[cfg(all(unix, feature = "legacy"))]
 pub enum FusionRuntime<#[cfg(all(target_os = "linux", feature = "iouring"))] L, R> {
     /// Uring driver based runtime.
@@ -188,7 +192,8 @@ pub enum FusionRuntime<#[cfg(all(target_os = "linux", feature = "iouring"))] L, 
     Legacy(Runtime<R>),
 }
 
-/// Fusion Runtime is a wrapper of io_uring driver or legacy driver based runtime.
+/// Fusion Runtime is a wrapper of io_uring driver or legacy driver based
+/// runtime.
 #[cfg(all(target_os = "linux", feature = "iouring", not(feature = "legacy")))]
 pub enum FusionRuntime<L> {
     /// Uring driver based runtime.
@@ -394,8 +399,9 @@ mod tests {
     #[cfg(all(feature = "sync", target_os = "linux", feature = "iouring"))]
     #[test]
     fn across_thread() {
-        use crate::driver::IoUringDriver;
         use futures::channel::oneshot;
+
+        use crate::driver::IoUringDriver;
 
         let (tx1, rx1) = oneshot::channel::<u8>();
         let (tx2, rx2) = oneshot::channel::<u8>();

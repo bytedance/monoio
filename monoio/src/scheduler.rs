@@ -1,5 +1,6 @@
-use crate::task::{Schedule, Task};
 use std::{cell::UnsafeCell, collections::VecDeque, marker::PhantomData};
+
+use crate::task::{Schedule, Task};
 
 pub(crate) struct LocalScheduler;
 

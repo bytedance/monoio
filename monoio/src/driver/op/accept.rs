@@ -1,4 +1,7 @@
-use super::{super::shared_fd::SharedFd, Op, OpAble};
+use std::{
+    io,
+    mem::{size_of, MaybeUninit},
+};
 
 #[cfg(all(target_os = "linux", feature = "iouring"))]
 use io_uring::{opcode, types};
@@ -8,10 +11,7 @@ use {
     std::os::unix::prelude::AsRawFd,
 };
 
-use std::{
-    io,
-    mem::{size_of, MaybeUninit},
-};
+use super::{super::shared_fd::SharedFd, Op, OpAble};
 
 /// Accept
 pub(crate) struct Accept {

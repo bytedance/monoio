@@ -22,8 +22,7 @@ mod state;
 
 mod waker;
 
-use std::future::Future;
-use std::{marker::PhantomData, ptr::NonNull};
+use std::{future::Future, marker::PhantomData, ptr::NonNull};
 
 /// An owned handle to the task, tracked by ref count, not sendable
 #[repr(transparent)]

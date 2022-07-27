@@ -1,12 +1,10 @@
-use super::CURRENT;
-
-use std::cell::UnsafeCell;
-use std::io;
 #[cfg(unix)]
 use std::os::unix::io::{AsRawFd, FromRawFd, RawFd};
 #[cfg(windows)]
 use std::os::windows::io::{AsRawHandle, FromRawHandle, RawHandle};
-use std::rc::Rc;
+use std::{cell::UnsafeCell, io, rc::Rc};
+
+use super::CURRENT;
 
 // Tracks in-flight operations on a file descriptor. Ensures all in-flight
 // operations complete before submitting the close.
@@ -282,8 +280,7 @@ impl Inner {
 
             #[allow(irrefutable_let_patterns)]
             if let State::Uring(uring_state) = state {
-                use std::future::Future;
-                use std::pin::Pin;
+                use std::{future::Future, pin::Pin};
 
                 return match uring_state {
                     UringState::Init => {
@@ -354,7 +351,7 @@ impl Drop for Inner {
                 }
                 let _ = unsafe { std::fs::File::from_raw_fd(fd) };
             }
-            //TODO: windows
+            // TODO: windows
             _ => {}
         }
     }

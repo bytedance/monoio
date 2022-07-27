@@ -1,14 +1,13 @@
-use std::marker::PhantomData;
-use std::mem::ManuallyDrop;
-use std::ops;
-use std::ptr::NonNull;
-use std::task::{RawWaker, RawWakerVTable, Waker};
+use std::{
+    future::Future,
+    marker::PhantomData,
+    mem::ManuallyDrop,
+    ops,
+    ptr::NonNull,
+    task::{RawWaker, RawWakerVTable, Waker},
+};
 
-use std::future::Future;
-
-use super::core::Header;
-use super::harness::Harness;
-use super::Schedule;
+use super::{core::Header, harness::Harness, Schedule};
 
 pub(super) struct WakerRef<'a, S: 'static> {
     waker: ManuallyDrop<Waker>,

@@ -62,10 +62,11 @@ pub fn thread_rng_n(n: u32) -> u32 {
     THREAD_RNG.with(|rng| rng.fastrand_n(n))
 }
 
-use std::collections::hash_map::RandomState;
-use std::hash::{BuildHasher, Hash, Hasher};
-use std::sync::atomic::AtomicU32;
-use std::sync::atomic::Ordering::Relaxed;
+use std::{
+    collections::hash_map::RandomState,
+    hash::{BuildHasher, Hash, Hasher},
+    sync::atomic::{AtomicU32, Ordering::Relaxed},
+};
 
 static COUNTER: AtomicU32 = AtomicU32::new(1);
 

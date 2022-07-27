@@ -1,8 +1,9 @@
-use crate::driver::{op::Op, shared_fd::SharedFd};
-use crate::fs::File;
+use std::{io, path::Path};
 
-use std::io;
-use std::path::Path;
+use crate::{
+    driver::{op::Op, shared_fd::SharedFd},
+    fs::File,
+};
 
 /// Options and flags which can be used to configure how a file is opened.
 ///
@@ -26,10 +27,7 @@ use std::path::Path;
 ///
 /// #[monoio::main]
 /// async fn main() -> Result<(), Box<dyn std::error::Error>> {
-///     let file = OpenOptions::new()
-///         .read(true)
-///         .open("foo.txt")
-///         .await?;
+///     let file = OpenOptions::new().read(true).open("foo.txt").await?;
 ///     Ok(())
 /// }
 /// ```
@@ -75,10 +73,7 @@ impl OpenOptions {
     ///
     /// #[monoio::main]
     /// async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    ///     let file = OpenOptions::new()
-    ///         .read(true)
-    ///         .open("foo.txt")
-    ///         .await?;
+    ///     let file = OpenOptions::new().read(true).open("foo.txt").await?;
     ///     Ok(())
     /// }
     /// ```
@@ -109,10 +104,7 @@ impl OpenOptions {
     ///
     /// #[monoio::main]
     /// async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    ///     let file = OpenOptions::new()
-    ///         .read(true)
-    ///         .open("foo.txt")
-    ///         .await?;
+    ///     let file = OpenOptions::new().read(true).open("foo.txt").await?;
     ///     Ok(())
     /// }
     /// ```
@@ -136,10 +128,7 @@ impl OpenOptions {
     ///
     /// #[monoio::main]
     /// async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    ///     let file = OpenOptions::new()
-    ///         .write(true)
-    ///         .open("foo.txt")
-    ///         .await?;
+    ///     let file = OpenOptions::new().write(true).open("foo.txt").await?;
     ///     Ok(())
     /// }
     /// ```
@@ -171,10 +160,7 @@ impl OpenOptions {
     ///
     /// #[monoio::main]
     /// async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    ///     let file = OpenOptions::new()
-    ///         .append(true)
-    ///         .open("foo.txt")
-    ///         .await?;
+    ///     let file = OpenOptions::new().append(true).open("foo.txt").await?;
     ///     Ok(())
     /// }
     /// ```
@@ -237,8 +223,9 @@ impl OpenOptions {
 
     /// Sets the option to create a new file, failing if it already exists.
     ///
-    /// No file is allowed to exist at the target location, also no (dangling) symlink. In this
-    /// way, if the call succeeds, the file returned is guaranteed to be new.
+    /// No file is allowed to exist at the target location, also no (dangling)
+    /// symlink. In this way, if the call succeeds, the file returned is
+    /// guaranteed to be new.
     ///
     /// This option is useful because it is atomic. Otherwise between checking
     /// whether a file exists and creating a new one, the file may have been
@@ -284,24 +271,21 @@ impl OpenOptions {
     /// part of the compatibility contract of the function, especially the
     /// [`Other`] kind might change to more specific kinds in the future.
     ///
-    /// * [`NotFound`]: The specified file does not exist and neither `create`
-    ///   or `create_new` is set.
-    /// * [`NotFound`]: One of the directory components of the file path does
-    ///   not exist.
-    /// * [`PermissionDenied`]: The user lacks permission to get the specified
-    ///   access rights for the file.
-    /// * [`PermissionDenied`]: The user lacks permission to open one of the
-    ///   directory components of the specified path.
-    /// * [`AlreadyExists`]: `create_new` was specified and the file already
-    ///   exists.
-    /// * [`InvalidInput`]: Invalid combinations of open options (truncate
-    ///   without write access, no access mode set, etc.).
-    /// * [`Other`]: One of the directory components of the specified file path
-    ///   was not, in fact, a directory.
-    /// * [`Other`]: Filesystem-level errors: full disk, write permission
-    ///   requested on a read-only file system, exceeded disk quota, too many
-    ///   open files, too long filename, too many symbolic links in the
-    ///   specified path (Unix-like systems only), etc.
+    /// * [`NotFound`]: The specified file does not exist and neither `create` or `create_new` is
+    ///   set.
+    /// * [`NotFound`]: One of the directory components of the file path does not exist.
+    /// * [`PermissionDenied`]: The user lacks permission to get the specified access rights for the
+    ///   file.
+    /// * [`PermissionDenied`]: The user lacks permission to open one of the directory components of
+    ///   the specified path.
+    /// * [`AlreadyExists`]: `create_new` was specified and the file already exists.
+    /// * [`InvalidInput`]: Invalid combinations of open options (truncate without write access, no
+    ///   access mode set, etc.).
+    /// * [`Other`]: One of the directory components of the specified file path was not, in fact, a
+    ///   directory.
+    /// * [`Other`]: Filesystem-level errors: full disk, write permission requested on a read-only
+    ///   file system, exceeded disk quota, too many open files, too long filename, too many
+    ///   symbolic links in the specified path (Unix-like systems only), etc.
     ///
     /// # Examples
     ///
@@ -310,10 +294,7 @@ impl OpenOptions {
     ///
     /// #[monoio::main]
     /// async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    ///     let file = OpenOptions::new()
-    ///         .read(true)
-    ///         .open("foo.txt")
-    ///         .await?;
+    ///     let file = OpenOptions::new().read(true).open("foo.txt").await?;
     ///     Ok(())
     /// }
     /// ```

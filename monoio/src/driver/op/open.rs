@@ -1,15 +1,12 @@
-use super::{Op, OpAble};
-use crate::driver::util::cstr;
-use crate::fs::OpenOptions;
+use std::{ffi::CString, io, path::Path};
 
-#[cfg(all(unix, feature = "legacy"))]
-use crate::{driver::legacy::ready::Direction, syscall_u32};
 #[cfg(all(target_os = "linux", feature = "iouring"))]
 use io_uring::{opcode, types};
 
-use std::ffi::CString;
-use std::io;
-use std::path::Path;
+use super::{Op, OpAble};
+#[cfg(all(unix, feature = "legacy"))]
+use crate::{driver::legacy::ready::Direction, syscall_u32};
+use crate::{driver::util::cstr, fs::OpenOptions};
 
 /// Open a file
 pub(crate) struct Open {

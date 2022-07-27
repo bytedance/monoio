@@ -1,9 +1,10 @@
+use std::future::Future;
+
 use super::AsyncReadRent;
 use crate::{
     buf::{IoBufMut, IoVecBufMut, SliceMut},
     BufResult,
 };
-use std::future::Future;
 
 macro_rules! reader_trait {
     ($future: ident, $n_ty: ty, $f: ident) => {

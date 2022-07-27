@@ -1,12 +1,12 @@
-use super::{super::shared_fd::SharedFd, Op, OpAble};
+use std::{io, net::SocketAddr};
 
-#[cfg(all(unix, feature = "legacy"))]
-use crate::driver::legacy::ready::Direction;
 #[cfg(all(target_os = "linux", feature = "iouring"))]
 use io_uring::{opcode, types};
-
 use os_socketaddr::OsSocketAddr;
-use std::{io, net::SocketAddr};
+
+use super::{super::shared_fd::SharedFd, Op, OpAble};
+#[cfg(all(unix, feature = "legacy"))]
+use crate::driver::legacy::ready::Direction;
 
 pub(crate) struct Connect {
     pub(crate) fd: SharedFd,

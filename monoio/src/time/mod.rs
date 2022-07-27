@@ -3,21 +3,20 @@
 //! This module provides a number of types for executing code after a set period
 //! of time.
 //!
-//! * [`Sleep`] is a future that does no work and completes at a specific [`Instant`]
-//!   in time.
+//! * [`Sleep`] is a future that does no work and completes at a specific [`Instant`] in time.
 //!
-//! * [`Interval`] is a stream yielding a value at a fixed period. It is
-//!   initialized with a [`Duration`] and repeatedly yields each time the duration
-//!   elapses.
+//! * [`Interval`] is a stream yielding a value at a fixed period. It is initialized with a
+//!   [`Duration`] and repeatedly yields each time the duration elapses.
 //!
-//! * [`Timeout`]: Wraps a future or stream, setting an upper bound to the amount
-//!   of time it is allowed to execute. If the future or stream does not
-//!   complete in time, then it is canceled and an error is returned.
+//! * [`Timeout`]: Wraps a future or stream, setting an upper bound to the amount of time it is
+//!   allowed to execute. If the future or stream does not complete in time, then it is canceled and
+//!   an error is returned.
 //!
 //! These types are sufficient for handling a large number of scenarios
 //! involving time.
 //!
-//! These types must be used from within the context of the [`Runtime`](crate::runtime::Runtime).
+//! These types must be used from within the context of the
+//! [`Runtime`](crate::runtime::Runtime).
 //!
 //! # Examples
 //!
@@ -25,6 +24,7 @@
 //!
 //! ```
 //! use std::time::Duration;
+//!
 //! use monoio::time::sleep;
 //!
 //! #[monoio::main(timer_enabled = true)]
@@ -106,9 +106,9 @@ mod interval;
 pub use interval::{interval, interval_at, Interval, MissedTickBehavior};
 
 mod timeout;
-#[doc(inline)]
-pub use timeout::{timeout, timeout_at, Timeout};
-
 // Re-export for convenience
 #[doc(no_inline)]
 pub use std::time::Duration;
+
+#[doc(inline)]
+pub use timeout::{timeout, timeout_at, Timeout};

@@ -1,12 +1,12 @@
-use super::{Op, OpAble};
+#[cfg(unix)]
+use std::{io, os::unix::io::RawFd};
 
-#[cfg(all(unix, feature = "legacy"))]
-use crate::{driver::legacy::ready::Direction, syscall_u32};
 #[cfg(all(target_os = "linux", feature = "iouring"))]
 use io_uring::{opcode, types};
 
-#[cfg(unix)]
-use std::{io, os::unix::io::RawFd};
+use super::{Op, OpAble};
+#[cfg(all(unix, feature = "legacy"))]
+use crate::{driver::legacy::ready::Direction, syscall_u32};
 
 pub(crate) struct Close {
     #[cfg(unix)]

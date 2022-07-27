@@ -1,9 +1,10 @@
+use std::future::Future;
+
 use crate::{
     buf::{IoBuf, IoVecBuf, Slice},
     io::AsyncWriteRent,
     BufResult,
 };
-use std::future::Future;
 
 /// AsyncWriteRentExt
 pub trait AsyncWriteRentExt {

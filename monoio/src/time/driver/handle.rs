@@ -1,5 +1,6 @@
-use crate::time::driver::ClockTime;
 use std::{fmt, rc::Rc};
+
+use crate::time::driver::ClockTime;
 
 /// Handle to time driver instance.
 #[derive(Clone)]

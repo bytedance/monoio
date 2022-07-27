@@ -1,10 +1,16 @@
-use crate::time::driver::{Handle, TimerEntry};
-use crate::time::{error::Error, Duration, Instant};
+use std::{
+    future::Future,
+    pin::Pin,
+    task::{self, Poll},
+};
 
 use pin_project_lite::pin_project;
-use std::future::Future;
-use std::pin::Pin;
-use std::task::{self, Poll};
+
+use crate::time::{
+    driver::{Handle, TimerEntry},
+    error::Error,
+    Duration, Instant,
+};
 
 /// Waits until `deadline` is reached.
 ///
@@ -16,15 +22,15 @@ use std::task::{self, Poll};
 ///
 /// # Cancellation
 ///
-/// Canceling a sleep instance is done by dropping the returned future. No additional
-/// cleanup work is required.
+/// Canceling a sleep instance is done by dropping the returned future. No
+/// additional cleanup work is required.
 ///
 /// # Examples
 ///
 /// Wait 100ms and print "100 ms have elapsed".
 ///
 /// ```
-/// use monoio::time::{sleep_until, Instant, Duration};
+/// use monoio::time::{sleep_until, Duration, Instant};
 ///
 /// #[monoio::main(timer_enabled = true)]
 /// async fn main() {
@@ -54,12 +60,13 @@ pub fn sleep_until(deadline: Instant) -> Sleep {
 ///
 /// To run something regularly on a schedule, see [`interval`].
 ///
-/// The maximum duration for a sleep is 68719476734 milliseconds (approximately 2.2 years).
+/// The maximum duration for a sleep is 68719476734 milliseconds (approximately
+/// 2.2 years).
 ///
 /// # Cancellation
 ///
-/// Canceling a sleep instance is done by dropping the returned future. No additional
-/// cleanup work is required.
+/// Canceling a sleep instance is done by dropping the returned future. No
+/// additional cleanup work is required.
 ///
 /// # Examples
 ///
@@ -236,7 +243,9 @@ impl Sleep {
     /// let sleep = monoio::time::sleep(Duration::from_millis(10));
     /// monoio::pin!(sleep);
     ///
-    /// sleep.as_mut().reset(Instant::now() + Duration::from_millis(20));
+    /// sleep
+    ///     .as_mut()
+    ///     .reset(Instant::now() + Duration::from_millis(20));
     /// # }
     /// ```
     ///
@@ -261,8 +270,8 @@ impl Future for Sleep {
     fn poll(mut self: Pin<&mut Self>, cx: &mut task::Context<'_>) -> Poll<Self::Output> {
         // `poll_elapsed` can return an error in two cases:
         //
-        // - AtCapacity: this is a pathological case where far too many
-        //   sleep instances have been scheduled.
+        // - AtCapacity: this is a pathological case where far too many sleep instances have been
+        //   scheduled.
         // - Shutdown: No timer has been setup, which is a mis-use error.
         //
         // Both cases are extremely rare, and pretty accurately fit into

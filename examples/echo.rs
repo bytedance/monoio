@@ -3,8 +3,10 @@
 //! Run the example and `nc 127.0.0.1 50002` in another shell.
 //! All your input will be echoed out.
 
-use monoio::io::{AsyncReadRent, AsyncWriteRentExt};
-use monoio::net::{TcpListener, TcpStream};
+use monoio::{
+    io::{AsyncReadRent, AsyncWriteRentExt},
+    net::{TcpListener, TcpStream},
+};
 
 #[monoio::main(driver = "fusion")]
 async fn main() {

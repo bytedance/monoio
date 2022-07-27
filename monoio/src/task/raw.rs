@@ -1,10 +1,10 @@
-use crate::task::{Cell, Harness, Header, Schedule};
-
 use std::{
     future::Future,
     ptr::NonNull,
     task::{Poll, Waker},
 };
+
+use crate::task::{Cell, Harness, Header, Schedule};
 
 pub(crate) struct RawTask {
     ptr: NonNull<Header>,

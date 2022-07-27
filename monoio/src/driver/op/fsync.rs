@@ -1,11 +1,11 @@
-use super::{super::shared_fd::SharedFd, Op, OpAble};
+use std::io;
 
-#[cfg(all(unix, feature = "legacy"))]
-use crate::{driver::legacy::ready::Direction, syscall_u32};
 #[cfg(all(target_os = "linux", feature = "iouring"))]
 use io_uring::{opcode, types};
 
-use std::io;
+use super::{super::shared_fd::SharedFd, Op, OpAble};
+#[cfg(all(unix, feature = "legacy"))]
+use crate::{driver::legacy::ready::Direction, syscall_u32};
 
 pub(crate) struct Fsync {
     #[allow(unused)]

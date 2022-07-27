@@ -1,8 +1,7 @@
-use crate::buf::slice::SliceMut;
-
 use std::ops;
 
 use super::Slice;
+use crate::buf::slice::SliceMut;
 
 /// An `io_uring` compatible buffer.
 ///
@@ -50,7 +49,8 @@ pub unsafe trait IoBuf: Unpin + 'static {
         Slice::new(self, begin, end)
     }
 
-    /// Returns a view of the buffer with the specified range without boundary checking.
+    /// Returns a view of the buffer with the specified range without boundary
+    /// checking.
     ///
     /// # Safety
     /// Range must be within the bounds of the buffer.
@@ -235,7 +235,8 @@ pub unsafe trait IoBufMut: Unpin + 'static {
     /// Returns a view of the buffer with the specified range.
     ///
     /// # Safety
-    /// Begin must within the initialized bytes, end must be within the capacity.
+    /// Begin must within the initialized bytes, end must be within the
+    /// capacity.
     #[inline]
     unsafe fn slice_mut_unchecked(mut self, range: impl ops::RangeBounds<usize>) -> SliceMut<Self>
     where

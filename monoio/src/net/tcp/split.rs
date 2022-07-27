@@ -1,14 +1,12 @@
-use std::{cell::UnsafeCell, error::Error, fmt, future::Future, io, net::SocketAddr, rc::Rc};
-
 #[cfg(unix)]
 use std::os::unix::prelude::AsRawFd;
+use std::{cell::UnsafeCell, error::Error, fmt, future::Future, io, net::SocketAddr, rc::Rc};
 
+use super::TcpStream;
 use crate::{
     buf::{IoBuf, IoBufMut, IoVecBuf, IoVecBufMut},
     io::{AsyncReadRent, AsyncWriteRent},
 };
-
-use super::TcpStream;
 
 /// ReadHalf.
 #[derive(Debug)]
@@ -97,8 +95,8 @@ pub(crate) fn reunite(
 ) -> Result<TcpStream, ReuniteError> {
     if Rc::ptr_eq(&read.0, &write.0) {
         drop(write);
-        // This unwrap cannot fail as the api does not allow creating more than two Arcs,
-        // and we just dropped the other half.
+        // This unwrap cannot fail as the api does not allow creating more than two
+        // Arcs, and we just dropped the other half.
         Ok(Rc::try_unwrap(read.0)
             .expect("TcpStream: try_unwrap failed in reunite")
             .into_inner())
@@ -107,8 +105,8 @@ pub(crate) fn reunite(
     }
 }
 
-/// Error indicating that two halves were not from the same socket, and thus could
-/// not be reunited.
+/// Error indicating that two halves were not from the same socket, and thus
+/// could not be reunited.
 #[derive(Debug)]
 pub struct ReuniteError(pub OwnedReadHalf, pub OwnedWriteHalf);
 

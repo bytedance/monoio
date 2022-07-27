@@ -1,10 +1,9 @@
 use std::{
+    future::Future,
     marker::PhantomData,
     pin::Pin,
     task::{Context, Poll},
 };
-
-use std::future::Future;
 
 use super::raw::RawTask;
 

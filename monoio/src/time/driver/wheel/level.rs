@@ -1,8 +1,6 @@
-use crate::time::driver::TimerHandle;
-
-use crate::time::driver::{EntryList, TimerShared};
-
 use std::{fmt, ptr::NonNull};
+
+use crate::time::driver::{EntryList, TimerHandle, TimerShared};
 
 /// Wheel for a single level in the timer. This wheel contains 64 slots.
 pub(crate) struct Level {
@@ -17,7 +15,8 @@ pub(crate) struct Level {
     /// The least-significant bit represents slot zero.
     occupied: u64,
 
-    /// Slots. We access these via the EntryInner `current_list` as well, so this needs to be an UnsafeCell.
+    /// Slots. We access these via the EntryInner `current_list` as well, so
+    /// this needs to be an UnsafeCell.
     slot: [EntryList; LEVEL_MULT],
 }
 
@@ -171,7 +170,8 @@ impl Level {
 
         debug_assert!(
             deadline >= now,
-            "deadline={:016X}; now={:016X}; level={}; lr={:016X}, sr={:016X}, slot={}; occupied={:b}",
+            "deadline={:016X}; now={:016X}; level={}; lr={:016X}, sr={:016X}, slot={}; \
+             occupied={:b}",
             deadline,
             now,
             self.level,

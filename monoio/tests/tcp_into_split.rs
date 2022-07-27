@@ -1,10 +1,13 @@
-use std::io::{Error, ErrorKind, Result};
-use std::io::{Read, Write};
-use std::{net, thread};
+use std::{
+    io::{Error, ErrorKind, Read, Result, Write},
+    net, thread,
+};
 
-use monoio::io::{AsyncReadRent, AsyncWriteRentExt};
-use monoio::net::{TcpListener, TcpStream};
-use monoio::try_join;
+use monoio::{
+    io::{AsyncReadRent, AsyncWriteRentExt},
+    net::{TcpListener, TcpStream},
+    try_join,
+};
 #[cfg(unix)]
 #[monoio::test_all]
 async fn split() -> Result<()> {

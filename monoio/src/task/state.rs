@@ -1,5 +1,4 @@
-use std::cell::UnsafeCell;
-use std::fmt;
+use std::{cell::UnsafeCell, fmt};
 
 pub(crate) struct State(UnsafeCell<usize>);
 
