@@ -10,7 +10,7 @@ use std::{io, net::SocketAddr};
 
 pub(crate) struct Connect {
     pub(crate) fd: SharedFd,
-    os_socket_addr: OsSocketAddr,
+    os_socket_addr: Box<OsSocketAddr>,
 }
 
 impl Op<Connect> {
@@ -26,7 +26,7 @@ impl Op<Connect> {
                 SocketAddr::V6(_) => libc::AF_INET6,
             };
             let socket = super::new_socket(domain, socket_type)?;
-            let os_socket_addr = OsSocketAddr::from(socket_addr);
+            let os_socket_addr = Box::new(OsSocketAddr::from(socket_addr));
 
             Op::submit_with(Connect {
                 fd: SharedFd::new(socket)?,
@@ -40,7 +40,7 @@ impl Op<Connect> {
 
 impl OpAble for Connect {
     #[cfg(all(target_os = "linux", feature = "iouring"))]
-    fn uring_op(self: &mut std::pin::Pin<Box<Self>>) -> io_uring::squeue::Entry {
+    fn uring_op(&mut self) -> io_uring::squeue::Entry {
         opcode::Connect::new(
             types::Fd(self.fd.raw_fd()),
             self.os_socket_addr.as_ptr(),
@@ -55,7 +55,7 @@ impl OpAble for Connect {
     }
 
     #[cfg(all(unix, feature = "legacy"))]
-    fn legacy_call(self: &mut std::pin::Pin<Box<Self>>) -> io::Result<u32> {
+    fn legacy_call(&mut self) -> io::Result<u32> {
         match crate::syscall_u32!(connect(
             self.fd.raw_fd(),
             self.os_socket_addr.as_ptr(),
@@ -72,9 +72,7 @@ pub(crate) struct ConnectUnix {
     /// while the operation is in-flight.
     pub(crate) fd: SharedFd,
     #[cfg(unix)]
-    socket_addr: libc::sockaddr_un,
-    #[cfg(unix)]
-    socket_len: libc::socklen_t,
+    socket_addr: Box<(libc::sockaddr_un, libc::socklen_t)>,
 }
 
 impl Op<ConnectUnix> {
@@ -89,19 +87,18 @@ impl Op<ConnectUnix> {
 
         Op::submit_with(ConnectUnix {
             fd: SharedFd::new(socket)?,
-            socket_addr,
-            socket_len,
+            socket_addr: Box::new((socket_addr, socket_len)),
         })
     }
 }
 
 impl OpAble for ConnectUnix {
     #[cfg(all(target_os = "linux", feature = "iouring"))]
-    fn uring_op(self: &mut std::pin::Pin<Box<Self>>) -> io_uring::squeue::Entry {
+    fn uring_op(&mut self) -> io_uring::squeue::Entry {
         opcode::Connect::new(
             types::Fd(self.fd.raw_fd()),
-            &self.socket_addr as *const _ as *const _,
-            self.socket_len,
+            &self.socket_addr.0 as *const _ as *const _,
+            self.socket_addr.1,
         )
         .build()
     }
@@ -112,11 +109,11 @@ impl OpAble for ConnectUnix {
     }
 
     #[cfg(all(unix, feature = "legacy"))]
-    fn legacy_call(self: &mut std::pin::Pin<Box<Self>>) -> io::Result<u32> {
+    fn legacy_call(&mut self) -> io::Result<u32> {
         match crate::syscall_u32!(connect(
             self.fd.raw_fd(),
-            &self.socket_addr as *const _ as *const _,
-            self.socket_len
+            &self.socket_addr.0 as *const _ as *const _,
+            self.socket_addr.1
         )) {
             Err(err) if err.raw_os_error() != Some(libc::EINPROGRESS) => Err(err),
             _ => Ok(self.fd.raw_fd() as u32),

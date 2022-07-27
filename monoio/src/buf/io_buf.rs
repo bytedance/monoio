@@ -112,18 +112,6 @@ unsafe impl<const N: usize> IoBuf for Box<[u8; N]> {
     }
 }
 
-unsafe impl<const N: usize> IoBuf for [u8; N] {
-    #[inline]
-    fn read_ptr(&self) -> *const u8 {
-        self.as_ptr()
-    }
-
-    #[inline]
-    fn bytes_init(&self) -> usize {
-        self.len()
-    }
-}
-
 unsafe impl<const N: usize> IoBuf for &'static [u8; N] {
     #[inline]
     fn read_ptr(&self) -> *const u8 {
@@ -305,21 +293,6 @@ unsafe impl<const N: usize> IoBufMut for Box<[u8; N]> {
     unsafe fn set_init(&mut self, _: usize) {}
 }
 
-unsafe impl<const N: usize> IoBufMut for [u8; N] {
-    #[inline]
-    fn write_ptr(&mut self) -> *mut u8 {
-        self.as_mut_ptr()
-    }
-
-    #[inline]
-    fn bytes_total(&mut self) -> usize {
-        self.len()
-    }
-
-    #[inline]
-    unsafe fn set_init(&mut self, _: usize) {}
-}
-
 unsafe impl<const N: usize> IoBufMut for &'static mut [u8; N] {
     #[inline]
     fn write_ptr(&mut self) -> *mut u8 {
@@ -435,7 +408,7 @@ mod tests {
 
     #[test]
     fn io_buf_n_mut_static() {
-        let buf = Box::leak(Box::new([1, 2, 3, 4, 5]));
+        let mut buf = Box::leak(Box::new([1, 2, 3, 4, 5]));
         let ptr = buf.as_mut_ptr();
 
         assert_eq!(buf.read_ptr(), ptr);

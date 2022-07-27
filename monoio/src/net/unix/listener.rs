@@ -75,10 +75,10 @@ impl UnixListener {
         let stream = UnixStream::from_shared_fd(SharedFd::new(fd as _)?);
 
         // Construct SocketAddr
-        let mut storage = unsafe { std::mem::MaybeUninit::assume_init(completion.data.addr) };
+        let mut storage = unsafe { std::mem::MaybeUninit::assume_init(completion.data.addr.0) };
         let storage: *mut libc::sockaddr_storage = &mut storage as *mut _;
         let raw_addr_un: libc::sockaddr_un = unsafe { *storage.cast() };
-        let raw_addr_len = completion.data.addrlen;
+        let raw_addr_len = completion.data.addr.1;
 
         let addr = SocketAddr::from_parts(raw_addr_un, raw_addr_len);
 

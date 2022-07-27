@@ -25,7 +25,7 @@ pub(crate) struct Op<T: 'static> {
     pub(super) index: usize,
 
     // Per-operation data
-    pub(super) data: Option<Pin<Box<T>>>,
+    pub(super) data: Option<T>,
 }
 
 /// Operation completion. Returns stored state with the result of the operation.
@@ -45,12 +45,12 @@ pub(crate) struct CompletionMeta {
 
 pub(crate) trait OpAble {
     #[cfg(all(target_os = "linux", feature = "iouring"))]
-    fn uring_op(self: &mut std::pin::Pin<Box<Self>>) -> io_uring::squeue::Entry;
+    fn uring_op(&mut self) -> io_uring::squeue::Entry;
 
     #[cfg(all(unix, feature = "legacy"))]
     fn legacy_interest(&self) -> Option<(super::legacy::ready::Direction, usize)>;
     #[cfg(all(unix, feature = "legacy"))]
-    fn legacy_call(self: &mut std::pin::Pin<Box<Self>>) -> io::Result<u32>;
+    fn legacy_call(&mut self) -> io::Result<u32>;
 }
 
 impl<T> Op<T> {
@@ -91,8 +91,7 @@ where
         let meta = ready!(me.driver.poll_op::<T>(data_mut, me.index, cx));
 
         me.index = usize::MAX;
-        let pinned_data = me.data.take().expect("unexpected operation state");
-        let data = Box::into_inner(unsafe { Pin::into_inner_unchecked(pinned_data) });
+        let data = me.data.take().expect("unexpected operation state");
         Poll::Ready(Completion { data, meta })
     }
 }

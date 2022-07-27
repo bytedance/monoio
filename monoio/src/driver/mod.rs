@@ -14,7 +14,6 @@ mod util;
 
 use scoped_tls::scoped_thread_local;
 use std::io;
-use std::pin::Pin;
 use std::task::{Context, Poll};
 use std::time::Duration;
 
@@ -104,9 +103,9 @@ impl Inner {
             #[cfg(windows)]
             _ => unimplemented!(),
             #[cfg(all(target_os = "linux", feature = "iouring"))]
-            Inner::Uring(this) => UringInner::submit_with(this, data),
+            Inner::Uring(this) => UringInner::submit_with_data(this, data),
             #[cfg(all(unix, feature = "legacy"))]
-            Inner::Legacy(this) => LegacyInner::submit_with(this, data),
+            Inner::Legacy(this) => LegacyInner::submit_with_data(this, data),
             #[cfg(all(
                 not(feature = "legacy"),
                 not(all(target_os = "linux", feature = "iouring"))
@@ -120,7 +119,7 @@ impl Inner {
     #[allow(unused)]
     fn poll_op<T: OpAble>(
         &self,
-        data: &mut Pin<Box<T>>,
+        data: &mut T,
         index: usize,
         cx: &mut Context<'_>,
     ) -> Poll<CompletionMeta> {
@@ -142,7 +141,7 @@ impl Inner {
     }
 
     #[allow(unused)]
-    fn drop_op<T: 'static>(&self, index: usize, data: &mut Option<Pin<Box<T>>>) {
+    fn drop_op<T: 'static>(&self, index: usize, data: &mut Option<T>) {
         match self {
             #[cfg(windows)]
             _ => unimplemented!(),

@@ -26,7 +26,7 @@ async fn echo_server() {
             assert!(stream.write_all(msg).await.0.is_ok());
 
             // read
-            let buf = [0; 11];
+            let buf = Box::new([0; 11]);
             let (res, buf) = stream.read_exact(buf).await;
             assert!(res.is_ok());
             assert_eq!(res.unwrap(), 11);

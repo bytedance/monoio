@@ -23,9 +23,11 @@ macro_rules! reader_be_impl {
 
         fn $f(&mut self) -> Self::$future<'_> {
             async {
-                let (res, buf) = self.read_exact([0; std::mem::size_of::<$n_ty>()]).await;
+                let (res, buf) = self
+                    .read_exact(std::boxed::Box::new([0; std::mem::size_of::<$n_ty>()]))
+                    .await;
                 res?;
-                Ok(<$n_ty>::from_be_bytes(buf))
+                Ok(<$n_ty>::from_be_bytes(Box::into_inner(buf)))
             }
         }
     };
@@ -37,9 +39,11 @@ macro_rules! reader_le_impl {
 
         fn $f(&mut self) -> Self::$future<'_> {
             async {
-                let (res, buf) = self.read_exact([0; std::mem::size_of::<$n_ty>()]).await;
+                let (res, buf) = self
+                    .read_exact(std::boxed::Box::new([0; std::mem::size_of::<$n_ty>()]))
+                    .await;
                 res?;
-                Ok(<$n_ty>::from_le_bytes(buf))
+                Ok(<$n_ty>::from_le_bytes(Box::into_inner(buf)))
             }
         }
     };

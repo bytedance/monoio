@@ -23,7 +23,7 @@ impl Op<Close> {
 
 impl OpAble for Close {
     #[cfg(all(target_os = "linux", feature = "iouring"))]
-    fn uring_op(self: &mut std::pin::Pin<Box<Self>>) -> io_uring::squeue::Entry {
+    fn uring_op(&mut self) -> io_uring::squeue::Entry {
         opcode::Close::new(types::Fd(self.fd)).build()
     }
 
@@ -33,7 +33,7 @@ impl OpAble for Close {
     }
 
     #[cfg(all(unix, feature = "legacy"))]
-    fn legacy_call(self: &mut std::pin::Pin<Box<Self>>) -> io::Result<u32> {
+    fn legacy_call(&mut self) -> io::Result<u32> {
         syscall_u32!(close(self.fd))
     }
 }

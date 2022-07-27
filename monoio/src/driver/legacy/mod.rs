@@ -11,7 +11,6 @@ use crate::utils::slab::Slab;
 use std::{
     cell::UnsafeCell,
     io,
-    pin::Pin,
     rc::Rc,
     task::{Context, Poll},
     time::Duration,
@@ -201,7 +200,7 @@ impl LegacyInner {
 
     pub(crate) fn poll_op<T: OpAble>(
         this: &Rc<UnsafeCell<Self>>,
-        data: &mut Pin<Box<T>>,
+        data: &mut T,
         cx: &mut Context<'_>,
     ) -> Poll<CompletionMeta> {
         let inner = unsafe { &mut *this.get() };
@@ -243,7 +242,10 @@ impl LegacyInner {
         }
     }
 
-    pub(crate) fn submit_with<T>(this: &Rc<UnsafeCell<LegacyInner>>, data: T) -> io::Result<Op<T>>
+    pub(crate) fn submit_with_data<T>(
+        this: &Rc<UnsafeCell<LegacyInner>>,
+        data: T,
+    ) -> io::Result<Op<T>>
     where
         T: OpAble,
     {
@@ -251,7 +253,7 @@ impl LegacyInner {
             driver: Inner::Legacy(this.clone()),
             // useless for legacy
             index: 0,
-            data: Some(Box::pin(data)),
+            data: Some(data),
         })
     }
 }

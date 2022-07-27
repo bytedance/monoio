@@ -103,7 +103,7 @@ impl TcpListener {
         let stream = TcpStream::from_shared_fd(SharedFd::new(fd as _)?);
 
         // Construct SocketAddr
-        let storage = completion.data.addr.as_ptr() as *const _ as *const libc::sockaddr_storage;
+        let storage = completion.data.addr.0.as_ptr() as *const _ as *const libc::sockaddr_storage;
         let addr = unsafe {
             match (*storage).ss_family as libc::c_int {
                 libc::AF_INET => {

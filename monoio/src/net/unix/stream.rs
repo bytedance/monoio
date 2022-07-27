@@ -15,6 +15,8 @@ use std::{
     path::Path,
 };
 
+const EMPTY_SLICE: [u8; 0] = [];
+
 /// UnixStream
 pub struct UnixStream {
     fd: SharedFd,
@@ -49,7 +51,7 @@ impl UnixStream {
         let mut stream = Self::from_shared_fd(completion.data.fd);
         // wait write ready
         // TODO: not use write to detect writable
-        let _ = stream.write([]).await;
+        let _ = stream.write(&EMPTY_SLICE).await;
         // getsockopt
         let sys_socket = unsafe { std::os::unix::net::UnixStream::from_raw_fd(stream.fd.raw_fd()) };
         let err = sys_socket.take_error();

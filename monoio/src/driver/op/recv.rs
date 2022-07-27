@@ -46,7 +46,7 @@ impl<T: IoBufMut> Op<Recv<T>> {
 
 impl<T: IoBufMut> OpAble for Recv<T> {
     #[cfg(all(target_os = "linux", feature = "iouring"))]
-    fn uring_op(self: &mut std::pin::Pin<Box<Self>>) -> io_uring::squeue::Entry {
+    fn uring_op(&mut self) -> io_uring::squeue::Entry {
         opcode::Recv::new(
             types::Fd(self.fd.raw_fd()),
             self.buf.write_ptr(),
@@ -61,7 +61,7 @@ impl<T: IoBufMut> OpAble for Recv<T> {
     }
 
     #[cfg(all(unix, feature = "legacy"))]
-    fn legacy_call(self: &mut std::pin::Pin<Box<Self>>) -> io::Result<u32> {
+    fn legacy_call(&mut self) -> io::Result<u32> {
         let fd = self.fd.as_raw_fd();
         syscall_u32!(recv(
             fd,

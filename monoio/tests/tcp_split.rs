@@ -27,7 +27,7 @@ async fn split() -> Result<()> {
     let mut stream = TcpStream::connect(&addr).await?;
     let (mut read_half, mut write_half) = stream.split();
 
-    let read_buf = [0u8; 32];
+    let read_buf = Box::new([0u8; 32]);
     let (read_res, buf) = read_half.read(read_buf).await;
     assert_eq!(read_res.unwrap(), MSG.len());
     assert_eq!(&buf[..MSG.len()], MSG);

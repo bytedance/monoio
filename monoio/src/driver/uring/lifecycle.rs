@@ -3,7 +3,6 @@
 
 use std::{
     io,
-    pin::Pin,
     task::{Context, Poll, Waker},
 };
 
@@ -70,12 +69,12 @@ impl<'a> Ref<'a, Lifecycle> {
     }
 
     // return if the op must has been finished
-    pub(crate) fn drop_op<T: 'static>(mut self, data: &mut Option<Pin<Box<T>>>) -> bool {
+    pub(crate) fn drop_op<T: 'static>(mut self, data: &mut Option<T>) -> bool {
         let ref_mut = &mut *self;
         match ref_mut {
             Lifecycle::Submitted | Lifecycle::Waiting(_) => {
                 if let Some(data) = data.take() {
-                    *ref_mut = Lifecycle::Ignored(unsafe { Pin::into_inner_unchecked(data) });
+                    *ref_mut = Lifecycle::Ignored(Box::new(data));
                 } else {
                     *ref_mut = Lifecycle::Ignored(Box::<()>::new_uninit());
                 };
