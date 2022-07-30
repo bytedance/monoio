@@ -74,3 +74,4 @@ legacy = ["mio"]
 iouring = []
 # by default both iouring and legacy are enabled
 default = ["async-cancel", "bytes", "iouring", "legacy", "macros", "utils"]
+nightly = []

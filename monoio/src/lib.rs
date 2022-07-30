@@ -8,14 +8,13 @@
 //! submit task will always be executed on the same thread.
 
 #![warn(missing_docs, unreachable_pub)]
-#![feature(generic_associated_types)]
-#![feature(type_alias_impl_trait)]
-#![feature(box_into_inner)]
-#![feature(new_uninit)]
-#![feature(io_error_more)]
-#![feature(stmt_expr_attributes)]
-#![feature(unboxed_closures)]
-#![feature(once_cell)]
+// #![feature(generic_associated_types)]
+// #![feature(type_alias_impl_trait)]
+// #![feature(box_into_inner)]
+// #![feature(io_error_more)]
+// #![feature(stmt_expr_attributes)]
+// #![feature(unboxed_closures)]
+// #![feature(once_cell)]
 
 #[macro_use]
 pub mod macros;
@@ -33,7 +32,9 @@ extern crate alloc;
 
 pub mod buf;
 pub mod fs;
+#[cfg(feature = "nightly")]
 pub mod io;
+#[cfg(feature = "nightly")]
 pub mod net;
 pub mod task;
 pub mod utils;

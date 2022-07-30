@@ -76,7 +76,14 @@ impl<'a> Ref<'a, Lifecycle> {
                 if let Some(data) = data.take() {
                     *ref_mut = Lifecycle::Ignored(Box::new(data));
                 } else {
-                    *ref_mut = Lifecycle::Ignored(Box::<()>::new_uninit());
+                    #[cfg(feature = "nightly")]
+                    {
+                        *ref_mut = Lifecycle::Ignored(Box::<()>::new_uninit());
+                    }
+                    #[cfg(not(feature = "nightly"))]
+                    {
+                        *ref_mut = Lifecycle::Ignored(Box::new(()));
+                    }
                 };
                 return false;
             }

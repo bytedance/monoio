@@ -311,7 +311,7 @@ impl UringInner {
                 }
                 Err(ref e)
                     if e.kind() == io::ErrorKind::Other
-                        || e.kind() == io::ErrorKind::ResourceBusy =>
+                        || e.raw_os_error().unwrap() == libc::EBUSY =>
                 {
                     self.tick();
                 }
