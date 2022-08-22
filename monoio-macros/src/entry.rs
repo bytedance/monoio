@@ -271,7 +271,7 @@ fn parse_knobs(
         _ => (quote! {}, quote! {}),
     };
 
-    if config.threads == None || config.threads == Some(1) {
+    if matches!(config.threads, None | Some(1)) {
         input.block = syn::parse2(quote_spanned! {last_stmt_end_span=>
             {
                 let body = async #body;
