@@ -104,7 +104,7 @@ impl IoUringDriver {
 
         // Create eventfd and register it to the ring.
         let waker = {
-            let fd = crate::syscall!(eventfd(0, libc::EFD_CLOEXEC | libc::EFD_NONBLOCK))?;
+            let fd = crate::syscall!(eventfd(0, libc::EFD_CLOEXEC))?;
             unsafe {
                 use std::os::unix::io::FromRawFd;
                 std::fs::File::from_raw_fd(fd)
