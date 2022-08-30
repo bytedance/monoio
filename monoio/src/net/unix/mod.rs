@@ -1,16 +1,17 @@
 #![allow(unreachable_pub)]
 //! Unix related.
 
+mod datagram;
 mod listener;
+mod pipe;
 mod socket_addr;
 mod split;
 mod stream;
 mod ucred;
 
-pub mod datagram;
-
 pub use datagram::UnixDatagram;
 pub use listener::UnixListener;
+pub use pipe::{new_pipe, Pipe};
 pub use socket_addr::SocketAddr;
 pub use split::{
     OwnedReadHalf as UnixOwnedReadHalf, OwnedWriteHalf as UnixOwnedWriteHalf,

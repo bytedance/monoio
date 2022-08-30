@@ -313,7 +313,7 @@ impl OpenOptions {
         // The file is open
         Ok(File::from_shared_fd(SharedFd::new_without_register(
             completion.meta.result? as _,
-        )?))
+        )))
     }
 
     pub(crate) fn access_mode(&self) -> io::Result<libc::c_int> {

@@ -59,6 +59,8 @@ async-cancel = []
 # enanle zero copy(enable SOCK_ZEROCOPY + MSG_ZEROCOPY flag)
 # WARNING: this feature may cause performance degradation
 zero-copy = []
+# splice op(require kernel 5.7+)
+splice = []
 # enable `async main` macros support
 macros = ["monoio-macros"]
 # allow waker to be sent across threads

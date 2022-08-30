@@ -173,7 +173,7 @@ impl<D> Runtime<D> {
 
                     #[cfg(all(debug_assertions, feature = "debug"))]
                     if let Err(e) = self.driver.park() {
-                        tracing!("park error: {:?}", e);
+                        trace!("park error: {:?}", e);
                     }
                 }
             })
@@ -212,8 +212,14 @@ where
         F: Future,
     {
         match self {
-            FusionRuntime::Uring(inner) => inner.block_on(future),
-            FusionRuntime::Legacy(inner) => inner.block_on(future),
+            FusionRuntime::Uring(inner) => {
+                info!("Monoio is running with io_uring driver");
+                inner.block_on(future)
+            }
+            FusionRuntime::Legacy(inner) => {
+                info!("Monoio is running with legacy driver");
+                inner.block_on(future)
+            }
         }
     }
 }

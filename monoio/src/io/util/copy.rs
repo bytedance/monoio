@@ -2,7 +2,13 @@
 
 use std::io;
 
-use crate::io::{AsyncReadRent, AsyncWriteRent, AsyncWriteRentExt};
+use crate::{
+    io::{AsyncReadRent, AsyncWriteRent, AsyncWriteRentExt},
+    net::{
+        tcp::{TcpReadHalf, TcpWriteHalf},
+        unix::new_pipe,
+    },
+};
 
 const BUF_SIZE: usize = 4 * 1024;
 
@@ -65,5 +71,32 @@ where
         }
     }
 
+    Ok(transfered)
+}
+
+/// Copy with splice.
+#[cfg(all(target_os = "linux", feature = "splice"))]
+pub async fn zero_copy<SRC: crate::io::as_fd::AsReadFd, DST: crate::io::as_fd::AsWriteFd>(
+    reader: &mut SRC,
+    writer: &mut DST,
+) -> io::Result<u64> {
+    use crate::{
+        driver::op::Op,
+        io::splice::{SpliceDestination, SpliceSource},
+    };
+
+    let (mut pr, mut pw) = new_pipe()?;
+    let mut transfered: u64 = 0;
+    loop {
+        let mut to_write = reader.splice_to_pipe(&mut pw, BUF_SIZE as u32).await?;
+        if to_write == 0 {
+            break;
+        }
+        transfered += to_write as u64;
+        while to_write > 0 {
+            let written = writer.splice_from_pipe(&mut pr, to_write).await?;
+            to_write -= written;
+        }
+    }
     Ok(transfered)
 }

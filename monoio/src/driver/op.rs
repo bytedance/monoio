@@ -18,6 +18,9 @@ mod recv;
 mod send;
 mod write;
 
+#[cfg(all(target_os = "linux", feature = "splice"))]
+mod splice;
+
 /// In-flight operation
 pub(crate) struct Op<T: 'static> {
     // Driver running the operation
@@ -106,12 +109,12 @@ impl<T> Drop for Op<T> {
 
 #[allow(unused)]
 #[cfg(not(target_os = "linux"))]
-fn non_blocking() -> bool {
+pub(crate) fn non_blocking() -> bool {
     true
 }
 
 #[cfg(target_os = "linux")]
-fn non_blocking() -> bool {
+pub(crate) fn non_blocking() -> bool {
     super::CURRENT.with(|inner| inner.is_legacy())
 }
 

@@ -20,6 +20,7 @@ macro_rules! err_to_false {
 }
 #[cfg(all(target_os = "linux", feature = "iouring"))]
 fn detect_uring_inner() -> bool {
+    #[cfg(not(feature = "splice"))]
     const USED_OP: [u8; 14] = op_codes![
         Accept,
         AsyncCancel,
@@ -35,6 +36,25 @@ fn detect_uring_inner() -> bool {
         Timeout,
         Write,
         Writev
+    ];
+
+    #[cfg(feature = "splice")]
+    const USED_OP: [u8; 15] = op_codes![
+        Accept,
+        AsyncCancel,
+        Close,
+        Connect,
+        Fsync,
+        OpenAt,
+        ProvideBuffers,
+        Read,
+        Readv,
+        Recv,
+        Send,
+        Timeout,
+        Write,
+        Writev,
+        Splice
     ];
 
     let uring = err_to_false!(io_uring::IoUring::new(2));

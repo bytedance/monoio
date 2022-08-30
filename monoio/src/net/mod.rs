@@ -9,4 +9,4 @@ pub mod unix;
 pub use listener_config::ListenerConfig;
 pub use tcp::{TcpListener, TcpStream};
 #[cfg(unix)]
-pub use unix::{UnixDatagram, UnixListener, UnixStream};
+pub use unix::{Pipe, UnixDatagram, UnixListener, UnixStream};
