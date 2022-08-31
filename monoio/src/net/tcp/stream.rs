@@ -10,7 +10,7 @@ use std::{
     time::Duration,
 };
 
-use super::split::{split, split_owned, OwnedReadHalf, OwnedWriteHalf, ReadHalf, WriteHalf};
+use super::split::{TcpOwnedReadHalf, TcpOwnedWriteHalf, TcpReadHalf, TcpWriteHalf};
 use crate::{
     buf::{IoBuf, IoBufMut, IoVecBuf, IoVecBufMut},
     driver::{op::Op, shared_fd::SharedFd},
@@ -18,6 +18,7 @@ use crate::{
         as_fd::{AsReadFd, AsWriteFd, SharedFdWrapper},
         AsyncReadRent, AsyncWriteRent,
     },
+    io::{AsyncReadRent, AsyncWriteRent, Split},
 };
 
 const EMPTY_SLICE: [u8; 0] = [];
@@ -27,6 +28,9 @@ pub struct TcpStream {
     fd: SharedFd,
     meta: StreamMeta,
 }
+
+/// TcpStream is safe to split to two parts
+unsafe impl Split for TcpStream{}
 
 impl TcpStream {
     pub(crate) fn from_shared_fd(fd: SharedFd) -> Self {
@@ -112,16 +116,16 @@ impl TcpStream {
         self.meta.set_tcp_keepalive(time, interval, retries)
     }
 
-    /// Split stream into read and write halves.
-    #[allow(clippy::needless_lifetimes)]
-    pub fn split<'a>(&'a mut self) -> (ReadHalf<'a>, WriteHalf<'a>) {
-        split(self)
-    }
+    //// Split stream into read and write halves.
+    // #[allow(clippy::needless_lifetimes)]
+    // pub fn split<'a>(&'a mut self) -> (TcpReadHalf<'a>, TcpWriteHalf<'a>) {
+    //     split(self)
+    // }
 
-    /// Split stream into read and write halves with ownership.
-    pub fn into_split(self) -> (OwnedReadHalf, OwnedWriteHalf) {
-        split_owned(self)
-    }
+    // /// Split stream into read and write halves with ownership.
+    // pub fn into_split(self) -> (OwnedReadHalf, OwnedWriteHalf) {
+    //     split_owned(self)
+    // }
 }
 
 impl AsReadFd for TcpStream {
