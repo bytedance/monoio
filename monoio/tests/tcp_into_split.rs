@@ -118,19 +118,16 @@ async fn drop_write() -> Result<()> {
     let (read_res, read_buf) = read_half.read(read_buf).await;
     assert_eq!(read_res.unwrap(), MSG.len());
     assert_eq!(&read_buf[..MSG.len()], MSG);
-
     // drop it while the read is in progress
     monoio::spawn(async move {
         monoio::time::sleep(std::time::Duration::from_millis(10)).await;
         drop(write_half);
     });
-
     match read_half.read(read_buf).await.0 {
         Ok(0) => {}
         Ok(len) => panic!("Unexpected read: {} bytes.", len),
         Err(err) => panic!("Unexpected error: {}.", err),
     }
-
     handle.join().unwrap().unwrap();
     Ok(())
 }

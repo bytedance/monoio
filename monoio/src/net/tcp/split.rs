@@ -1,5 +1,9 @@
-
-use std::{error::Error, fmt, future::Future, io, net::SocketAddr};
+use std::{
+    fmt::{self},
+    future::Future,
+    io,
+    net::SocketAddr,
+};
 
 use super::TcpStream;
 use crate::{
@@ -8,9 +12,7 @@ use crate::{
         as_fd::{AsReadFd, AsWriteFd, SharedFdWrapper},
         AsyncReadRent, AsyncWriteRent,
     },
-    io::{
-        AsyncReadRent, AsyncWriteRent, OwnedReadHalf, OwnedWriteHalf, ReadHalf, WriteHalf,
-    },
+    io::{AsyncReadRent, AsyncWriteRent, OwnedReadHalf, OwnedWriteHalf, ReadHalf, WriteHalf},
 };
 
 /// ReadHalf.
@@ -94,7 +96,6 @@ pub type TcpOwnedWriteHalf = OwnedWriteHalf<TcpStream>;
 
 /// Error indicating that two halves were not from the same socket, and thus
 /// could not be reunited.
-#[derive(Debug)]
 pub struct ReuniteError(pub TcpOwnedReadHalf, pub TcpOwnedWriteHalf);
 
 impl fmt::Display for ReuniteError {
@@ -106,7 +107,7 @@ impl fmt::Display for ReuniteError {
     }
 }
 
-impl Error for ReuniteError {}
+// impl Error for ReuniteError{}
 
 impl TcpOwnedReadHalf {
     /// Returns the remote address that this stream is connected to.
@@ -200,7 +201,9 @@ where
     T: AsyncWriteRent,
 {
     fn drop(&mut self) {
-        let w = unsafe { &mut *self.0.get()};
-        w.shutdown();
+        let write = unsafe { &mut *self.0.get() };
+        // Notes:: shutdown is an async function but rust currently does not support async drop
+        // this drop will only execute sync part of `shutdown` function.
+        write.shutdown();
     }
 }

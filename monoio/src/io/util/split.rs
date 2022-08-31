@@ -6,14 +6,16 @@ use std::{
     rc::Rc,
 };
 
-use crate::{io::{AsyncReadRent, AsyncWriteRent}};
+use crate::io::{AsyncReadRent, AsyncWriteRent};
 
 /// Owned Read Half Part
 #[derive(Debug)]
 pub struct OwnedReadHalf<T>(pub Rc<UnsafeCell<T>>);
 /// Owned Write Half Part
 #[derive(Debug)]
-pub struct OwnedWriteHalf<T>(pub Rc<UnsafeCell<T>>) where T: AsyncWriteRent;
+pub struct OwnedWriteHalf<T>(pub Rc<UnsafeCell<T>>)
+where
+    T: AsyncWriteRent;
 /// Borrowed Write Half Part
 #[derive(Debug)]
 pub struct WriteHalf<'cx, T>(pub &'cx T);
@@ -24,7 +26,7 @@ pub struct ReadHalf<'cx, T>(pub &'cx T);
 /// This is a dummy unsafe trait to inform monoio,
 /// the object with has this `Split` trait can be safely split
 /// to read/write object in both form of `Owned` or `Borrowed`.
-/// 
+///
 /// # Safety
 /// monoio cannot guarantee whether the custom object can be
 /// safely split to divided objects. Users should ensure the safety
@@ -143,7 +145,6 @@ where
         stream.shutdown()
     }
 }
-
 
 impl<T> OwnedReadHalf<T>
 where

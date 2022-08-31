@@ -10,7 +10,6 @@ use std::{
     time::Duration,
 };
 
-
 use crate::{
     buf::{IoBuf, IoBufMut, IoVecBuf, IoVecBufMut},
     driver::{op::Op, shared_fd::SharedFd},
@@ -30,7 +29,7 @@ pub struct TcpStream {
 }
 
 /// TcpStream is safe to split to two parts
-unsafe impl Split for TcpStream{}
+unsafe impl Split for TcpStream {}
 
 impl TcpStream {
     pub(crate) fn from_shared_fd(fd: SharedFd) -> Self {
@@ -193,12 +192,11 @@ impl AsyncWriteRent for TcpStream {
         // We could use shutdown op here, which requires kernel 5.11+.
         // However, for simplicity, we just close the socket using direct syscall.
         let fd = self.as_raw_fd();
-        async move {
-            match unsafe { libc::shutdown(fd, libc::SHUT_WR) } {
-                -1 => Err(io::Error::last_os_error()),
-                _ => Ok(()),
-            }
-        }
+        match unsafe { libc::shutdown(fd, libc::SHUT_WR) } {
+            -1 => Err(io::Error::last_os_error()),
+            _ => Ok(()),
+        };
+        async move { Ok(()) }
     }
     #[cfg(windows)]
     fn shutdown(&mut self) -> Self::ShutdownFuture<'_> {

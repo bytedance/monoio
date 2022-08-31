@@ -7,7 +7,6 @@ mod stream;
 
 pub use listener::TcpListener;
 pub use split::{
-    TcpOwnedReadHalf, TcpOwnedWriteHalf,
-    TcpReadHalf, ReuniteError as TcpReuniteError, TcpWriteHalf,
+    ReuniteError as TcpReuniteError, TcpOwnedReadHalf, TcpOwnedWriteHalf, TcpReadHalf, TcpWriteHalf,
 };
 pub use stream::TcpStream;
