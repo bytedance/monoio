@@ -1,10 +1,24 @@
-use std::{cell::UnsafeCell, future::Future, rc::Rc};
+use std::{
+    cell::UnsafeCell,
+    error::Error,
+    fmt::{self, Debug},
+    future::Future,
+    rc::Rc,
+};
 
 use crate::io::{AsyncReadRent, AsyncWriteRent};
 
+/// Owned Read Half Part
+#[derive(Debug)]
 pub struct OwnedReadHalf<T>(Rc<UnsafeCell<T>>);
+/// Owned Write Half Part
+#[derive(Debug)]
 pub struct OwnedWriteHalf<T>(Rc<UnsafeCell<T>>);
+/// Borrowed Write Half Part
+#[derive(Debug)]
 pub struct WriteHalf<'cx, T>(&'cx T);
+/// Borrowed Read Half Part
+#[derive(Debug)]
 pub struct ReadHalf<'cx, T>(&'cx T);
 
 /// This is a dummy unsafe trait to inform monoio,
@@ -16,7 +30,7 @@ pub struct ReadHalf<'cx, T>(&'cx T);
 pub unsafe trait Split {}
 
 /// Inner split trait
-pub trait _Split {
+pub trait Splitable {
     /// Owned Read Split
     type OwnedRead;
     /// Owned Write Split
@@ -38,7 +52,7 @@ pub trait _Split {
     fn split(&self) -> (Self::Read<'_>, Self::Write<'_>);
 }
 
-impl<T> _Split for T
+impl<T> Splitable for T
 where
     T: Split + AsyncReadRent + AsyncWriteRent,
 {
@@ -127,3 +141,55 @@ where
         stream.shutdown()
     }
 }
+
+impl<T> OwnedReadHalf<T>
+where
+    T: Debug,
+{
+    /// reunite write half
+    pub fn reunite(self, other: OwnedWriteHalf<T>) -> Result<T, ReuniteError<T>> {
+        reunite(self, other)
+    }
+}
+
+impl<T> OwnedWriteHalf<T>
+where
+    T: Debug,
+{
+    /// reunite read half
+    pub fn reunite(self, other: OwnedReadHalf<T>) -> Result<T, ReuniteError<T>> {
+        reunite(other, self)
+    }
+}
+
+pub(crate) fn reunite<T: Debug>(
+    read: OwnedReadHalf<T>,
+    write: OwnedWriteHalf<T>,
+) -> Result<T, ReuniteError<T>> {
+    if Rc::ptr_eq(&read.0, &write.0) {
+        drop(write);
+        // This unwrap cannot fail as the api does not allow creating more than two
+        // Arcs, and we just dropped the other half.
+        Ok(Rc::try_unwrap(read.0)
+            .expect("try_unwrap failed in reunite")
+            .into_inner())
+    } else {
+        Err(ReuniteError(read, write))
+    }
+}
+
+/// Error indicating that two halves were not from the same socket, and thus
+/// could not be reunited.
+#[derive(Debug)]
+pub struct ReuniteError<T: Debug>(pub OwnedReadHalf<T>, pub OwnedWriteHalf<T>);
+
+impl<T> fmt::Display for ReuniteError<T>
+where
+    T: Debug,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "tried to reunite halves")
+    }
+}
+
+impl<T> Error for ReuniteError<T> where T: Debug {}

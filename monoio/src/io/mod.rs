@@ -24,5 +24,5 @@ mod util;
 pub use util::zero_copy;
 pub use util::{
     copy, BufReader, BufWriter, OwnedReadHalf, OwnedWriteHalf, PrefixedReadIo, ReadHalf, Split,
-    Splited, WriteHalf,
+    Splitable, WriteHalf,
 };
