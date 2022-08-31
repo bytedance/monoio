@@ -1,3 +1,4 @@
+use super::split::Split;
 use crate::{
     buf::{IoBuf, IoBufMut, IoVecBuf, IoVecBufMut, IoVecWrapperMut},
     io::{AsyncReadRent, AsyncWriteRent},
@@ -113,3 +114,7 @@ impl<I: AsyncWriteRent, P> AsyncWriteRent for PrefixedReadIo<I, P> {
         self.io.shutdown()
     }
 }
+
+/// implement unsafe Split for PrefixedReadIo, it's `safe`
+/// because read/write are independent, we can safely split them into two I/O parts.
+unsafe impl<I, P> Split for PrefixedReadIo<I, P> where I: AsyncReadRent + AsyncWriteRent {}
