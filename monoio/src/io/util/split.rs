@@ -1,4 +1,4 @@
-use std::{cell::UnsafeCell, rc::Rc};
+use std::{cell::UnsafeCell, future::Future, rc::Rc};
 
 use crate::io::{AsyncReadRent, AsyncWriteRent};
 
@@ -57,5 +57,73 @@ where
 
     fn split(&self) -> (Self::Read<'_>, Self::Write<'_>) {
         (ReadHalf(&*self), WriteHalf(&*self))
+    }
+}
+
+impl<Inner> AsyncReadRent for OwnedReadHalf<Inner>
+where
+    Inner: AsyncReadRent,
+{
+    type ReadFuture<'a, T> = impl std::future::Future<Output = crate::BufResult<usize, T>>
+    where
+        Self: 'a,
+        T: crate::buf::IoBufMut + 'a;
+
+    type ReadvFuture<'a, T> = impl std::future::Future<Output = crate::BufResult<usize, T>>
+    where
+        Self: 'a,
+        T: crate::buf::IoVecBufMut + 'a;
+
+    fn read<T: crate::buf::IoBufMut>(&mut self, buf: T) -> Self::ReadFuture<'_, T> {
+        let stream = unsafe { &mut *self.0.get() };
+        stream.read(buf)
+    }
+
+    fn readv<T: crate::buf::IoVecBufMut>(&mut self, buf: T) -> Self::ReadvFuture<'_, T> {
+        let stream = unsafe { &mut *self.0.get() };
+        stream.readv(buf)
+    }
+}
+
+impl<Inner> AsyncWriteRent for OwnedReadHalf<Inner>
+where
+    Inner: AsyncWriteRent,
+{
+    type WriteFuture<'a, T> =  impl Future<Output = crate::BufResult<usize, T>>
+    where
+        Self: 'a,
+        T: crate::buf::IoBuf + 'a;
+
+    type WritevFuture<'a, T> =  impl Future<Output = crate::BufResult<usize, T>>
+    where
+        Self: 'a,
+        T: crate::buf::IoVecBuf + 'a;
+
+    type FlushFuture<'a> = impl Future<Output = std::io::Result<()>>
+    where
+        Self: 'a;
+
+    type ShutdownFuture<'a> = impl Future<Output = std::io::Result<()>>
+    where
+        Self: 'a;
+
+    fn write<T: crate::buf::IoBuf>(&mut self, buf: T) -> Self::WriteFuture<'_, T> {
+        let stream = unsafe { &mut *self.0.get() };
+        stream.write(buf)
+    }
+
+    fn writev<T: crate::buf::IoVecBuf>(&mut self, buf_vec: T) -> Self::WritevFuture<'_, T> {
+        let stream = unsafe { &mut *self.0.get() };
+        stream.writev(buf_vec)
+    }
+
+    fn flush(&mut self) -> Self::FlushFuture<'_> {
+        let stream = unsafe { &mut *self.0.get() };
+        stream.flush()
+    }
+
+    fn shutdown(&mut self) -> Self::ShutdownFuture<'_> {
+        let stream = unsafe { &mut *self.0.get() };
+        stream.shutdown()
     }
 }
