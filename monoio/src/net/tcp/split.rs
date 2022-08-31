@@ -1,6 +1,5 @@
-#[cfg(unix)]
-use std::os::unix::prelude::AsRawFd;
-use std::{cell::UnsafeCell, error::Error, fmt, future::Future, io, net::SocketAddr, rc::Rc};
+
+use std::{error::Error, fmt, future::Future, io, net::SocketAddr};
 
 use super::TcpStream;
 use crate::{
@@ -9,7 +8,9 @@ use crate::{
         as_fd::{AsReadFd, AsWriteFd, SharedFdWrapper},
         AsyncReadRent, AsyncWriteRent,
     },
-    io::{AsyncReadRent, AsyncWriteRent, ReadHalf, WriteHalf, Split, OwnedWriteHalf, OwnedReadHalf},
+    io::{
+        AsyncReadRent, AsyncWriteRent, OwnedReadHalf, OwnedWriteHalf, ReadHalf, WriteHalf,
+    },
 };
 
 /// ReadHalf.
@@ -87,11 +88,9 @@ impl<'t> AsyncWriteRent for TcpWriteHalf<'t> {
 }
 
 /// OwnedReadHalf.
-#[derive(Debug)]
-pub struct TcpOwnedReadHalf(pub OwnedReadHalf<TcpStream>);
+pub type TcpOwnedReadHalf = OwnedReadHalf<TcpStream>;
 /// OwnedWriteHalf
-#[derive(Debug)]
-pub struct TcpOwnedWriteHalf(pub OwnedWriteHalf<TcpStream>);
+pub type TcpOwnedWriteHalf = OwnedWriteHalf<TcpStream>;
 
 /// Error indicating that two halves were not from the same socket, and thus
 /// could not be reunited.
@@ -110,23 +109,14 @@ impl fmt::Display for ReuniteError {
 impl Error for ReuniteError {}
 
 impl TcpOwnedReadHalf {
-    /// Attempts to put the two halves of a `TcpStream` back together and
-    /// recover the original socket. Succeeds only if the two halves
-    /// originated from the same call to [`into_split`].
-    ///
-    /// [`into_split`]: TcpStream::into_split()
-    // pub fn reunite(self, other: OwnedWriteHalf) -> Result<TcpStream, ReuniteError> {
-    //     reunite(self, other)
-    // }
-
     /// Returns the remote address that this stream is connected to.
     pub fn peer_addr(&self) -> io::Result<SocketAddr> {
-        unsafe { &*self.0.0.get() }.peer_addr()
+        unsafe { &*self.0.get() }.peer_addr()
     }
 
     /// Returns the local address that this stream is bound to.
     pub fn local_addr(&self) -> io::Result<SocketAddr> {
-        unsafe { &*self.0.0.get() }.local_addr()
+        unsafe { &*self.0.get() }.local_addr()
     }
 }
 
@@ -157,23 +147,14 @@ impl AsReadFd for OwnedReadHalf {
 // }
 
 impl TcpOwnedWriteHalf {
-    /// Attempts to put the two halves of a `TcpStream` back together and
-    /// recover the original socket. Succeeds only if the two halves
-    /// originated from the same call to [`into_split`].
-    ///
-    /// [`into_split`]: TcpStream::into_split()
-    // pub fn reunite(self, other: OwnedReadHalf) -> Result<TcpStream, ReuniteError> {
-    //     reunite(other, self)
-    // }
-
     /// Returns the remote address that this stream is connected to.
     pub fn peer_addr(&self) -> io::Result<SocketAddr> {
-        unsafe { &*self.0.0.get() }.peer_addr()
+        unsafe { &*self.0.get() }.peer_addr()
     }
 
     /// Returns the local address that this stream is bound to.
     pub fn local_addr(&self) -> io::Result<SocketAddr> {
-        unsafe { &*self.0.0.get() }.local_addr()
+        unsafe { &*self.0.get() }.local_addr()
     }
 }
 
@@ -194,12 +175,12 @@ impl AsyncWriteRent for TcpOwnedWriteHalf {
 
     fn write<T: IoBuf>(&mut self, buf: T) -> Self::WriteFuture<'_, T> {
         // Submit the write operation
-        let raw_stream = unsafe { &mut *self.0.0.get() };
+        let raw_stream = unsafe { &mut *self.0.get() };
         raw_stream.write(buf)
     }
 
     fn writev<T: IoVecBuf>(&mut self, buf_vec: T) -> Self::WritevFuture<'_, T> {
-        let raw_stream = unsafe { &mut *self.0.0.get() };
+        let raw_stream = unsafe { &mut *self.0.get() };
         raw_stream.writev(buf_vec)
     }
 
@@ -209,23 +190,17 @@ impl AsyncWriteRent for TcpOwnedWriteHalf {
     }
 
     fn shutdown(&mut self) -> Self::ShutdownFuture<'_> {
-        let raw_stream = unsafe { &mut *self.0.0.get() };
+        let raw_stream = unsafe { &mut *self.0.get() };
         raw_stream.shutdown()
     }
 }
 
-#[cfg(unix)]
-impl Drop for TcpOwnedWriteHalf {
+impl<T> Drop for OwnedWriteHalf<T>
+where
+    T: AsyncWriteRent,
+{
     fn drop(&mut self) {
-        let raw_stream = unsafe { &mut *self.0.0.get() };
-        let fd = raw_stream.as_raw_fd();
-        unsafe { libc::shutdown(fd, libc::SHUT_WR) };
-    }
-}
-
-#[cfg(windows)]
-impl Drop for TcpOwnedWriteHalf {
-    fn drop(&mut self) {
-        unimplemented!()
+        let w = unsafe { &mut *self.0.get()};
+        w.shutdown();
     }
 }

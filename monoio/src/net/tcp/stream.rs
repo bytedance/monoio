@@ -10,7 +10,7 @@ use std::{
     time::Duration,
 };
 
-use super::split::{TcpOwnedReadHalf, TcpOwnedWriteHalf, TcpReadHalf, TcpWriteHalf};
+
 use crate::{
     buf::{IoBuf, IoBufMut, IoVecBuf, IoVecBufMut},
     driver::{op::Op, shared_fd::SharedFd},
@@ -115,17 +115,6 @@ impl TcpStream {
     ) -> io::Result<()> {
         self.meta.set_tcp_keepalive(time, interval, retries)
     }
-
-    //// Split stream into read and write halves.
-    // #[allow(clippy::needless_lifetimes)]
-    // pub fn split<'a>(&'a mut self) -> (TcpReadHalf<'a>, TcpWriteHalf<'a>) {
-    //     split(self)
-    // }
-
-    // /// Split stream into read and write halves with ownership.
-    // pub fn into_split(self) -> (OwnedReadHalf, OwnedWriteHalf) {
-    //     split_owned(self)
-    // }
 }
 
 impl AsReadFd for TcpStream {

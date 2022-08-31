@@ -5,6 +5,8 @@ use monoio::{
 #[cfg(unix)]
 #[monoio::test_all]
 async fn echo_server() {
+    use monoio::io::Splitable;
+
     const ITER: usize = 1024;
 
     let (tx, rx) = local_sync::oneshot::channel();

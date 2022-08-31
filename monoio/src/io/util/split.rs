@@ -6,14 +6,14 @@ use std::{
     rc::Rc,
 };
 
-use crate::io::{AsyncReadRent, AsyncWriteRent, stream::Stream};
+use crate::{io::{AsyncReadRent, AsyncWriteRent}};
 
 /// Owned Read Half Part
 #[derive(Debug)]
 pub struct OwnedReadHalf<T>(pub Rc<UnsafeCell<T>>);
 /// Owned Write Half Part
 #[derive(Debug)]
-pub struct OwnedWriteHalf<T>(pub Rc<UnsafeCell<T>>);
+pub struct OwnedWriteHalf<T>(pub Rc<UnsafeCell<T>>) where T: AsyncWriteRent;
 /// Borrowed Write Half Part
 #[derive(Debug)]
 pub struct WriteHalf<'cx, T>(pub &'cx T);
@@ -24,8 +24,10 @@ pub struct ReadHalf<'cx, T>(pub &'cx T);
 /// This is a dummy unsafe trait to inform monoio,
 /// the object with has this `Split` trait can be safely split
 /// to read/write object in both form of `Owned` or `Borrowed`.
-/// Note: monoio cannot guarantee whether the custom object can be
-/// safely aplit to divided objects. Users should ensure the safety
+/// 
+/// # Safety
+/// monoio cannot guarantee whether the custom object can be
+/// safely split to divided objects. Users should ensure the safety
 /// by themselves.
 pub unsafe trait Split {}
 
@@ -49,7 +51,7 @@ pub trait Splitable {
     fn into_split(self) -> (Self::OwnedRead, Self::OwnedWrite);
 
     /// Split into borrowed parts
-    fn split(&self) -> (Self::Read<'_>, Self::Write<'_>);
+    fn split(&mut self) -> (Self::Read<'_>, Self::Write<'_>);
 }
 
 impl<T> Splitable for T
@@ -69,7 +71,7 @@ where
         (OwnedReadHalf(shared.clone()), OwnedWriteHalf(shared))
     }
 
-    fn split(&self) -> (Self::Read<'_>, Self::Write<'_>) {
+    fn split(&mut self) -> (Self::Read<'_>, Self::Write<'_>) {
         (ReadHalf(&*self), WriteHalf(&*self))
     }
 }
@@ -142,9 +144,10 @@ where
     }
 }
 
+
 impl<T> OwnedReadHalf<T>
 where
-    T: Debug,
+    T: AsyncWriteRent + Debug,
 {
     /// reunite write half
     pub fn reunite(self, other: OwnedWriteHalf<T>) -> Result<T, ReuniteError<T>> {
@@ -154,7 +157,7 @@ where
 
 impl<T> OwnedWriteHalf<T>
 where
-    T: Debug,
+    T: AsyncWriteRent + Debug,
 {
     /// reunite read half
     pub fn reunite(self, other: OwnedReadHalf<T>) -> Result<T, ReuniteError<T>> {
@@ -162,7 +165,7 @@ where
     }
 }
 
-pub(crate) fn reunite<T: Debug>(
+pub(crate) fn reunite<T: AsyncWriteRent + Debug>(
     read: OwnedReadHalf<T>,
     write: OwnedWriteHalf<T>,
 ) -> Result<T, ReuniteError<T>> {
@@ -181,15 +184,15 @@ pub(crate) fn reunite<T: Debug>(
 /// Error indicating that two halves were not from the same socket, and thus
 /// could not be reunited.
 #[derive(Debug)]
-pub struct ReuniteError<T: Debug>(pub OwnedReadHalf<T>, pub OwnedWriteHalf<T>);
+pub struct ReuniteError<T: AsyncWriteRent + Debug>(pub OwnedReadHalf<T>, pub OwnedWriteHalf<T>);
 
 impl<T> fmt::Display for ReuniteError<T>
 where
-    T: Debug,
+    T: AsyncWriteRent + Debug,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "tried to reunite halves")
     }
 }
 
-impl<T> Error for ReuniteError<T> where T: Debug {}
+impl<T> Error for ReuniteError<T> where T: AsyncWriteRent + Debug {}

@@ -117,4 +117,4 @@ impl<I: AsyncWriteRent, P> AsyncWriteRent for PrefixedReadIo<I, P> {
 
 /// implement unsafe Split for PrefixedReadIo, it's `safe`
 /// because read/write are independent, we can safely split them into two I/O parts.
-unsafe impl<I, P> Split for PrefixedReadIo<I, P> where I: AsyncReadRent + AsyncWriteRent + Split {}
+unsafe impl<I, P> Split for PrefixedReadIo<I, P> where I: Split {}
