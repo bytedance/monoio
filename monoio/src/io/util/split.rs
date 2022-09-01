@@ -28,9 +28,11 @@ pub struct ReadHalf<'cx, T>(pub &'cx T);
 /// to read/write object in both form of `Owned` or `Borrowed`.
 ///
 /// # Safety
+/// 
 /// monoio cannot guarantee whether the custom object can be
-/// safely split to divided objects. Users should ensure the safety
-/// by themselves.
+/// safely split to divided objects. Users should ensure the read
+/// operations are indenpendence from the write ones, the methods
+/// from `AsyncReadRent` and `AsyncWriteRent` can execute concurrently.
 pub unsafe trait Split {}
 
 /// Inner split trait

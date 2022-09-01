@@ -3,7 +3,7 @@
 async fn zero_copy_for_tcp() {
     use monoio::{
         buf::IoBufMut,
-        io::{zero_copy, AsyncReadRentExt, AsyncWriteRentExt},
+        io::{zero_copy, AsyncReadRentExt, AsyncWriteRentExt, Splitable},
         net::TcpStream,
     };
 
