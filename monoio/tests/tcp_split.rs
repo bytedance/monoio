@@ -4,14 +4,12 @@ use std::{
 };
 
 use monoio::{
-    io::{AsyncReadRent, AsyncWriteRentExt},
+    io::{AsyncReadRent, AsyncWriteRentExt, Splitable},
     net::TcpStream,
 };
 #[cfg(unix)]
 #[monoio::test_all]
 async fn split() -> Result<()> {
-    use monoio::io::Splitable;
-
     const MSG: &[u8] = b"split";
 
     let listener = std::net::TcpListener::bind("127.0.0.1:0")?;

@@ -4,15 +4,13 @@ use std::{
 };
 
 use monoio::{
-    io::{AsyncReadRent, AsyncWriteRentExt},
+    io::{AsyncReadRent, AsyncWriteRentExt, Splitable},
     net::{TcpListener, TcpStream},
     try_join,
 };
 #[cfg(unix)]
 #[monoio::test_all]
 async fn split() -> Result<()> {
-    use monoio::io::Splitable;
-
     const MSG: &[u8] = b"split";
 
     let listener = TcpListener::bind("127.0.0.1:0")?;
@@ -54,8 +52,6 @@ async fn split() -> Result<()> {
 #[cfg(unix)]
 #[monoio::test_all(enable_timer = true)]
 async fn reunite() -> Result<()> {
-    use monoio::io::Splitable;
-
     let listener = net::TcpListener::bind("127.0.0.1:0")?;
     let addr = listener.local_addr()?;
 
@@ -85,8 +81,6 @@ async fn reunite() -> Result<()> {
 /// Test that dropping the write half actually closes the stream.
 #[monoio::test_all(enable_timer = true, entries = 1024)]
 async fn drop_write() -> Result<()> {
-    use monoio::io::Splitable;
-
     const MSG: &[u8] = b"split";
 
     let listener = net::TcpListener::bind("127.0.0.1:0")?;

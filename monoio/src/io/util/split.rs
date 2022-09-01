@@ -150,7 +150,7 @@ where
 
 impl<T> OwnedReadHalf<T>
 where
-    T: AsyncWriteRent + Debug,
+    T: AsyncWriteRent
 {
     /// reunite write half
     pub fn reunite(self, other: OwnedWriteHalf<T>) -> Result<T, ReuniteError<T>> {
@@ -160,7 +160,7 @@ where
 
 impl<T> OwnedWriteHalf<T>
 where
-    T: AsyncWriteRent + Debug,
+    T: AsyncWriteRent,
 {
     /// reunite read half
     pub fn reunite(self, other: OwnedReadHalf<T>) -> Result<T, ReuniteError<T>> {
@@ -180,7 +180,7 @@ where
     }
 }
 
-pub(crate) fn reunite<T: AsyncWriteRent + Debug>(
+pub(crate) fn reunite<T: AsyncWriteRent>(
     read: OwnedReadHalf<T>,
     write: OwnedWriteHalf<T>,
 ) -> Result<T, ReuniteError<T>> {
@@ -203,7 +203,7 @@ pub struct ReuniteError<T: AsyncWriteRent>(pub OwnedReadHalf<T>, pub OwnedWriteH
 
 impl<T> fmt::Display for ReuniteError<T>
 where
-    T: AsyncWriteRent + Debug,
+    T: AsyncWriteRent,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "tried to reunite halves")
