@@ -3,10 +3,14 @@ use std::{
     error::Error,
     fmt::{self, Debug},
     future::Future,
+    io,
     rc::Rc,
 };
 
-use crate::io::{AsyncReadRent, AsyncWriteRent};
+use crate::{
+    buf::{IoBuf, IoBufMut, IoVecBuf, IoVecBufMut},
+    io::{AsyncReadRent, AsyncWriteRent},
+};
 
 /// Owned Read Half Part
 #[derive(Debug)]
@@ -22,7 +26,6 @@ pub struct WriteHalf<'cx, T>(pub &'cx T);
 /// Borrowed Read Half Part
 #[derive(Debug)]
 pub struct ReadHalf<'cx, T>(pub &'cx T);
-
 /// This is a dummy unsafe trait to inform monoio,
 /// the object with has this `Split` trait can be safely split
 /// to read/write object in both form of `Owned` or `Borrowed`.
@@ -56,6 +59,71 @@ pub trait Splitable {
 
     /// Split into borrowed parts
     fn split(&mut self) -> (Self::Read<'_>, Self::Write<'_>);
+}
+
+#[allow(clippy::cast_ref_to_mut)]
+impl<'t, Inner> AsyncReadRent for ReadHalf<'t, Inner>
+where
+    Inner: AsyncReadRent,
+{
+    type ReadFuture<'a, B> = impl Future<Output = crate::BufResult<usize, B>> where
+        't: 'a, B: IoBufMut + 'a, Inner: 'a;
+    type ReadvFuture<'a, B> = impl Future<Output = crate::BufResult<usize, B>> where
+        't: 'a, B: IoVecBufMut + 'a, Inner: 'a;
+
+    fn read<T: IoBufMut>(&mut self, buf: T) -> Self::ReadFuture<'_, T>
+    where
+        T: IoBufMut,
+    {
+        // Submit the read operation
+        let raw_stream = unsafe { &mut *(self.0 as *const Inner as *mut Inner) };
+        raw_stream.read(buf)
+    }
+
+    fn readv<T: IoVecBufMut>(&mut self, buf: T) -> Self::ReadvFuture<'_, T> {
+        // Submit the read operation
+        let raw_stream = unsafe { &mut *(self.0 as *const Inner as *mut Inner) };
+        raw_stream.readv(buf)
+    }
+}
+
+#[allow(clippy::cast_ref_to_mut)]
+impl<'t, Inner> AsyncWriteRent for WriteHalf<'t, Inner>
+where
+    Inner: AsyncWriteRent,
+{
+    type WriteFuture<'a, B> = impl Future<Output = crate::BufResult<usize, B>> where
+        't: 'a, B: IoBuf + 'a, Inner: 'a;
+    type WritevFuture<'a, B> = impl Future<Output = crate::BufResult<usize, B>> where
+        't: 'a, B: IoVecBuf + 'a, Inner: 'a;
+    type FlushFuture<'a> = impl Future<Output = io::Result<()>> where
+        't: 'a, Inner: 'a;
+    type ShutdownFuture<'a> = impl Future<Output = io::Result<()>> where
+        't: 'a, Inner: 'a;
+
+    fn write<T: IoBuf>(&mut self, buf: T) -> Self::WriteFuture<'_, T>
+    where
+        T: IoBuf,
+    {
+        // Submit the write operation
+        let raw_stream = unsafe { &mut *(self.0 as *const Inner as *mut Inner) };
+        raw_stream.write(buf)
+    }
+
+    fn writev<T: IoVecBuf>(&mut self, buf_vec: T) -> Self::WritevFuture<'_, T> {
+        let raw_stream = unsafe { &mut *(self.0 as *const Inner as *mut Inner) };
+        raw_stream.writev(buf_vec)
+    }
+
+    fn flush(&mut self) -> Self::FlushFuture<'_> {
+        let raw_stream = unsafe { &mut *(self.0 as *const Inner as *mut Inner) };
+        raw_stream.flush()
+    }
+
+    fn shutdown(&mut self) -> Self::ShutdownFuture<'_> {
+        let raw_stream = unsafe { &mut *(self.0 as *const Inner as *mut Inner) };
+        raw_stream.shutdown()
+    }
 }
 
 impl<T> Splitable for T
