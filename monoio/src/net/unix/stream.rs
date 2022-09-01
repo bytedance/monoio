@@ -1,13 +1,12 @@
 use std::{
     future::Future,
-    io,
+    io::{self},
     os::unix::prelude::{AsRawFd, FromRawFd, IntoRawFd, RawFd},
     path::Path,
 };
 
 use super::{
     socket_addr::{local_addr, pair, peer_addr, socket_addr, SocketAddr},
-    split::{split, split_owned, OwnedReadHalf, OwnedWriteHalf, ReadHalf, WriteHalf},
     ucred::UCred,
 };
 use crate::{
@@ -15,7 +14,7 @@ use crate::{
     driver::{op::Op, shared_fd::SharedFd},
     io::{
         as_fd::{AsReadFd, AsWriteFd, SharedFdWrapper},
-        AsyncReadRent, AsyncWriteRent,
+        AsyncReadRent, AsyncWriteRent, Split,
     },
 };
 
@@ -25,6 +24,9 @@ const EMPTY_SLICE: [u8; 0] = [];
 pub struct UnixStream {
     fd: SharedFd,
 }
+
+/// TcpStream is safe to split to two parts
+unsafe impl Split for UnixStream {}
 
 impl UnixStream {
     pub(crate) fn from_shared_fd(fd: SharedFd) -> Self {
@@ -94,17 +96,6 @@ impl UnixStream {
     /// Returns the socket address of the remote half of this connection.
     pub fn peer_addr(&self) -> io::Result<SocketAddr> {
         peer_addr(self.as_raw_fd())
-    }
-
-    /// Split stream into read and write halves.
-    #[allow(clippy::needless_lifetimes)]
-    pub fn split<'a>(&'a mut self) -> (ReadHalf<'a>, WriteHalf<'a>) {
-        split(self)
-    }
-
-    /// Split stream into read and write halves with ownership.
-    pub fn into_split(self) -> (OwnedReadHalf, OwnedWriteHalf) {
-        split_owned(self)
     }
 }
 

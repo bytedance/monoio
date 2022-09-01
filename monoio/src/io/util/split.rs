@@ -28,7 +28,7 @@ pub struct ReadHalf<'cx, T>(pub &'cx T);
 /// to read/write object in both form of `Owned` or `Borrowed`.
 ///
 /// # Safety
-/// 
+///
 /// monoio cannot guarantee whether the custom object can be
 /// safely split to divided objects. Users should ensure the read
 /// operations are indenpendence from the write ones, the methods
@@ -150,7 +150,7 @@ where
 
 impl<T> OwnedReadHalf<T>
 where
-    T: AsyncWriteRent
+    T: AsyncWriteRent,
 {
     /// reunite write half
     pub fn reunite(self, other: OwnedWriteHalf<T>) -> Result<T, ReuniteError<T>> {
