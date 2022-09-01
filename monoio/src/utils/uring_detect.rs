@@ -20,6 +20,13 @@ macro_rules! err_to_false {
 }
 #[cfg(all(target_os = "linux", feature = "iouring"))]
 fn detect_uring_inner() -> bool {
+    let val = std::env::var("MONOIO_FORCE_LEGACY_DRIVER");
+    match val {
+        Ok(v) if matches!(v.to_ascii_lowercase().as_str(), "1" | "true" | "yes") => {
+            return false;
+        }
+        _ => {}
+    }
     #[cfg(not(feature = "splice"))]
     const USED_OP: [u8; 14] = op_codes![
         Accept,

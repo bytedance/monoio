@@ -147,12 +147,14 @@ impl RuntimeBuilder<FusionDriver> {
                 entries: self.entries,
                 _mark: PhantomData,
             };
+            info!("io_uring driver built");
             Ok(builder.build()?.into())
         } else {
             let builder = RuntimeBuilder::<LegacyDriver> {
                 entries: self.entries,
                 _mark: PhantomData,
             };
+            info!("legacy driver built");
             Ok(builder.build()?.into())
         }
     }
@@ -190,12 +192,14 @@ impl RuntimeBuilder<TimeDriver<FusionDriver>> {
                 entries: self.entries,
                 _mark: PhantomData,
             };
+            info!("io_uring driver with timer built");
             Ok(builder.build()?.into())
         } else {
             let builder = RuntimeBuilder::<TimeDriver<LegacyDriver>> {
                 entries: self.entries,
                 _mark: PhantomData,
             };
+            info!("legacy driver with timer built");
             Ok(builder.build()?.into())
         }
     }
