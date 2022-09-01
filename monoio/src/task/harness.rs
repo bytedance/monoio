@@ -48,7 +48,7 @@ where
 {
     /// Polls the inner future.
     pub(super) fn poll(self) {
-        tracing!("MONOIO DEBUG[Harness]:: poll");
+        trace!("MONOIO DEBUG[Harness]:: poll");
         match self.poll_inner() {
             PollFuture::Notified => {
                 // We should re-schedule the task.
@@ -87,7 +87,7 @@ where
     }
 
     pub(super) fn dealloc(self) {
-        tracing!("MONOIO DEBUG[Harness]:: dealloc");
+        trace!("MONOIO DEBUG[Harness]:: dealloc");
 
         // Release the join waker, if there is one.
         self.trailer().waker.with_mut(drop);
@@ -104,14 +104,14 @@ where
 
     /// Read the task output into `dst`.
     pub(super) fn try_read_output(self, dst: &mut Poll<T::Output>, waker: &Waker) {
-        tracing!("MONOIO DEBUG[Harness]:: try_read_output");
+        trace!("MONOIO DEBUG[Harness]:: try_read_output");
         if can_read_output(self.header(), self.trailer(), waker) {
             *dst = Poll::Ready(self.core().stage.take_output());
         }
     }
 
     pub(super) fn drop_join_handle_slow(self) {
-        tracing!("MONOIO DEBUG[Harness]:: drop_join_handle_slow");
+        trace!("MONOIO DEBUG[Harness]:: drop_join_handle_slow");
 
         let mut maybe_panic = None;
 
@@ -148,14 +148,14 @@ where
     /// The caller does not need to hold a ref-count besides the one that was
     /// passed to this call.
     pub(super) fn wake_by_val(self) {
-        tracing!("MONOIO DEBUG[Harness]:: wake_by_val");
+        trace!("MONOIO DEBUG[Harness]:: wake_by_val");
         #[cfg(feature = "sync")]
         {
             use crate::utils::thread_id::get_current_thread_id;
             let (current_id, raw_id) = (get_current_thread_id(), self.header().owner_id);
 
             if current_id != raw_id {
-                tracing!("MONOIO DEBUG[Harness]:: wake_by_val with another thread id");
+                trace!("MONOIO DEBUG[Harness]:: wake_by_val with another thread id");
                 // # Ref Count: self -> waker
                 use crate::task::waker::raw_waker;
                 let raw_waker = raw_waker::<T, S>(self.cell.cast::<Header>().as_ptr());
@@ -186,14 +186,14 @@ where
     /// caller should hold a ref-count.  This will create a new Notified and
     /// submit it if necessary.
     pub(super) fn wake_by_ref(&self) {
-        tracing!("MONOIO DEBUG[Harness]:: wake_by_ref");
+        trace!("MONOIO DEBUG[Harness]:: wake_by_ref");
         #[cfg(feature = "sync")]
         {
             use crate::utils::thread_id::get_current_thread_id;
             let (current_id, raw_id) = (get_current_thread_id(), self.header().owner_id);
 
             if current_id != raw_id {
-                tracing!("MONOIO DEBUG[Harness]:: wake_by_ref with another thread id");
+                trace!("MONOIO DEBUG[Harness]:: wake_by_ref with another thread id");
                 use crate::task::waker::raw_waker;
                 let waker = raw_waker::<T, S>(self.cell.cast::<Header>().as_ptr());
 
@@ -221,7 +221,7 @@ where
     }
 
     pub(super) fn drop_reference(self) {
-        tracing!("MONOIO DEBUG[Harness]:: drop_reference");
+        trace!("MONOIO DEBUG[Harness]:: drop_reference");
         if self.header().state.ref_dec() {
             self.dealloc();
         }

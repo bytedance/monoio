@@ -14,7 +14,10 @@ use super::split::{split, split_owned, OwnedReadHalf, OwnedWriteHalf, ReadHalf, 
 use crate::{
     buf::{IoBuf, IoBufMut, IoVecBuf, IoVecBufMut},
     driver::{op::Op, shared_fd::SharedFd},
-    io::{AsyncReadRent, AsyncWriteRent},
+    io::{
+        as_fd::{AsReadFd, AsWriteFd, SharedFdWrapper},
+        AsyncReadRent, AsyncWriteRent,
+    },
 };
 
 const EMPTY_SLICE: [u8; 0] = [];
@@ -118,6 +121,18 @@ impl TcpStream {
     /// Split stream into read and write halves with ownership.
     pub fn into_split(self) -> (OwnedReadHalf, OwnedWriteHalf) {
         split_owned(self)
+    }
+}
+
+impl AsReadFd for TcpStream {
+    fn as_reader_fd(&mut self) -> &SharedFdWrapper {
+        SharedFdWrapper::new(&self.fd)
+    }
+}
+
+impl AsWriteFd for TcpStream {
+    fn as_writer_fd(&mut self) -> &SharedFdWrapper {
+        SharedFdWrapper::new(&self.fd)
     }
 }
 

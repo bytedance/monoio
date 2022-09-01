@@ -3,7 +3,10 @@ use std::{cell::UnsafeCell, error::Error, fmt, future::Future, io, rc::Rc};
 use super::{SocketAddr, UnixStream};
 use crate::{
     buf::{IoBuf, IoBufMut, IoVecBuf, IoVecBufMut},
-    io::{AsyncReadRent, AsyncWriteRent},
+    io::{
+        as_fd::{AsReadFd, AsWriteFd, SharedFdWrapper},
+        AsyncReadRent, AsyncWriteRent,
+    },
 };
 
 /// ReadHalf.
@@ -16,6 +19,14 @@ pub struct WriteHalf<'a>(&'a UnixStream);
 
 pub(crate) fn split(stream: &mut UnixStream) -> (ReadHalf<'_>, WriteHalf<'_>) {
     (ReadHalf(&*stream), WriteHalf(&*stream))
+}
+
+#[allow(clippy::cast_ref_to_mut)]
+impl<'t> AsReadFd for ReadHalf<'t> {
+    fn as_reader_fd(&mut self) -> &SharedFdWrapper {
+        let raw_stream = unsafe { &mut *(self.0 as *const UnixStream as *mut UnixStream) };
+        raw_stream.as_reader_fd()
+    }
 }
 
 #[allow(clippy::cast_ref_to_mut)]
@@ -35,6 +46,14 @@ impl<'t> AsyncReadRent for ReadHalf<'t> {
         // Submit the read operation
         let raw_stream = unsafe { &mut *(self.0 as *const UnixStream as *mut UnixStream) };
         raw_stream.readv(buf)
+    }
+}
+
+#[allow(clippy::cast_ref_to_mut)]
+impl<'t> AsWriteFd for WriteHalf<'t> {
+    fn as_writer_fd(&mut self) -> &SharedFdWrapper {
+        let raw_stream = unsafe { &mut *(self.0 as *const UnixStream as *mut UnixStream) };
+        raw_stream.as_writer_fd()
     }
 }
 
@@ -142,6 +161,13 @@ impl OwnedReadHalf {
     }
 }
 
+impl AsReadFd for OwnedReadHalf {
+    fn as_reader_fd(&mut self) -> &SharedFdWrapper {
+        let raw_stream = unsafe { &mut *self.0.get() };
+        raw_stream.as_reader_fd()
+    }
+}
+
 impl AsyncReadRent for OwnedReadHalf {
     type ReadFuture<'a, B> = impl std::future::Future<Output = crate::BufResult<usize, B>> where
         B: IoBufMut + 'a;
@@ -158,6 +184,13 @@ impl AsyncReadRent for OwnedReadHalf {
         // Submit the read operation
         let raw_stream = unsafe { &mut *self.0.get() };
         raw_stream.readv(buf)
+    }
+}
+
+impl AsWriteFd for OwnedWriteHalf {
+    fn as_writer_fd(&mut self) -> &SharedFdWrapper {
+        let raw_stream = unsafe { &mut *self.0.get() };
+        raw_stream.as_writer_fd()
     }
 }
 

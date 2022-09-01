@@ -132,7 +132,7 @@ impl SharedFd {
 
     #[cfg(unix)]
     #[allow(unreachable_code, unused)]
-    pub(crate) fn new_without_register(fd: RawFd) -> io::Result<SharedFd> {
+    pub(crate) fn new_without_register(fd: RawFd) -> SharedFd {
         let state = CURRENT.with(|inner| match inner {
             #[cfg(all(target_os = "linux", feature = "iouring"))]
             super::Inner::Uring(_) => State::Uring(UringState::Init),
@@ -147,12 +147,12 @@ impl SharedFd {
             }
         });
 
-        Ok(SharedFd {
+        SharedFd {
             inner: Rc::new(Inner {
                 fd,
                 state: UnsafeCell::new(state),
             }),
-        })
+        }
     }
 
     #[cfg(windows)]

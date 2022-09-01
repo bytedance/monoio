@@ -57,7 +57,7 @@ async fn echo_server() {
     let (mut rd, mut wr) = stream.split();
 
     let n = io::copy(&mut rd, &mut wr).await.unwrap();
-    assert_eq!(n, (ITER * (msg.len() + 16)) as u64);
+    assert_eq!(n, (ITER * (msg.len() + iov_msg.len())) as u64);
 
     assert!(rx.await.is_ok());
 }
