@@ -1,7 +1,7 @@
 //! An example TCP proxy.
 
 use monoio::{
-    io::{AsyncReadRent, AsyncWriteRent, AsyncWriteRentExt},
+    io::{AsyncReadRent, AsyncWriteRent, AsyncWriteRentExt, Splitable},
     net::{TcpListener, TcpStream},
 };
 

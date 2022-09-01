@@ -4,7 +4,7 @@ use std::{
 };
 
 use monoio::{
-    io::{AsyncReadRent, AsyncWriteRentExt},
+    io::{AsyncReadRent, AsyncWriteRentExt, Splitable},
     net::TcpStream,
 };
 #[cfg(unix)]

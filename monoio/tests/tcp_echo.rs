@@ -1,5 +1,5 @@
 use monoio::{
-    io::{self, AsyncReadRentExt, AsyncWriteRentExt},
+    io::{self, AsyncReadRentExt, AsyncWriteRentExt, Splitable},
     net::{TcpListener, TcpStream},
 };
 #[cfg(unix)]

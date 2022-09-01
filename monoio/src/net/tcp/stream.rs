@@ -10,13 +10,12 @@ use std::{
     time::Duration,
 };
 
-use super::split::{split, split_owned, OwnedReadHalf, OwnedWriteHalf, ReadHalf, WriteHalf};
 use crate::{
     buf::{IoBuf, IoBufMut, IoVecBuf, IoVecBufMut},
     driver::{op::Op, shared_fd::SharedFd},
     io::{
         as_fd::{AsReadFd, AsWriteFd, SharedFdWrapper},
-        AsyncReadRent, AsyncWriteRent,
+        AsyncReadRent, AsyncWriteRent, Split,
     },
 };
 
@@ -27,6 +26,9 @@ pub struct TcpStream {
     fd: SharedFd,
     meta: StreamMeta,
 }
+
+/// TcpStream is safe to split to two parts
+unsafe impl Split for TcpStream {}
 
 impl TcpStream {
     pub(crate) fn from_shared_fd(fd: SharedFd) -> Self {
@@ -111,17 +113,6 @@ impl TcpStream {
     ) -> io::Result<()> {
         self.meta.set_tcp_keepalive(time, interval, retries)
     }
-
-    /// Split stream into read and write halves.
-    #[allow(clippy::needless_lifetimes)]
-    pub fn split<'a>(&'a mut self) -> (ReadHalf<'a>, WriteHalf<'a>) {
-        split(self)
-    }
-
-    /// Split stream into read and write halves with ownership.
-    pub fn into_split(self) -> (OwnedReadHalf, OwnedWriteHalf) {
-        split_owned(self)
-    }
 }
 
 impl AsReadFd for TcpStream {
@@ -200,12 +191,11 @@ impl AsyncWriteRent for TcpStream {
         // We could use shutdown op here, which requires kernel 5.11+.
         // However, for simplicity, we just close the socket using direct syscall.
         let fd = self.as_raw_fd();
-        async move {
-            match unsafe { libc::shutdown(fd, libc::SHUT_WR) } {
-                -1 => Err(io::Error::last_os_error()),
-                _ => Ok(()),
-            }
-        }
+        let res = match unsafe { libc::shutdown(fd, libc::SHUT_WR) } {
+            -1 => Err(io::Error::last_os_error()),
+            _ => Ok(()),
+        };
+        async move { res }
     }
     #[cfg(windows)]
     fn shutdown(&mut self) -> Self::ShutdownFuture<'_> {
