@@ -8,6 +8,7 @@
 //! submit task will always be executed on the same thread.
 
 #![warn(missing_docs, unreachable_pub)]
+#![allow(stable_features)]
 #![feature(generic_associated_types)]
 #![feature(type_alias_impl_trait)]
 #![feature(box_into_inner)]

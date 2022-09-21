@@ -367,9 +367,7 @@ pub(crate) fn test(args: TokenStream, item: TokenStream) -> TokenStream {
     for attr in &input.attrs {
         if attr.path.is_ident("test") {
             let msg = "second test attribute is supplied";
-            return syn::Error::new_spanned(&attr, msg)
-                .to_compile_error()
-                .into();
+            return syn::Error::new_spanned(attr, msg).to_compile_error().into();
         }
     }
 
@@ -384,9 +382,7 @@ pub(crate) fn test_all(args: TokenStream, item: TokenStream) -> TokenStream {
     for attr in &input.attrs {
         if attr.path.is_ident("test") {
             let msg = "second test attribute is supplied";
-            return syn::Error::new_spanned(&attr, msg)
-                .to_compile_error()
-                .into();
+            return syn::Error::new_spanned(attr, msg).to_compile_error().into();
         }
     }
 
