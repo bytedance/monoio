@@ -8,7 +8,7 @@ license = "MIT/Apache-2.0"
 name = "monoio"
 readme = "README.md"
 repository = "https://github.com/bytedance/monoio"
-version = "0.0.7"
+version = "0.0.8"
 
 # common dependencies
 [dependencies]
@@ -33,7 +33,7 @@ tracing = {version = "0.1", default-features = false, features = [
 
 # windows dependencies
 [target.'cfg(windows)'.dependencies]
-windows = {version = "0.39.0", features = [
+windows = {version = "0.40.0", features = [
   "Data_Xml_Dom",
   "Win32_Foundation",
   "Win32_Security",
