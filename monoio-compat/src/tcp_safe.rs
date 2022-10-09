@@ -2,7 +2,7 @@ use std::io;
 
 use monoio::{
     buf::IoBufMut,
-    io::{AsyncReadRent, AsyncWriteRent},
+    io::{AsyncReadRent, AsyncWriteRent, AsyncWriteRentExt, Split},
     net::TcpStream,
     BufResult,
 };
@@ -18,10 +18,9 @@ pub struct TcpStreamCompat {
     write_fut: MaybeArmedBoxFuture<BufResult<usize, Buf>>,
     flush_fut: MaybeArmedBoxFuture<io::Result<()>>,
     shutdown_fut: MaybeArmedBoxFuture<io::Result<()>>,
-
-    // used for checking
-    last_write_len: usize,
 }
+
+unsafe impl Split for TcpStreamCompat {}
 
 impl From<TcpStreamCompat> for TcpStream {
     fn from(stream: TcpStreamCompat) -> Self {
@@ -47,7 +46,6 @@ impl TcpStreamCompat {
             write_fut: Default::default(),
             flush_fut: Default::default(),
             shutdown_fut: Default::default(),
-            last_write_len: 0,
         }
     }
 }
@@ -104,37 +102,62 @@ impl tokio::io::AsyncWrite for TcpStreamCompat {
         cx: &mut std::task::Context<'_>,
         buf: &[u8],
     ) -> std::task::Poll<Result<usize, std::io::Error>> {
+        if buf.is_empty() {
+            return std::task::Poll::Ready(Ok(0));
+        }
         let this = self.get_mut();
 
-        // if there is no write future armed, we will copy the data and construct it
-        if !this.write_fut.armed() {
-            let mut owned_buf = unsafe { this.write_buf.take().unwrap_unchecked() };
-            let owned_buf_mut = owned_buf.buf_to_write();
-            let len = buf.len().min(owned_buf_mut.len());
-            owned_buf_mut[..len].copy_from_slice(&buf[..len]);
-            unsafe { owned_buf.set_init(len) };
-            this.last_write_len = len;
-
-            // we must leak the stream
-            #[allow(clippy::cast_ref_to_mut)]
-            let stream = unsafe { &mut *(&this.stream as *const TcpStream as *mut TcpStream) };
-            this.write_fut
-                .arm_future(AsyncWriteRent::write(stream, owned_buf));
-        }
-
-        // Check if the slice between different poll_write calls is the same
-        if buf.len() != this.last_write_len {
-            panic!("write slice length mismatch between poll_write");
-        }
-        // the future must be armed
-        let (ret, owned_buf) = match this.write_fut.poll(cx) {
-            std::task::Poll::Ready(r) => r,
-            std::task::Poll::Pending => {
-                return std::task::Poll::Pending;
+        // if there is some future armed, we must poll it until ready.
+        // if it returns error, we will return it;
+        // if it returns ok, we ignore it.
+        if this.write_fut.armed() {
+            let (ret, mut owned_buf) = match this.write_fut.poll(cx) {
+                std::task::Poll::Ready(r) => r,
+                std::task::Poll::Pending => {
+                    return std::task::Poll::Pending;
+                }
+            };
+            // clear the buffer
+            unsafe { owned_buf.set_init(0) };
+            this.write_buf = Some(owned_buf);
+            if ret.is_err() {
+                return std::task::Poll::Ready(ret);
             }
-        };
-        this.write_buf = Some(owned_buf);
-        std::task::Poll::Ready(ret)
+        }
+
+        // now we should arm it again.
+        // we will copy the data and return Ready.
+        // Though return Ready does not mean really ready, but this helps preventing
+        // poll_write different data.
+
+        // # Safety
+        // We always make sure the write_buf is Some.
+        let mut owned_buf = unsafe { this.write_buf.take().unwrap_unchecked() };
+        let owned_buf_mut = owned_buf.buf_to_write();
+        let len = buf.len().min(owned_buf_mut.len());
+        // # Safety
+        // We can make sure the buf and buf_mut_slice have len size data.
+        unsafe { std::ptr::copy_nonoverlapping(buf.as_ptr(), owned_buf_mut.as_mut_ptr(), len) };
+        unsafe { owned_buf.set_init(len) };
+
+        // we must leak the stream
+        #[allow(clippy::cast_ref_to_mut)]
+        let stream = unsafe { &mut *(&this.stream as *const TcpStream as *mut TcpStream) };
+        this.write_fut
+            .arm_future(AsyncWriteRentExt::write_all(stream, owned_buf));
+        match this.write_fut.poll(cx) {
+            std::task::Poll::Ready((ret, mut buf)) => {
+                unsafe { buf.set_init(0) };
+                this.write_buf = Some(buf);
+                if ret.is_err() {
+                    return std::task::Poll::Ready(ret);
+                }
+            }
+            std::task::Poll::Pending => (),
+        }
+        // if there is no error, no matter it is sending or sent, we will
+        // return Ready.
+        std::task::Poll::Ready(Ok(len))
     }
 
     fn poll_flush(
@@ -142,6 +165,19 @@ impl tokio::io::AsyncWrite for TcpStreamCompat {
         cx: &mut std::task::Context<'_>,
     ) -> std::task::Poll<Result<(), std::io::Error>> {
         let this = self.get_mut();
+
+        if this.write_fut.armed() {
+            match this.write_fut.poll(cx) {
+                std::task::Poll::Ready((ret, mut buf)) => {
+                    unsafe { buf.set_init(0) };
+                    this.write_buf = Some(buf);
+                    if let Err(e) = ret {
+                        return std::task::Poll::Ready(Err(e));
+                    }
+                }
+                std::task::Poll::Pending => return std::task::Poll::Pending,
+            }
+        }
 
         if !this.flush_fut.armed() {
             #[allow(clippy::cast_ref_to_mut)]
@@ -156,6 +192,19 @@ impl tokio::io::AsyncWrite for TcpStreamCompat {
         cx: &mut std::task::Context<'_>,
     ) -> std::task::Poll<Result<(), std::io::Error>> {
         let this = self.get_mut();
+
+        if this.write_fut.armed() {
+            match this.write_fut.poll(cx) {
+                std::task::Poll::Ready((ret, mut buf)) => {
+                    unsafe { buf.set_init(0) };
+                    this.write_buf = Some(buf);
+                    if let Err(e) = ret {
+                        return std::task::Poll::Ready(Err(e));
+                    }
+                }
+                std::task::Poll::Pending => return std::task::Poll::Pending,
+            }
+        }
 
         if !this.shutdown_fut.armed() {
             #[allow(clippy::cast_ref_to_mut)]
