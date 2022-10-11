@@ -3,14 +3,16 @@ use std::io;
 use monoio::{
     buf::IoBufMut,
     io::{AsyncReadRent, AsyncWriteRent, AsyncWriteRentExt, Split},
-    net::TcpStream,
     BufResult,
 };
 
 use crate::{box_future::MaybeArmedBoxFuture, buf::Buf};
 
-pub struct TcpStreamCompat {
-    stream: TcpStream,
+/// A wrapper for stream with ownership that impl AsyncReadRent and AsyncWriteRent.
+/// The Wrapper will impl tokio AsyncRead and AsyncWrite.
+/// Mainly used for compatible.
+pub struct StreamWrapper<T> {
+    stream: T,
     read_buf: Option<Buf>,
     write_buf: Option<Buf>,
 
@@ -20,23 +22,18 @@ pub struct TcpStreamCompat {
     shutdown_fut: MaybeArmedBoxFuture<io::Result<()>>,
 }
 
-unsafe impl Split for TcpStreamCompat {}
+unsafe impl<T: Split> Split for StreamWrapper<T> {}
 
-impl From<TcpStreamCompat> for TcpStream {
-    fn from(stream: TcpStreamCompat) -> Self {
-        stream.stream
+impl<T> StreamWrapper<T> {
+    /// Consume self and get inner T.
+    pub fn into_inner(self) -> T {
+        self.stream
     }
-}
 
-impl TcpStreamCompat {
-    /// Creates a new `TcpStreamCompat` from a monoio `TcpStream`.
-    ///
-    /// # Safety
-    /// User must ensure that the data slices provided to `poll_write`
-    /// before Poll::Ready are with the same data.
-    pub unsafe fn new(stream: TcpStream) -> Self {
-        let r_buf = Buf::new(8 * 1024);
-        let w_buf = Buf::new(8 * 1024);
+    /// Creates a new `TcpStreamCompat` from a monoio `TcpStream` or `UnixStream`.
+    pub fn new_with_buffer_size(stream: T, read_buffer: usize, write_buffer: usize) -> Self {
+        let r_buf = Buf::new(read_buffer);
+        let w_buf = Buf::new(write_buffer);
 
         Self {
             stream,
@@ -48,9 +45,16 @@ impl TcpStreamCompat {
             shutdown_fut: Default::default(),
         }
     }
+
+    /// Creates a new `TcpStreamCompat` from a monoio `TcpStream` or `UnixStream`.
+    pub fn new(stream: T) -> Self {
+        const DEFAULT_READ_BUFFER: usize = 8 * 1024;
+        const DEFAULT_WRITE_BUFFER: usize = 8 * 1024;
+        Self::new_with_buffer_size(stream, DEFAULT_READ_BUFFER, DEFAULT_WRITE_BUFFER)
+    }
 }
 
-impl tokio::io::AsyncRead for TcpStreamCompat {
+impl<T: AsyncReadRent + Unpin + 'static> tokio::io::AsyncRead for StreamWrapper<T> {
     fn poll_read(
         self: std::pin::Pin<&mut Self>,
         cx: &mut std::task::Context<'_>,
@@ -76,7 +80,7 @@ impl tokio::io::AsyncRead for TcpStreamCompat {
                 let buf = unsafe { this.read_buf.take().unwrap_unchecked() };
                 // we must leak the stream
                 #[allow(clippy::cast_ref_to_mut)]
-                let stream = unsafe { &mut *(&this.stream as *const TcpStream as *mut TcpStream) };
+                let stream = unsafe { &mut *(&this.stream as *const T as *mut T) };
                 this.read_fut.arm_future(AsyncReadRent::read(stream, buf));
             }
 
@@ -96,7 +100,7 @@ impl tokio::io::AsyncRead for TcpStreamCompat {
     }
 }
 
-impl tokio::io::AsyncWrite for TcpStreamCompat {
+impl<T: AsyncWriteRent + Unpin + 'static> tokio::io::AsyncWrite for StreamWrapper<T> {
     fn poll_write(
         self: std::pin::Pin<&mut Self>,
         cx: &mut std::task::Context<'_>,
@@ -142,7 +146,7 @@ impl tokio::io::AsyncWrite for TcpStreamCompat {
 
         // we must leak the stream
         #[allow(clippy::cast_ref_to_mut)]
-        let stream = unsafe { &mut *(&this.stream as *const TcpStream as *mut TcpStream) };
+        let stream = unsafe { &mut *(&this.stream as *const T as *mut T) };
         this.write_fut
             .arm_future(AsyncWriteRentExt::write_all(stream, owned_buf));
         match this.write_fut.poll(cx) {
@@ -181,7 +185,7 @@ impl tokio::io::AsyncWrite for TcpStreamCompat {
 
         if !this.flush_fut.armed() {
             #[allow(clippy::cast_ref_to_mut)]
-            let stream = unsafe { &mut *(&this.stream as *const TcpStream as *mut TcpStream) };
+            let stream = unsafe { &mut *(&this.stream as *const T as *mut T) };
             this.flush_fut.arm_future(stream.flush());
         }
         this.flush_fut.poll(cx)
@@ -208,7 +212,7 @@ impl tokio::io::AsyncWrite for TcpStreamCompat {
 
         if !this.shutdown_fut.armed() {
             #[allow(clippy::cast_ref_to_mut)]
-            let stream = unsafe { &mut *(&this.stream as *const TcpStream as *mut TcpStream) };
+            let stream = unsafe { &mut *(&this.stream as *const T as *mut T) };
             this.shutdown_fut.arm_future(stream.shutdown());
         }
         this.shutdown_fut.poll(cx)

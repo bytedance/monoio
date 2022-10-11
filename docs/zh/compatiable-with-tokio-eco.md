@@ -15,16 +15,12 @@ author: ihciah
 ### 工作原理
 对于 `poll_read`，这里会先读到用户传递的 slice 的剩余容量，之后将自己持有的 buffer 限制为该容量并生成 future。之后每次用户再次 `poll_read`，都会转发到这个 future 的 `poll` 方法。在返回 `Ready` 时将 buffer 的内容拷贝到用户传递的 slice 中。
 
-对于 `poll_write`，会将用户传递 slice 的内容先拷贝至自有 buffer，之后生成 future 并存储。之后每次用户再次 `poll_write`，都会转发到这个 future 的 `poll` 方法。在返回 `Ready` 时返回结果给用户。
+对于 `poll_write`，会将用户传递 slice 的内容先拷贝至自有 buffer，之后生成 future 并存储，并立刻返回 Ready。之后每次用户再次 `poll_write`，都会首先等待上一次的内容发送完毕，之后再拷贝数据并立刻返回 Ready。行为上有种类似 BufWriter 的效果，会导致 error 被延迟感知。
 
-也就是说，使用这个兼容层会让你额外付出一次 buffer 拷贝开销。
+代价上，使用这个兼容层会让你额外付出一次 buffer 拷贝开销。
 
 ### 使用限制
-用户必须保证，如果上次调用 `poll_read` 或 `poll_write` 返回了 `Pending`，那么下次调用必须使用相同的 slice。
-
-compat 内部有非常简单的长度检查，如果不符会直接 panic。当然这并不能保证检测出所有的问题，用户务必保证这符合上述使用限制，否则可能会产生未定义行为。
-
-例如，在 `h2` 里使用了一些优化：当 `poll_write` 发送一个帧并返回了 `Pending`，那么在下次继续尝试 `poll_write` 时，如果有优先级更高的数据帧，会优先发送这个数据帧。这不符合我们的使用限制，所以在我们的兼容层上工作起来是有问题的。
+对于写操作，用户需要在最后手动调用 AsyncWrite 的 poll_flush 或 poll_shutdown（或 AsyncWriteExt 的对应 flush 或 shutdown 方法），否则数据有可能不会被提交至内核（连续的写入不需要手动 flush）。
 
 ## 面向 poll 的接口与异步系统调用
 Rust 中有两种表达异步的方式，一种是基于 `poll` 的，一种是基于 `async` 的。`poll` 是同步的，语义上表达立即尝试；而 `async` 本质上是 poll 的语法糖，它会吞掉 future 并生成状态机，await 的时候是在循环执行这个状态机。

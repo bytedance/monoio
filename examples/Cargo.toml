@@ -17,7 +17,15 @@ monoio = {path = "../monoio", default-features = false, features = ["async-cance
 
 # For hyper examples
 hyper = {version = "0.14", features = ["http1", "client", "server", "stream"]}
+
+# For h2 examples
+h2 = {version = "0.3"}
+http = {version = "0.2"}
+bytes = {version = "1"}
+
+# For hyper and h2 examples
 monoio-compat = {path = "../monoio-compat"}
+
 tokio = {version = "1", default-features = false, features = ["io-util"]}
 tower-service = "0.3"
 
@@ -80,3 +88,11 @@ path = "hyper_server.rs"
 [[example]]
 name = "hyper-client"
 path = "hyper_client.rs"
+
+[[example]]
+name = "h2-server"
+path = "h2_server.rs"
+
+[[example]]
+name = "h2-client"
+path = "h2_client.rs"
