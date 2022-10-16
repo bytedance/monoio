@@ -131,7 +131,7 @@ impl Buf {
 
     /// Return slice for copying data from user space to Buf.
     #[allow(clippy::mut_from_ref)]
-    pub(crate) fn buf_to_write(&self) -> &mut [u8] {
+    pub(crate) fn buf_to_write(&mut self) -> &mut [u8] {
         let ptr = self.data.as_ptr() as *mut u8;
         unsafe { std::slice::from_raw_parts_mut(ptr, self.capacity) }
     }

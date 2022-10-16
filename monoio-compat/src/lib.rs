@@ -5,14 +5,17 @@
 mod box_future;
 mod buf;
 
-mod tcp_safe;
+mod safe_wrapper;
 mod tcp_unsafe;
 
-pub use tcp_safe::TcpStreamCompat;
+pub use safe_wrapper::StreamWrapper;
 pub use tcp_unsafe::TcpStreamCompat as TcpStreamCompatUnsafe;
 pub use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 
+pub type TcpStreamCompat = StreamWrapper<monoio::net::TcpStream>;
 #[cfg(unix)]
+pub type UnixStreamCompat = StreamWrapper<monoio::net::UnixStream>;
+
 #[cfg(test)]
 mod tests {
     use crate::{AsyncReadExt, AsyncWriteExt, TcpStreamCompat, TcpStreamCompatUnsafe};
@@ -23,7 +26,7 @@ mod tests {
         let addr = listener.local_addr().unwrap();
         let server = async move {
             let (conn, _) = listener.accept().await.unwrap();
-            let mut compat_conn = unsafe { TcpStreamCompat::new(conn) };
+            let mut compat_conn = TcpStreamCompat::new(conn);
 
             let mut buf = [0u8; 10];
             compat_conn.read_exact(&mut buf).await.unwrap();
@@ -32,7 +35,7 @@ mod tests {
         };
         let client = async {
             let conn = monoio::net::TcpStream::connect(addr).await.unwrap();
-            let mut compat_conn = unsafe { TcpStreamCompat::new(conn) };
+            let mut compat_conn = TcpStreamCompat::new(conn);
 
             let mut buf = [65u8; 10];
             compat_conn.write_all(&buf).await.unwrap();

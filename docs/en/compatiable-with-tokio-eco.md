@@ -15,16 +15,16 @@ In Monoio, since the bottom layer is an asynchronous system call, we chose a sim
 ### How it works
 For `poll_read`, the remaining capacity of the slice passed by the user will be read first, and then the buffer held by the user will be limited to this capacity and a future will be generated. After that, every time the user `poll_read` again, it will be forwarded to the `poll` method of this future. When returning to `Ready`, the contents of the buffer are copied to the slice passed by the user.
 
+For `poll_write`, the content of the slice passed by the user is copied to its own buffer first, then a future is generated and stored, and Ready is returned immediately. After that, every time the user `poll_write` again, it will first wait for the last content to be sent, then copy the data and return to Ready immediately. It behaves like BufWriter, and may causing errors to be delayed to be perceived.
+
+At the cost, using this compatibility layer will cost you an extra buffer copy.
+
 For `poll_write`, the content of the slice passed by the user is first copied to its own buffer, and then a future is generated and stored. After that, every time the user `poll_write` again, it will be forwarded to the `poll` method of this future. Return the result to the user when returning `Ready`.
 
 In other words, using this compatibility layer will cost you an extra buffer copy overhead.
 
 ### Usage restrictions
-The user must ensure that if the previous call to `poll_read` or `poll_write` returns `Pending`, the same slice must be used next time.
-
-There is a very simple length check inside compat, if it does not match, it will panic directly. Of course, this does not guarantee that all problems will be detected. The user must ensure that this complies with the above usage restrictions, otherwise undefined behavior may occur.
-
-For example, some optimizations are used in `h2`: when `poll_write` sends a frame and returns `Pending`, then next time you continue to try `poll_write`, if there is a higher priority data frame, this will be sent first Data Frame. This does not meet our usage restrictions, so it is problematic to work on our compatibility layer.
+For write operations, users need to manually call poll_flush or poll_shutdown of AsyncWrite at the end (or the corresponding flush or shutdown methods of AsyncWriteExt), otherwise the data may not be submitted to the kernel (continuous writes do not require manual flushing).
 
 ## Poll-oriented interface and asynchronous system call
 There are two ways to express asynchrony in Rust, one is based on `poll` and the other is based on `async`. `poll` is synchronous, semantically expressing an immediate attempt; while `async` is essentially the syntactic sugar of poll, it will swallow the future and generate a state machine, which is executed in a loop during await.
