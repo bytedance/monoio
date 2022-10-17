@@ -35,11 +35,13 @@ impl<W> BufWriter<W> {
     }
 
     /// Gets a reference to the underlying writer.
+    #[inline]
     pub fn get_ref(&self) -> &W {
         &self.inner
     }
 
     /// Gets a mutable reference to the underlying writer.
+    #[inline]
     pub fn get_mut(&mut self) -> &mut W {
         &mut self.inner
     }
@@ -47,11 +49,13 @@ impl<W> BufWriter<W> {
     /// Consumes this `BufWriter`, returning the underlying writer.
     ///
     /// Note that any leftover data in the internal buffer is lost.
+    #[inline]
     pub fn into_inner(self) -> W {
         self.inner
     }
 
     /// Returns a reference to the internally buffered data.
+    #[inline]
     pub fn buffer(&self) -> &[u8] {
         &self.buf.as_ref().expect("unable to take buffer")[self.pos..self.cap]
     }
@@ -171,10 +175,12 @@ impl<W: AsyncWriteRent + AsyncReadRent> AsyncReadRent for BufWriter<W> {
     type ReadvFuture<'a, T> = W::ReadvFuture<'a, T> where
         T: IoVecBufMut + 'a, W: 'a;
 
+    #[inline]
     fn read<T: IoBufMut>(&mut self, buf: T) -> Self::ReadFuture<'_, T> {
         self.inner.read(buf)
     }
 
+    #[inline]
     fn readv<T: IoVecBufMut>(&mut self, buf: T) -> Self::ReadvFuture<'_, T> {
         self.inner.readv(buf)
     }

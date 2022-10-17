@@ -171,18 +171,22 @@ impl<R: AsyncReadRent + AsyncWriteRent> AsyncWriteRent for BufReader<R> {
 
     type ShutdownFuture<'a> = R::ShutdownFuture<'a> where R: 'a;
 
+    #[inline]
     fn write<T: IoBuf>(&mut self, buf: T) -> Self::WriteFuture<'_, T> {
         self.inner.write(buf)
     }
 
+    #[inline]
     fn writev<T: IoVecBuf>(&mut self, buf_vec: T) -> Self::WritevFuture<'_, T> {
         self.inner.writev(buf_vec)
     }
 
+    #[inline]
     fn flush(&mut self) -> Self::FlushFuture<'_> {
         self.inner.flush()
     }
 
+    #[inline]
     fn shutdown(&mut self) -> Self::ShutdownFuture<'_> {
         self.inner.shutdown()
     }

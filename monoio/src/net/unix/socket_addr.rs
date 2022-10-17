@@ -77,14 +77,9 @@ impl SocketAddr {
     /// Documentation reflected in [`SocketAddr`]
     ///
     /// [`SocketAddr`]: std::os::unix::net::SocketAddr
-    // FIXME: The matches macro requires rust 1.42.0 and we still support 1.39.0
-    #[allow(clippy::match_like_matches_macro)]
+    #[inline]
     pub fn is_unnamed(&self) -> bool {
-        if let AddressKind::Unnamed = self.address() {
-            true
-        } else {
-            false
-        }
+        matches!(self.address(), AddressKind::Unnamed)
     }
 
     /// Returns the contents of this address if it is a `pathname` address.
@@ -92,6 +87,7 @@ impl SocketAddr {
     /// Documentation reflected in [`SocketAddr`]
     ///
     /// [`SocketAddr`]: std::os::unix::net::SocketAddr
+    #[inline]
     pub fn as_pathname(&self) -> Option<&Path> {
         if let AddressKind::Pathname(path) = self.address() {
             Some(path)
@@ -104,6 +100,7 @@ impl SocketAddr {
     /// without the leading null byte.
     // Link to std::os::unix::net::SocketAddr pending
     // https://github.com/rust-lang/rust/issues/85410.
+    #[inline]
     pub fn as_abstract_namespace(&self) -> Option<&[u8]> {
         if let AddressKind::Abstract(path) = self.address() {
             Some(path)

@@ -98,18 +98,22 @@ impl<I: AsyncWriteRent, P> AsyncWriteRent for PrefixedReadIo<I, P> {
 
     type ShutdownFuture<'a> = I::ShutdownFuture<'a> where Self: 'a;
 
+    #[inline]
     fn write<T: IoBuf>(&mut self, buf: T) -> Self::WriteFuture<'_, T> {
         self.io.write(buf)
     }
 
+    #[inline]
     fn writev<T: IoVecBuf>(&mut self, buf_vec: T) -> Self::WritevFuture<'_, T> {
         self.io.writev(buf_vec)
     }
 
+    #[inline]
     fn flush(&mut self) -> Self::FlushFuture<'_> {
         self.io.flush()
     }
 
+    #[inline]
     fn shutdown(&mut self) -> Self::ShutdownFuture<'_> {
         self.io.shutdown()
     }

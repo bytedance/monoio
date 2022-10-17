@@ -83,6 +83,7 @@ impl UnixDatagram {
 }
 
 impl AsRawFd for UnixDatagram {
+    #[inline]
     fn as_raw_fd(&self) -> RawFd {
         self.fd.raw_fd()
     }

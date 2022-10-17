@@ -100,18 +100,21 @@ impl UnixStream {
 }
 
 impl AsReadFd for UnixStream {
+    #[inline]
     fn as_reader_fd(&mut self) -> &SharedFdWrapper {
         SharedFdWrapper::new(&self.fd)
     }
 }
 
 impl AsWriteFd for UnixStream {
+    #[inline]
     fn as_writer_fd(&mut self) -> &SharedFdWrapper {
         SharedFdWrapper::new(&self.fd)
     }
 }
 
 impl IntoRawFd for UnixStream {
+    #[inline]
     fn into_raw_fd(self) -> RawFd {
         self.fd
             .try_unwrap()
@@ -120,6 +123,7 @@ impl IntoRawFd for UnixStream {
 }
 
 impl AsRawFd for UnixStream {
+    #[inline]
     fn as_raw_fd(&self) -> RawFd {
         self.fd.raw_fd()
     }
@@ -139,17 +143,20 @@ impl AsyncWriteRent for UnixStream {
     type FlushFuture<'a> = impl Future<Output = io::Result<()>>;
     type ShutdownFuture<'a> = impl Future<Output = io::Result<()>>;
 
+    #[inline]
     fn write<T: IoBuf>(&mut self, buf: T) -> Self::WriteFuture<'_, T> {
         // Submit the write operation
         let op = Op::send(&self.fd, buf).unwrap();
         op.write()
     }
 
+    #[inline]
     fn writev<T: IoVecBuf>(&mut self, buf_vec: T) -> Self::WritevFuture<'_, T> {
         let op = Op::writev(&self.fd, buf_vec).unwrap();
         op.write()
     }
 
+    #[inline]
     fn flush(&mut self) -> Self::FlushFuture<'_> {
         // Unix stream does not need flush.
         async move { Ok(()) }
@@ -174,12 +181,14 @@ impl AsyncReadRent for UnixStream {
     type ReadvFuture<'a, B> = impl std::future::Future<Output = crate::BufResult<usize, B>> where
         B: IoVecBufMut + 'a;
 
+    #[inline]
     fn read<T: IoBufMut>(&mut self, buf: T) -> Self::ReadFuture<'_, T> {
         // Submit the read operation
         let op = Op::recv(&self.fd, buf).unwrap();
         op.read()
     }
 
+    #[inline]
     fn readv<T: IoVecBufMut>(&mut self, buf: T) -> Self::ReadvFuture<'_, T> {
         // Submit the read operation
         let op = Op::readv(&self.fd, buf).unwrap();
