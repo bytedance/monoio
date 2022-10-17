@@ -113,6 +113,12 @@ impl TcpStream {
     ) -> io::Result<()> {
         self.meta.set_tcp_keepalive(time, interval, retries)
     }
+
+    /// Creates new `TcpStream` from a `std::net::TcpStream`.
+    pub fn from_std(stream: std::net::TcpStream) -> io::Result<Self> {
+        let fd = stream.into_raw_fd();
+        Ok(Self::from_shared_fd(SharedFd::new(fd)?))
+    }
 }
 
 impl AsReadFd for TcpStream {
