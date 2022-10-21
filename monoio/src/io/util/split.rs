@@ -66,9 +66,9 @@ impl<'t, Inner> AsyncReadRent for ReadHalf<'t, Inner>
 where
     Inner: AsyncReadRent,
 {
-    type ReadFuture<'a, B> = impl Future<Output = crate::BufResult<usize, B>> where
+    type ReadFuture<'a, B> = impl Future<Output = crate::BufResult<usize, B>> + 'a where
         't: 'a, B: IoBufMut + 'a, Inner: 'a;
-    type ReadvFuture<'a, B> = impl Future<Output = crate::BufResult<usize, B>> where
+    type ReadvFuture<'a, B> = impl Future<Output = crate::BufResult<usize, B>> + 'a where
         't: 'a, B: IoVecBufMut + 'a, Inner: 'a;
 
     fn read<T: IoBufMut>(&mut self, buf: T) -> Self::ReadFuture<'_, T>
@@ -92,13 +92,13 @@ impl<'t, Inner> AsyncWriteRent for WriteHalf<'t, Inner>
 where
     Inner: AsyncWriteRent,
 {
-    type WriteFuture<'a, B> = impl Future<Output = crate::BufResult<usize, B>> where
+    type WriteFuture<'a, B> = impl Future<Output = crate::BufResult<usize, B>> + 'a where
         't: 'a, B: IoBuf + 'a, Inner: 'a;
-    type WritevFuture<'a, B> = impl Future<Output = crate::BufResult<usize, B>> where
+    type WritevFuture<'a, B> = impl Future<Output = crate::BufResult<usize, B>> + 'a where
         't: 'a, B: IoVecBuf + 'a, Inner: 'a;
-    type FlushFuture<'a> = impl Future<Output = io::Result<()>> where
+    type FlushFuture<'a> = impl Future<Output = io::Result<()>> + 'a where
         't: 'a, Inner: 'a;
-    type ShutdownFuture<'a> = impl Future<Output = io::Result<()>> where
+    type ShutdownFuture<'a> = impl Future<Output = io::Result<()>> + 'a where
         't: 'a, Inner: 'a;
 
     fn write<T: IoBuf>(&mut self, buf: T) -> Self::WriteFuture<'_, T>
@@ -152,12 +152,12 @@ impl<Inner> AsyncReadRent for OwnedReadHalf<Inner>
 where
     Inner: AsyncReadRent,
 {
-    type ReadFuture<'a, T> = impl std::future::Future<Output = crate::BufResult<usize, T>>
+    type ReadFuture<'a, T> = impl std::future::Future<Output = crate::BufResult<usize, T>> + 'a
     where
         Self: 'a,
         T: crate::buf::IoBufMut + 'a;
 
-    type ReadvFuture<'a, T> = impl std::future::Future<Output = crate::BufResult<usize, T>>
+    type ReadvFuture<'a, T> = impl std::future::Future<Output = crate::BufResult<usize, T>> + 'a
     where
         Self: 'a,
         T: crate::buf::IoVecBufMut + 'a;
@@ -177,21 +177,21 @@ impl<Inner> AsyncWriteRent for OwnedWriteHalf<Inner>
 where
     Inner: AsyncWriteRent,
 {
-    type WriteFuture<'a, T> =  impl Future<Output = crate::BufResult<usize, T>>
+    type WriteFuture<'a, T> =  impl Future<Output = crate::BufResult<usize, T>> + 'a
     where
         Self: 'a,
         T: crate::buf::IoBuf + 'a;
 
-    type WritevFuture<'a, T> =  impl Future<Output = crate::BufResult<usize, T>>
+    type WritevFuture<'a, T> =  impl Future<Output = crate::BufResult<usize, T>> + 'a
     where
         Self: 'a,
         T: crate::buf::IoVecBuf + 'a;
 
-    type FlushFuture<'a> = impl Future<Output = std::io::Result<()>>
+    type FlushFuture<'a> = impl Future<Output = std::io::Result<()>> + 'a
     where
         Self: 'a;
 
-    type ShutdownFuture<'a> = impl Future<Output = std::io::Result<()>>
+    type ShutdownFuture<'a> = impl Future<Output = std::io::Result<()>> + 'a
     where
         Self: 'a;
 

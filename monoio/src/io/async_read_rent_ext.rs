@@ -20,7 +20,7 @@ macro_rules! reader_trait {
 
 macro_rules! reader_be_impl {
     ($future: ident, $n_ty: ty, $f: ident) => {
-        type $future<'a> = impl Future<Output = std::io::Result<$n_ty>> where A: 'a;
+        type $future<'a> = impl Future<Output = std::io::Result<$n_ty>> + 'a where A: 'a;
 
         fn $f(&mut self) -> Self::$future<'_> {
             async {
@@ -36,7 +36,7 @@ macro_rules! reader_be_impl {
 
 macro_rules! reader_le_impl {
     ($future: ident, $n_ty: ty, $f: ident) => {
-        type $future<'a> = impl Future<Output = std::io::Result<$n_ty>> where A: 'a;
+        type $future<'a> = impl Future<Output = std::io::Result<$n_ty>> + 'a where A: 'a;
 
         fn $f(&mut self) -> Self::$future<'_> {
             async {
@@ -105,7 +105,7 @@ impl<A> AsyncReadRentExt for A
 where
     A: AsyncReadRent + ?Sized,
 {
-    type ReadExactFuture<'a, T> = impl Future<Output = BufResult<usize, T>> where A: 'a, T: IoBufMut + 'a;
+    type ReadExactFuture<'a, T> = impl Future<Output = BufResult<usize, T>> + 'a where A: 'a, T: IoBufMut + 'a;
 
     fn read_exact<T>(&mut self, mut buf: T) -> Self::ReadExactFuture<'_, T>
     where
@@ -140,7 +140,7 @@ where
         }
     }
 
-    type ReadVectoredExactFuture<'a, T> = impl Future<Output = BufResult<usize, T>> where A: 'a, T: IoVecBufMut + 'a;
+    type ReadVectoredExactFuture<'a, T> = impl Future<Output = BufResult<usize, T>> + 'a where A: 'a, T: IoVecBufMut + 'a;
 
     fn read_vectored_exact<T: 'static>(
         &mut self,

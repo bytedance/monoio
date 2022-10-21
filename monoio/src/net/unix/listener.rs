@@ -92,7 +92,7 @@ impl UnixListener {
 impl Stream for UnixListener {
     type Item = io::Result<(UnixStream, SocketAddr)>;
 
-    type NextFuture<'a> = impl Future<Output = Option<Self::Item>>;
+    type NextFuture<'a> = impl Future<Output = Option<Self::Item>> + 'a;
 
     fn next(&mut self) -> Self::NextFuture<'_> {
         async move { Some(self.accept().await) }
