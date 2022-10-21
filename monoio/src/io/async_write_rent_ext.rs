@@ -35,7 +35,7 @@ impl<A> AsyncWriteRentExt for A
 where
     A: AsyncWriteRent + ?Sized,
 {
-    type WriteExactFuture<'a, T> = impl Future<Output = BufResult<usize, T>> where A: 'a, T: IoBuf + 'a;
+    type WriteExactFuture<'a, T> = impl Future<Output = BufResult<usize, T>> + 'a where A: 'a, T: IoBuf + 'a;
 
     fn write_all<T>(&mut self, mut buf: T) -> Self::WriteExactFuture<'_, T>
     where
@@ -67,7 +67,7 @@ where
         }
     }
 
-    type WriteVectoredExactFuture<'a, T> = impl Future<Output = BufResult<usize, T>> where A: 'a, T: IoVecBuf + 'a;
+    type WriteVectoredExactFuture<'a, T> = impl Future<Output = BufResult<usize, T>> + 'a where A: 'a, T: IoVecBuf + 'a;
 
     fn write_vectored_all<T>(&mut self, buf: T) -> Self::WriteVectoredExactFuture<'_, T>
     where

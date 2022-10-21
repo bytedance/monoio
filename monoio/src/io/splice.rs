@@ -26,7 +26,7 @@ pub trait SpliceDestination {
 }
 
 impl<T: AsReadFd> SpliceSource for T {
-    type SpliceFuture<'a> = impl Future<Output = std::io::Result<u32>> where Self: 'a;
+    type SpliceFuture<'a> = impl Future<Output = std::io::Result<u32>> + 'a where Self: 'a;
 
     fn splice_to_pipe<'a>(&'a mut self, pipe: &'a mut Pipe, len: u32) -> Self::SpliceFuture<'_> {
         async move {
@@ -38,7 +38,7 @@ impl<T: AsReadFd> SpliceSource for T {
 }
 
 impl<T: AsWriteFd> SpliceDestination for T {
-    type SpliceFuture<'a> = impl Future<Output = std::io::Result<u32>> where Self: 'a;
+    type SpliceFuture<'a> = impl Future<Output = std::io::Result<u32>> + 'a where Self: 'a;
 
     fn splice_from_pipe<'a>(&'a mut self, pipe: &'a mut Pipe, len: u32) -> Self::SpliceFuture<'_> {
         async move {

@@ -70,10 +70,10 @@ impl<R> BufReader<R> {
 }
 
 impl<R: AsyncReadRent> AsyncReadRent for BufReader<R> {
-    type ReadFuture<'a, T>  = impl Future<Output = crate::BufResult<usize, T>> where
+    type ReadFuture<'a, T>  = impl Future<Output = crate::BufResult<usize, T>> + 'a where
         T: IoBufMut + 'a, R: 'a;
 
-    type ReadvFuture<'a, T> = impl Future<Output = crate::BufResult<usize, T>> where
+    type ReadvFuture<'a, T> = impl Future<Output = crate::BufResult<usize, T>> + 'a where
         T: IoVecBufMut + 'a, R: 'a;
 
     fn read<T: IoBufMut>(&mut self, mut buf: T) -> Self::ReadFuture<'_, T> {

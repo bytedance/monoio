@@ -34,11 +34,11 @@ impl<I, P> PrefixedReadIo<I, P> {
 }
 
 impl<I: AsyncReadRent, P: std::io::Read> AsyncReadRent for PrefixedReadIo<I, P> {
-    type ReadFuture<'a, T> = impl std::future::Future<Output = crate::BufResult<usize, T>>
+    type ReadFuture<'a, T> = impl std::future::Future<Output = crate::BufResult<usize, T>> + 'a
     where
         T: IoBufMut + 'a, Self: 'a;
 
-    type ReadvFuture<'a, T> = impl std::future::Future<Output = crate::BufResult<usize, T>>
+    type ReadvFuture<'a, T> = impl std::future::Future<Output = crate::BufResult<usize, T>> + 'a
     where
         T: IoVecBufMut + 'a, Self: 'a;
 

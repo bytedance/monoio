@@ -172,7 +172,7 @@ impl TcpListener {
 impl Stream for TcpListener {
     type Item = io::Result<(TcpStream, SocketAddr)>;
 
-    type NextFuture<'a> = impl Future<Output = Option<Self::Item>>;
+    type NextFuture<'a> = impl Future<Output = Option<Self::Item>> + 'a;
 
     fn next(&mut self) -> Self::NextFuture<'_> {
         async move { Some(self.accept().await) }

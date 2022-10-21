@@ -64,7 +64,7 @@ where
 {
     type Item = Item;
 
-    type NextFuture<'a> = impl Future<Output = Option<Self::Item>> where
+    type NextFuture<'a> = impl Future<Output = Option<Self::Item>> + 'a where
         F: 'a, St: 'a;
 
     fn next(&mut self) -> Self::NextFuture<'_> {
@@ -95,7 +95,7 @@ where
 {
     type Item = Fut::Output;
 
-    type NextFuture<'a> = impl Future<Output = Option<Self::Item>> where
+    type NextFuture<'a> = impl Future<Output = Option<Self::Item>> + 'a where
         F: 'a, St: 'a,;
 
     fn next(&mut self) -> Self::NextFuture<'_> {
