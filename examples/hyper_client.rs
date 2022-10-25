@@ -48,7 +48,7 @@ impl tower_service::Service<hyper::Uri> for HyperConnector {
     fn call(&mut self, uri: hyper::Uri) -> Self::Future {
         let host = uri.host().unwrap();
         let port = uri.port_u16().unwrap_or(80);
-        let address = format!("{}:{}", host, port);
+        let address = format!("{host}:{port}");
 
         #[allow(clippy::type_complexity)]
         let b: Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>>>> =
@@ -123,5 +123,5 @@ async fn main() {
         .expect("failed to read body");
     let body =
         String::from_utf8(body.into_iter().collect()).expect("failed to convert body to string");
-    println!("Response body: {}", body);
+    println!("Response body: {body}");
 }

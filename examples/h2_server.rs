@@ -14,7 +14,7 @@ async fn serve(socket: TcpStream) -> Result<(), Box<dyn std::error::Error + Send
         let (request, respond) = result?;
         monoio::spawn(async move {
             if let Err(e) = handle_request(request, respond).await {
-                println!("error while handling request: {}", e);
+                println!("error while handling request: {e}");
             }
         });
     }
@@ -27,12 +27,12 @@ async fn handle_request(
     mut request: http::Request<h2::RecvStream>,
     mut respond: h2::server::SendResponse<bytes::Bytes>,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    println!("GOT request: {:?}", request);
+    println!("GOT request: {request:?}");
 
     let body = request.body_mut();
     while let Some(data) = body.data().await {
         let data = data?;
-        println!("<<<< recv {:?}", data);
+        println!("<<<< recv {data:?}");
         let _ = body.flow_control().release_capacity(data.len());
     }
 
@@ -54,7 +54,7 @@ async fn main() {
         if let Ok((socket, _peer_addr)) = listener.accept().await {
             monoio::spawn(async move {
                 if let Err(e) = serve(socket).await {
-                    println!("  -> err={:?}", e);
+                    println!("  -> err={e:?}");
                 }
             });
         }

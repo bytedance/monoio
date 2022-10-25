@@ -279,7 +279,7 @@ impl Future for Sleep {
         // really do much better if we passed the error onwards.
         match ready!(self.as_mut().poll_elapsed(cx)) {
             Ok(()) => Poll::Ready(()),
-            Err(e) => panic!("timer error: {}", e),
+            Err(e) => panic!("timer error: {e}"),
         }
     }
 }

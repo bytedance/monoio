@@ -15,7 +15,7 @@ async fn main() {
             .unwrap();
         rt.block_on(async move {
             let n = rx.await;
-            println!("await result: {:?}", n);
+            println!("await result: {n:?}");
         });
         println!("remote thread exit");
     });

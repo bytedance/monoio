@@ -18,19 +18,19 @@ async fn main() {
         let buf = "hello";
         let (ret, buf) = client.write_all(buf).await;
         ret.unwrap();
-        println!("write {} bytes: {:?}", buf.len(), buf);
+        println!("write {} bytes: {buf:?}", buf.len());
     });
 
     std::fs::remove_file(ADDRESS).ok();
     let listener = UnixListener::bind(ADDRESS).unwrap();
-    println!("listening on {:?}", ADDRESS);
+    println!("listening on {ADDRESS:?}");
     drop(rx);
     let (mut conn, addr) = listener.accept().await.unwrap();
-    println!("accepted a new connection from {:?}", addr);
+    println!("accepted a new connection from {addr:?}");
     let buf = Vec::with_capacity(1024);
     let (ret, buf) = conn.read(buf).await;
     ret.unwrap();
-    println!("read {} bytes: {:?}", buf.len(), buf);
+    println!("read {} bytes: {buf:?}", buf.len());
 
     // clear the socket file
     drop(listener);

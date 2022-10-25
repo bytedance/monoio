@@ -38,7 +38,7 @@ impl<T: IoBuf> OpAble for Send<T> {
     #[cfg(all(target_os = "linux", feature = "iouring"))]
     fn uring_op(&mut self) -> io_uring::squeue::Entry {
         #[cfg(feature = "zero-copy")]
-        fn zero_copy_flag_guard<T: IoBuf>(buf: &T) -> i32 {
+        fn zero_copy_flag_guard<T: IoBuf>(buf: &T) -> libc::c_int {
             // TODO: use libc const after supported.
             const MSG_ZEROCOPY: libc::c_int = 0x4000000;
             // According to Linux's documentation, zero copy introduces extra overhead and
@@ -46,16 +46,20 @@ impl<T: IoBuf> OpAble for Send<T> {
             // see also: https://www.kernel.org/doc/html/v4.16/networking/msg_zerocopy.html
             const MSG_ZEROCOPY_THRESHOLD: usize = 10 * 1024 * 1024;
             if buf.bytes_init() >= MSG_ZEROCOPY_THRESHOLD {
-                libc::MSG_NOSIGNAL | MSG_ZEROCOPY
+                #[allow(deprecated)]
+                libc::MSG_NOSIGNAL as libc::c_int
+                    | MSG_ZEROCOPY
             } else {
-                libc::MSG_NOSIGNAL
+                #[allow(deprecated)]
+                libc::MSG_NOSIGNAL as libc::c_int
             }
         }
 
         #[cfg(feature = "zero-copy")]
         let flags = zero_copy_flag_guard(&self.buf);
         #[cfg(not(feature = "zero-copy"))]
-        let flags = libc::MSG_NOSIGNAL;
+        #[allow(deprecated)]
+        let flags = libc::MSG_NOSIGNAL as libc::c_int;
 
         opcode::Send::new(
             types::Fd(self.fd.raw_fd()),
@@ -77,7 +81,8 @@ impl<T: IoBuf> OpAble for Send<T> {
     fn legacy_call(&mut self) -> io::Result<u32> {
         let fd = self.fd.as_raw_fd();
         #[cfg(target_os = "linux")]
-        let flags = libc::MSG_NOSIGNAL;
+        #[allow(deprecated)]
+        let flags = libc::MSG_NOSIGNAL as _;
         #[cfg(not(target_os = "linux"))]
         let flags = 0;
 
