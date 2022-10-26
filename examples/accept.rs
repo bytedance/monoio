@@ -21,10 +21,10 @@ async fn main() {
         let incoming = listener.accept().await;
         match incoming {
             Ok((_, addr)) => {
-                println!("accepted a connection from {}", addr);
+                println!("accepted a connection from {addr}");
             }
             Err(e) => {
-                println!("accepted connection failed: {}", e);
+                println!("accepted connection failed: {e}");
                 return;
             }
         }

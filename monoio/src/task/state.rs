@@ -1,6 +1,12 @@
-use std::{cell::UnsafeCell, fmt};
+use std::{
+    fmt,
+    sync::atomic::{
+        AtomicUsize,
+        Ordering::{AcqRel, Acquire, Release},
+    },
+};
 
-pub(crate) struct State(UnsafeCell<usize>);
+pub(crate) struct State(AtomicUsize);
 
 /// Current state value
 #[derive(Copy, Clone)]
@@ -67,17 +73,15 @@ pub(super) enum TransitionToNotified {
 
 impl State {
     pub(crate) fn new() -> Self {
-        State(UnsafeCell::new(INITIAL_STATE))
+        State(AtomicUsize::new(INITIAL_STATE))
     }
 
     pub(crate) fn load(&self) -> Snapshot {
-        Snapshot(unsafe { *self.0.get() })
+        Snapshot(self.0.load(Acquire))
     }
 
     pub(crate) fn store(&self, val: Snapshot) {
-        unsafe {
-            *self.0.get() = *val;
-        }
+        self.0.store(val.0, Release);
     }
 
     /// Attempt to transition the lifecycle to `Running`. This sets the
@@ -109,16 +113,11 @@ impl State {
     pub(super) fn transition_to_complete(&self) -> Snapshot {
         const DELTA: usize = RUNNING | COMPLETE;
 
-        let mut val = self.load();
+        let prev = Snapshot(self.0.fetch_xor(DELTA, AcqRel));
+        debug_assert!(prev.is_running());
+        debug_assert!(!prev.is_complete());
 
-        // Previous state
-        debug_assert!(val.is_running());
-        debug_assert!(!val.is_complete());
-
-        // New state
-        val.xor(DELTA);
-        self.store(val);
-        val
+        Snapshot(prev.0 ^ DELTA)
     }
 
     /// Transitions the state to `NOTIFIED`.
@@ -209,57 +208,53 @@ impl State {
     }
 
     pub(crate) fn ref_inc(&self) {
-        use std::process;
-        let mut val = self.load();
-        let prev = *val;
+        use std::{process, sync::atomic::Ordering::Relaxed};
 
-        val.add(REF_ONE);
-        self.store(val);
+        let prev = Snapshot(self.0.fetch_add(REF_ONE, Relaxed));
 
         trace!(
             "MONOIO DEBUG[State]: ref_inc {}, ptr: {:p}",
-            val.ref_count(),
+            prev.ref_count() + 1,
             self
         );
 
         // If the reference count overflowed, abort.
-        if prev > isize::MAX as usize {
+        if prev.0 > isize::MAX as usize {
             process::abort();
         }
     }
 
     /// Returns `true` if the task should be released.
     pub(crate) fn ref_dec(&self) -> bool {
-        let mut val = self.load();
-
-        // Previous state
-        debug_assert!(val.ref_count() >= 1);
-
-        // New state
-        val.sub(REF_ONE);
-        self.store(val);
+        let prev = Snapshot(self.0.fetch_sub(REF_ONE, AcqRel));
+        debug_assert!(prev.ref_count() >= 1);
         trace!(
             "MONOIO DEBUG[State]: ref_dec {}, ptr: {:p}",
-            val.ref_count(),
+            prev.ref_count() - 1,
             self
         );
-
-        val.ref_count() == 0
+        prev.ref_count() == 1
     }
 
     fn fetch_update<F>(&self, mut f: F) -> Result<Snapshot, Snapshot>
     where
         F: FnMut(Snapshot) -> Option<Snapshot>,
     {
-        let curr = self.load();
+        let mut curr = self.load();
 
-        let next = f(curr);
-        let next = match next {
-            Some(next) => next,
-            None => return Err(curr),
-        };
-        self.store(next);
-        Ok(next)
+        loop {
+            let next = match f(curr) {
+                Some(next) => next,
+                None => return Err(curr),
+            };
+
+            let res = self.0.compare_exchange(curr.0, next.0, AcqRel, Acquire);
+
+            match res {
+                Ok(_) => return Ok(next),
+                Err(actual) => curr = Snapshot(actual),
+            }
+        }
     }
 }
 
@@ -329,20 +324,6 @@ impl Snapshot {
 
     pub(super) fn ref_count(self) -> usize {
         (self.0 & REF_COUNT_MASK) >> REF_COUNT_SHIFT
-    }
-}
-
-impl Snapshot {
-    fn xor(&mut self, other: usize) {
-        self.0 ^= other;
-    }
-
-    fn add(&mut self, other: usize) {
-        self.0 += other
-    }
-
-    fn sub(&mut self, other: usize) {
-        self.0 -= other
     }
 }
 

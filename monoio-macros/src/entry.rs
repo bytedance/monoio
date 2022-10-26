@@ -99,12 +99,12 @@ fn parse_int(int: syn::Lit, span: Span, field: &str) -> Result<usize, syn::Error
             Ok(value) => Ok(value),
             Err(e) => Err(syn::Error::new(
                 span,
-                format!("Failed to parse value of `{}` as integer: {}", field, e),
+                format!("Failed to parse value of `{field}` as integer: {e}"),
             )),
         },
         _ => Err(syn::Error::new(
             span,
-            format!("Failed to parse value of `{}` as integer.", field),
+            format!("Failed to parse value of `{field}` as integer."),
         )),
     }
 }
@@ -116,7 +116,7 @@ fn parse_string(lit: syn::Lit, span: Span, field: &str) -> Result<String, syn::E
         syn::Lit::Verbatim(s) => Ok(s.to_string()),
         _ => Err(syn::Error::new(
             span,
-            format!("Failed to parse value of `{}` as string.", field),
+            format!("Failed to parse value of `{field}` as string."),
         )),
     }
 }
@@ -130,7 +130,7 @@ fn parse_driver(lit: syn::Lit, span: Span, field: &str) -> Result<DriverType, sy
         "fusion" | "auto" | "detect" => Ok(DriverType::Fusion),
         _ => Err(syn::Error::new(
             span,
-            format!("Failed to parse value of `{}` as DriverType.", field),
+            format!("Failed to parse value of `{field}` as DriverType."),
         )),
     }
 }
@@ -141,7 +141,7 @@ fn parse_bool(bool: syn::Lit, span: Span, field: &str) -> Result<bool, syn::Erro
         syn::Lit::Bool(b) => Ok(b.value),
         _ => Err(syn::Error::new(
             span,
-            format!("Failed to parse value of `{}` as bool.", field),
+            format!("Failed to parse value of `{field}` as bool."),
         )),
     }
 }

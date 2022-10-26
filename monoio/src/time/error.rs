@@ -91,7 +91,7 @@ impl fmt::Display for Error {
             AtCapacity => "timer is at capacity and cannot create a new entry",
             Invalid => "timer duration exceeds maximum duration",
         };
-        write!(fmt, "{}", descr)
+        write!(fmt, "{descr}")
     }
 }
 

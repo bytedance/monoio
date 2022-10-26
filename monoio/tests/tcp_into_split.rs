@@ -95,7 +95,7 @@ async fn drop_write() -> Result<()> {
             Ok(0) => Ok(()),
             Ok(len) => Err(Error::new(
                 ErrorKind::Other,
-                format!("Unexpected read: {} bytes.", len),
+                format!("Unexpected read: {len} bytes."),
             )),
             Err(err) => Err(err),
         };
@@ -119,8 +119,8 @@ async fn drop_write() -> Result<()> {
     });
     match read_half.read(read_buf).await.0 {
         Ok(0) => {}
-        Ok(len) => panic!("Unexpected read: {} bytes.", len),
-        Err(err) => panic!("Unexpected error: {}.", err),
+        Ok(len) => panic!("Unexpected read: {len} bytes."),
+        Err(err) => panic!("Unexpected error: {err}."),
     }
     handle.join().unwrap().unwrap();
     Ok(())

@@ -6,11 +6,14 @@ use std::{
 };
 
 use super::utils::UnsafeCellExt;
-use crate::task::{
-    core::{Cell, Core, CoreStage, Header, Trailer},
-    state::Snapshot,
-    waker::waker_ref,
-    Schedule, Task,
+use crate::{
+    task::{
+        core::{Cell, Core, CoreStage, Header, Trailer},
+        state::Snapshot,
+        waker::waker_ref,
+        Schedule, Task,
+    },
+    utils::thread_id::get_current_thread_id,
 };
 
 pub(crate) struct Harness<T: Future, S: 'static> {
@@ -149,13 +152,11 @@ where
     /// passed to this call.
     pub(super) fn wake_by_val(self) {
         trace!("MONOIO DEBUG[Harness]:: wake_by_val");
-        #[cfg(feature = "sync")]
-        {
-            use crate::utils::thread_id::get_current_thread_id;
-            let (current_id, raw_id) = (get_current_thread_id(), self.header().owner_id);
-
-            if current_id != raw_id {
-                trace!("MONOIO DEBUG[Harness]:: wake_by_val with another thread id");
+        let (current_id, raw_id) = (get_current_thread_id(), self.header().owner_id);
+        if current_id != raw_id {
+            trace!("MONOIO DEBUG[Harness]:: wake_by_val with another thread id");
+            #[cfg(feature = "sync")]
+            {
                 // # Ref Count: self -> waker
                 use crate::task::waker::raw_waker;
                 let raw_waker = raw_waker::<T, S>(self.cell.cast::<Header>().as_ptr());
@@ -165,6 +166,10 @@ where
                     ctx.unpark_thread(raw_id);
                 });
                 return;
+            }
+            #[cfg(not(feature = "sync"))]
+            {
+                panic!("waker is sent across threads without `sync` feature enabled");
             }
         }
 
@@ -187,16 +192,13 @@ where
     /// submit it if necessary.
     pub(super) fn wake_by_ref(&self) {
         trace!("MONOIO DEBUG[Harness]:: wake_by_ref");
-        #[cfg(feature = "sync")]
-        {
-            use crate::utils::thread_id::get_current_thread_id;
-            let (current_id, raw_id) = (get_current_thread_id(), self.header().owner_id);
-
-            if current_id != raw_id {
-                trace!("MONOIO DEBUG[Harness]:: wake_by_ref with another thread id");
+        let (current_id, raw_id) = (get_current_thread_id(), self.header().owner_id);
+        if current_id != raw_id {
+            trace!("MONOIO DEBUG[Harness]:: wake_by_ref with another thread id");
+            #[cfg(feature = "sync")]
+            {
                 use crate::task::waker::raw_waker;
                 let waker = raw_waker::<T, S>(self.cell.cast::<Header>().as_ptr());
-
                 // We create a new waker so we need to inc ref count.
                 let waker = unsafe { Waker::from_raw(waker) };
                 self.header().state.ref_inc();
@@ -205,6 +207,10 @@ where
                     ctx.unpark_thread(raw_id);
                 });
                 return;
+            }
+            #[cfg(not(feature = "sync"))]
+            {
+                panic!("waker is sent across threads without `sync` feature enabled");
             }
         }
 

@@ -118,7 +118,7 @@ impl fmt::Debug for SocketAddr {
         match self.address() {
             AddressKind::Unnamed => write!(fmt, "(unnamed)"),
             AddressKind::Abstract(name) => write!(fmt, "{} (abstract)", AsciiEscaped(name)),
-            AddressKind::Pathname(path) => write!(fmt, "{:?} (pathname)", path),
+            AddressKind::Pathname(path) => write!(fmt, "{path:?} (pathname)"),
         }
     }
 }

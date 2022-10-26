@@ -17,11 +17,11 @@ async fn main() {
         let incoming = listener.accept().await;
         match incoming {
             Ok((stream, addr)) => {
-                println!("accepted a connection from {}", addr);
+                println!("accepted a connection from {addr}");
                 monoio::spawn(echo(stream));
             }
             Err(e) => {
-                println!("accepted connection failed: {}", e);
+                println!("accepted connection failed: {e}");
                 return;
             }
         }

@@ -41,8 +41,7 @@ pub(crate) struct Header {
     pub(crate) state: State,
     /// Table of function pointers for executing actions on the task.
     pub(crate) vtable: &'static Vtable,
-    /// Thread ID(sync: used for wake task on its thread)
-    #[cfg(feature = "sync")]
+    /// Thread ID(sync: used for wake task on its thread; sync disabled: do checking)
     pub(crate) owner_id: usize,
 }
 
@@ -54,28 +53,6 @@ pub(crate) struct Trailer {
 impl<T: Future, S: Schedule> Cell<T, S> {
     /// Allocates a new task cell, containing the header, trailer, and core
     /// structures.
-    #[cfg(not(feature = "sync"))]
-    pub(crate) fn new(future: T, scheduler: S) -> Box<Cell<T, S>> {
-        Box::new(Cell {
-            header: Header {
-                state: State::new(),
-                vtable: raw::vtable::<T, S>(),
-            },
-            core: Core {
-                scheduler,
-                stage: CoreStage {
-                    stage: UnsafeCell::new(Stage::Running(future)),
-                },
-            },
-            trailer: Trailer {
-                waker: UnsafeCell::new(None),
-            },
-        })
-    }
-
-    /// Allocates a new task cell, containing the header, trailer, and core
-    /// structures.
-    #[cfg(feature = "sync")]
     pub(crate) fn new(owner_id: usize, future: T, scheduler: S) -> Box<Cell<T, S>> {
         Box::new(Cell {
             header: Header {
@@ -172,7 +149,6 @@ impl<T: Future> CoreStage<T> {
 
 impl Header {
     #[allow(unused)]
-    #[cfg(feature = "sync")]
     pub(crate) fn get_owner_id(&self) -> usize {
         // safety: If there are concurrent writes, then that write has violated
         // the safety requirements on `set_owner_id`.

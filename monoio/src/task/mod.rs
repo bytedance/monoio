@@ -68,17 +68,6 @@ pub(crate) trait Schedule: Sized + 'static {
     }
 }
 
-#[cfg(not(feature = "sync"))]
-pub(crate) fn new_task<T, S>(task: T, scheduler: S) -> (Task<S>, JoinHandle<T::Output>)
-where
-    S: Schedule,
-    T: Future + 'static,
-    T::Output: 'static,
-{
-    unsafe { new_task_holding(task, scheduler) }
-}
-
-#[cfg(feature = "sync")]
 pub(crate) fn new_task<T, S>(
     owner_id: usize,
     task: T,
@@ -92,27 +81,6 @@ where
     unsafe { new_task_holding(owner_id, task, scheduler) }
 }
 
-#[allow(unused)]
-#[cfg(not(feature = "sync"))]
-pub(crate) unsafe fn new_task_holding<T, S>(
-    task: T,
-    scheduler: S,
-) -> (Task<S>, JoinHandle<T::Output>)
-where
-    S: Schedule,
-    T: Future,
-{
-    let raw = RawTask::new::<T, S>(task, scheduler);
-    let task = Task {
-        raw,
-        _p: PhantomData,
-    };
-    let join = JoinHandle::new(raw);
-
-    (task, join)
-}
-
-#[cfg(feature = "sync")]
 pub(crate) unsafe fn new_task_holding<T, S>(
     owner_id: usize,
     task: T,

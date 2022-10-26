@@ -29,12 +29,12 @@ async fn main() {
     // Spawn a task to run the conn...
     monoio::spawn(async move {
         if let Err(e) = h2.await {
-            println!("GOT ERR={:?}", e);
+            println!("GOT ERR={e:?}");
         }
     });
 
     let response = response.await.unwrap();
-    println!("GOT RESPONSE: {:?}", response);
+    println!("GOT RESPONSE: {response:?}");
 
     // Get the body
     let mut body = response.into_body();
@@ -44,6 +44,6 @@ async fn main() {
     }
 
     if let Some(trailers) = body.trailers().await.unwrap() {
-        println!("GOT TRAILERS: {:?}", trailers);
+        println!("GOT TRAILERS: {trailers:?}");
     }
 }
