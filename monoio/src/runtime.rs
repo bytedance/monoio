@@ -23,7 +23,6 @@ scoped_thread_local!(pub(crate) static CURRENT: Context);
 
 pub(crate) struct Context {
     /// Thread id(not the kernel thread id but a generated unique number)
-    #[cfg(feature = "sync")]
     pub(crate) thread_id: usize,
 
     /// Thread unpark handles
@@ -50,11 +49,9 @@ impl Default for Context {
 
 impl Context {
     pub(crate) fn new() -> Self {
-        #[cfg(feature = "sync")]
         let thread_id = crate::builder::BUILD_THREAD_ID.with(|id| *id);
 
         Self {
-            #[cfg(feature = "sync")]
             thread_id,
             #[cfg(feature = "sync")]
             unpark_cache: std::cell::RefCell::new(fxhash::FxHashMap::default()),
@@ -367,9 +364,6 @@ where
     T: Future + 'static,
     T::Output: 'static,
 {
-    #[cfg(not(feature = "sync"))]
-    let (task, join) = new_task(future, LocalScheduler);
-    #[cfg(feature = "sync")]
     let (task, join) = new_task(
         crate::utils::thread_id::get_current_thread_id(),
         future,

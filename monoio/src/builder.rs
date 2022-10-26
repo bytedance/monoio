@@ -9,6 +9,7 @@ use crate::driver::LegacyDriver;
 use crate::{
     driver::Driver,
     time::{driver::TimeDriver, Clock},
+    utils::thread_id::gen_id,
     Runtime,
 };
 
@@ -80,10 +81,7 @@ direct_build!(TimeDriver<LegacyDriver>);
 #[cfg(all(unix, feature = "legacy"))]
 impl Buildable for LegacyDriver {
     fn build(this: &RuntimeBuilder<Self>) -> io::Result<Runtime<LegacyDriver>> {
-        #[cfg(not(feature = "sync"))]
-        let thread_id = 0;
-        #[cfg(feature = "sync")]
-        let thread_id = crate::utils::thread_id::gen_id();
+        let thread_id = gen_id();
 
         BUILD_THREAD_ID.set(&thread_id, || {
             let driver = match this.entries {
@@ -99,10 +97,7 @@ impl Buildable for LegacyDriver {
 #[cfg(all(target_os = "linux", feature = "iouring"))]
 impl Buildable for IoUringDriver {
     fn build(this: &RuntimeBuilder<Self>) -> io::Result<Runtime<IoUringDriver>> {
-        #[cfg(not(feature = "sync"))]
-        let thread_id = 0;
-        #[cfg(feature = "sync")]
-        let thread_id = crate::utils::thread_id::gen_id();
+        let thread_id = gen_id();
 
         BUILD_THREAD_ID.set(&thread_id, || {
             let driver = match this.entries {

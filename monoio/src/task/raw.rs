@@ -42,19 +42,6 @@ pub(super) fn vtable<T: Future, S: Schedule>() -> &'static Vtable {
 }
 
 impl RawTask {
-    #[cfg(not(feature = "sync"))]
-    pub(crate) fn new<T, S>(task: T, scheduler: S) -> RawTask
-    where
-        T: Future,
-        S: Schedule,
-    {
-        let ptr = Box::into_raw(Cell::new(task, scheduler));
-        let ptr = unsafe { NonNull::new_unchecked(ptr as *mut Header) };
-
-        RawTask { ptr }
-    }
-
-    #[cfg(feature = "sync")]
     pub(crate) fn new<T, S>(owner_id: usize, task: T, scheduler: S) -> RawTask
     where
         T: Future,

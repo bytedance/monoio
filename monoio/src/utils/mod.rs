@@ -8,7 +8,6 @@ mod rand;
 pub use rand::thread_rng_n;
 pub use uring_detect::detect_uring;
 
-#[cfg(feature = "sync")]
 pub(crate) mod thread_id;
 
 #[cfg(feature = "utils")]
