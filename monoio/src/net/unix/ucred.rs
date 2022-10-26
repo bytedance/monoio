@@ -14,16 +14,19 @@ pub struct UCred {
 
 impl UCred {
     /// Gets UID (user ID) of the process.
+    #[inline]
     pub fn uid(&self) -> uid_t {
         self.uid
     }
 
     /// Gets GID (group ID) of the process.
+    #[inline]
     pub fn gid(&self) -> gid_t {
         self.gid
     }
 
     /// Gets PID (process ID) of the process.
+    #[inline]
     pub fn pid(&self) -> Option<pid_t> {
         self.pid
     }

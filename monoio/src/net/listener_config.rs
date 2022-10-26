@@ -1,5 +1,5 @@
 /// Custom listener config
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct ListenerConfig {
     /// Whether to enable reuse_port.
     pub reuse_port: bool,
@@ -28,6 +28,7 @@ impl Default for ListenerConfig {
 impl ListenerConfig {
     /// Enable SO_REUSEPORT
     #[must_use]
+    #[inline]
     pub fn reuse_port(mut self, reuse_port: bool) -> Self {
         self.reuse_port = reuse_port;
         self
@@ -35,6 +36,7 @@ impl ListenerConfig {
 
     /// Enable SO_REUSEADDR
     #[must_use]
+    #[inline]
     pub fn reuse_addr(mut self, reuse_addr: bool) -> Self {
         self.reuse_addr = reuse_addr;
         self
@@ -42,6 +44,7 @@ impl ListenerConfig {
 
     /// Specify backlog
     #[must_use]
+    #[inline]
     pub fn backlog(mut self, backlog: i32) -> Self {
         self.backlog = backlog;
         self
@@ -49,6 +52,7 @@ impl ListenerConfig {
 
     /// Specify SO_SNDBUF
     #[must_use]
+    #[inline]
     pub fn send_buf_size(mut self, send_buf_size: usize) -> Self {
         self.send_buf_size = Some(send_buf_size);
         self
@@ -56,6 +60,7 @@ impl ListenerConfig {
 
     /// Specify SO_RCVBUF
     #[must_use]
+    #[inline]
     pub fn recv_buf_size(mut self, recv_buf_size: usize) -> Self {
         self.recv_buf_size = Some(recv_buf_size);
         self

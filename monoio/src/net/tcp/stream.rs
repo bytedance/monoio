@@ -85,26 +85,31 @@ impl TcpStream {
     }
 
     /// Return the local address that this stream is bound to.
+    #[inline]
     pub fn local_addr(&self) -> io::Result<SocketAddr> {
         self.meta.local_addr()
     }
 
     /// Return the remote address that this stream is connected to.
+    #[inline]
     pub fn peer_addr(&self) -> io::Result<SocketAddr> {
         self.meta.peer_addr()
     }
 
     /// Get the value of the `TCP_NODELAY` option on this socket.
+    #[inline]
     pub fn nodelay(&self) -> io::Result<bool> {
         self.meta.no_delay()
     }
 
     /// Set the value of the `TCP_NODELAY` option on this socket.
+    #[inline]
     pub fn set_nodelay(&self, nodelay: bool) -> io::Result<()> {
         self.meta.set_no_delay(nodelay)
     }
 
     /// Set the value of the `SO_KEEPALIVE` option on this socket.
+    #[inline]
     pub fn set_tcp_keepalive(
         &self,
         time: Option<Duration>,
@@ -122,12 +127,14 @@ impl TcpStream {
 }
 
 impl AsReadFd for TcpStream {
+    #[inline]
     fn as_reader_fd(&mut self) -> &SharedFdWrapper {
         SharedFdWrapper::new(&self.fd)
     }
 }
 
 impl AsWriteFd for TcpStream {
+    #[inline]
     fn as_writer_fd(&mut self) -> &SharedFdWrapper {
         SharedFdWrapper::new(&self.fd)
     }
@@ -135,6 +142,7 @@ impl AsWriteFd for TcpStream {
 
 #[cfg(unix)]
 impl IntoRawFd for TcpStream {
+    #[inline]
     fn into_raw_fd(self) -> RawFd {
         self.fd
             .try_unwrap()
@@ -143,6 +151,7 @@ impl IntoRawFd for TcpStream {
 }
 #[cfg(unix)]
 impl AsRawFd for TcpStream {
+    #[inline]
     fn as_raw_fd(&self) -> RawFd {
         self.fd.raw_fd()
     }
@@ -150,6 +159,7 @@ impl AsRawFd for TcpStream {
 
 #[cfg(windows)]
 impl IntoRawHandle for TcpStream {
+    #[inline]
     fn into_raw_handle(self) -> RawHandle {
         self.fd
             .try_unwrap()
@@ -158,6 +168,7 @@ impl IntoRawHandle for TcpStream {
 }
 #[cfg(windows)]
 impl AsRawHandle for TcpStream {
+    #[inline]
     fn as_raw_handle(&self) -> RawHandle {
         self.fd.raw_handle()
     }
@@ -177,21 +188,25 @@ impl AsyncWriteRent for TcpStream {
     type FlushFuture<'a> = impl Future<Output = io::Result<()>>;
     type ShutdownFuture<'a> = impl Future<Output = io::Result<()>>;
 
+    #[inline]
     fn write<T: IoBuf>(&mut self, buf: T) -> Self::WriteFuture<'_, T> {
         // Submit the write operation
         let op = Op::send(&self.fd, buf).unwrap();
         op.write()
     }
 
+    #[inline]
     fn writev<T: IoVecBuf>(&mut self, buf_vec: T) -> Self::WritevFuture<'_, T> {
         let op = Op::writev(&self.fd, buf_vec).unwrap();
         op.write()
     }
 
+    #[inline]
     fn flush(&mut self) -> Self::FlushFuture<'_> {
         // Tcp stream does not need flush.
         async move { Ok(()) }
     }
+
     #[cfg(unix)]
     fn shutdown(&mut self) -> Self::ShutdownFuture<'_> {
         // We could use shutdown op here, which requires kernel 5.11+.
@@ -203,6 +218,7 @@ impl AsyncWriteRent for TcpStream {
         };
         async move { res }
     }
+
     #[cfg(windows)]
     fn shutdown(&mut self) -> Self::ShutdownFuture<'_> {
         async { unimplemented!() }
@@ -215,12 +231,14 @@ impl AsyncReadRent for TcpStream {
     type ReadvFuture<'a, B> = impl std::future::Future<Output = crate::BufResult<usize, B>> where
         B: IoVecBufMut + 'a;
 
+    #[inline]
     fn read<T: IoBufMut>(&mut self, buf: T) -> Self::ReadFuture<'_, T> {
         // Submit the read operation
         let op = Op::recv(&self.fd, buf).unwrap();
         op.read()
     }
 
+    #[inline]
     fn readv<T: IoVecBufMut>(&mut self, buf: T) -> Self::ReadvFuture<'_, T> {
         // Submit the read operation
         let op = Op::readv(&self.fd, buf).unwrap();

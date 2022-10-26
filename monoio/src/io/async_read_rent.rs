@@ -47,10 +47,12 @@ impl<A: ?Sized + AsyncReadRent> AsyncReadRent for &mut A {
         Self: 'a,
         T: IoVecBufMut + 'a;
 
+    #[inline]
     fn read<T: IoBufMut>(&mut self, buf: T) -> Self::ReadFuture<'_, T> {
         (**self).read(buf)
     }
 
+    #[inline]
     fn readv<T: IoVecBufMut>(&mut self, buf: T) -> Self::ReadvFuture<'_, T> {
         (**self).readv(buf)
     }
