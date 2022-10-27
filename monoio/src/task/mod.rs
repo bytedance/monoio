@@ -46,6 +46,11 @@ impl<S: 'static> Task<S> {
     pub(crate) fn run(self) {
         self.raw.poll();
     }
+
+    #[cfg(feature = "sync")]
+    pub(crate) unsafe fn finish(&mut self, val_slot: *mut ()) {
+        self.raw.finish(val_slot);
+    }
 }
 
 impl<S: 'static> Drop for Task<S> {

@@ -3,7 +3,13 @@ use std::sync::{
     LazyLock,
 };
 
-static ID_GEN: LazyLock<AtomicUsize> = LazyLock::new(|| AtomicUsize::new(1));
+// thread id begins from 16.
+// 0 is always reserved
+// 1 is blocking thread
+// 2-15 are unused
+static ID_GEN: LazyLock<AtomicUsize> = LazyLock::new(|| AtomicUsize::new(16));
+
+pub(crate) const BLOCKING_THREAD_ID: usize = 1;
 
 /// Used to generate thread id.
 pub(crate) fn gen_id() -> usize {
