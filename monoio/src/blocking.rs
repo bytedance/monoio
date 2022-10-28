@@ -3,6 +3,7 @@
 use std::{cell::RefCell, future::Future, sync::Arc, task::Poll};
 
 use fxhash::FxHashMap;
+use threadpool::{Builder as ThreadPoolBuilder, ThreadPool as ThreadPoolImpl};
 
 use crate::{
     runtime::Context,
@@ -11,6 +12,7 @@ use crate::{
 };
 
 /// Users may implement a ThreadPool and attach it to runtime.
+/// We also provide an implementation based on threadpool crate, you can use DefaultThreadPool.
 pub trait ThreadPool {
     /// Monoio runtime will call `schedule_task` on `spawn_blocking`.
     /// ThreadPool impl must execute it now or later.
@@ -130,6 +132,29 @@ where
     join
 }
 
+/// DefaultThreadPool is a simple wrapped `threadpool::ThreadPool` that implememt
+/// `monoio::blocking::ThreadPool`. You may use this implementation, or you can use your own thread
+/// pool implementation.
+pub struct DefaultThreadPool {
+    pool: ThreadPoolImpl,
+}
+
+impl DefaultThreadPool {
+    /// Create a new DefaultThreadPool.
+    pub fn new(num_threads: usize) -> Self {
+        let pool = ThreadPoolBuilder::default()
+            .num_threads(num_threads)
+            .build();
+        Self { pool }
+    }
+}
+
+impl ThreadPool for DefaultThreadPool {
+    fn schedule_task(&self, task: BlockingTask) {
+        self.pool.execute(move || task.run());
+    }
+}
+
 pub(crate) struct NoopScheduler;
 
 impl crate::task::Schedule for NoopScheduler {
@@ -179,6 +204,8 @@ where
 mod tests {
     use std::sync::Arc;
 
+    use super::DefaultThreadPool;
+
     /// NaiveThreadPool always create a new thread on executing tasks.
     struct NaiveThreadPool;
 
@@ -215,7 +242,7 @@ mod tests {
             let sleep_async = crate::time::sleep(std::time::Duration::from_millis(100));
             let (result, _) = crate::join!(join, sleep_async);
             let eps = begin.elapsed();
-            assert!(eps < std::time::Duration::from_millis(150));
+            assert!(eps < std::time::Duration::from_millis(190));
             assert!(eps >= std::time::Duration::from_millis(100));
             assert_eq!(result.unwrap(), "hello spawn_blocking!");
         });
@@ -268,6 +295,49 @@ mod tests {
         rt.block_on(async {
             let ret = crate::spawn_blocking(|| 1).await;
             assert!(matches!(ret, Err(super::JoinError::Canceled)));
+        });
+    }
+
+    #[test]
+    fn default_pool() {
+        let shared_pool = Arc::new(DefaultThreadPool::new(3));
+        let mut rt = crate::RuntimeBuilder::<crate::FusionDriver>::new()
+            .attach_thread_pool(shared_pool)
+            .enable_timer()
+            .build()
+            .unwrap();
+        rt.block_on(async {
+            let begin = std::time::Instant::now();
+            let join1 = crate::spawn_blocking(|| {
+                // Simulate a heavy computation.
+                std::thread::sleep(std::time::Duration::from_millis(150));
+                "hello spawn_blocking1!".to_string()
+            });
+            let join2 = crate::spawn_blocking(|| {
+                // Simulate a heavy computation.
+                std::thread::sleep(std::time::Duration::from_millis(150));
+                "hello spawn_blocking2!".to_string()
+            });
+            let join3 = crate::spawn_blocking(|| {
+                // Simulate a heavy computation.
+                std::thread::sleep(std::time::Duration::from_millis(150));
+                "hello spawn_blocking3!".to_string()
+            });
+            let join4 = crate::spawn_blocking(|| {
+                // Simulate a heavy computation.
+                std::thread::sleep(std::time::Duration::from_millis(150));
+                "hello spawn_blocking4!".to_string()
+            });
+            let sleep_async = crate::time::sleep(std::time::Duration::from_millis(150));
+            let (result1, result2, result3, result4, _) =
+                crate::join!(join1, join2, join3, join4, sleep_async);
+            let eps = begin.elapsed();
+            assert!(eps < std::time::Duration::from_millis(590));
+            assert!(eps >= std::time::Duration::from_millis(150));
+            assert_eq!(result1.unwrap(), "hello spawn_blocking1!");
+            assert_eq!(result2.unwrap(), "hello spawn_blocking2!");
+            assert_eq!(result3.unwrap(), "hello spawn_blocking3!");
+            assert_eq!(result4.unwrap(), "hello spawn_blocking4!");
         });
     }
 }

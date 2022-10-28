@@ -27,6 +27,7 @@ mio = {version = "0.8", features = [
   "os-poll",
   "os-ext",
 ], optional = true}
+threadpool = {version = "1", optional = true}
 tracing = {version = "0.1", default-features = false, features = [
   "std",
 ], optional = true}
@@ -64,7 +65,7 @@ splice = []
 # enable `async main` macros support
 macros = ["monoio-macros"]
 # allow waker to be sent across threads
-sync = ["flume"]
+sync = ["flume", "threadpool"]
 # enable bind cpu set
 utils = ["nix"]
 # enable debug if you want to know what runtime does
