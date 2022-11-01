@@ -1,7 +1,5 @@
 use std::future::Future;
 
-use scoped_tls::scoped_thread_local;
-
 #[cfg(any(all(target_os = "linux", feature = "iouring"), feature = "legacy"))]
 use crate::time::TimeDriver;
 #[cfg(all(target_os = "linux", feature = "iouring"))]
@@ -18,6 +16,18 @@ use crate::{
     },
     time::driver::Handle as TimeHandle,
 };
+
+#[cfg(feature = "sync")]
+thread_local! {
+    pub(crate) static DEFAULT_CTX: Context = Context {
+        thread_id: crate::utils::thread_id::DEFAULT_THREAD_ID,
+        unpark_cache: std::cell::RefCell::new(fxhash::FxHashMap::default()),
+        waker_sender_cache: std::cell::RefCell::new(fxhash::FxHashMap::default()),
+        tasks: Default::default(),
+        time_handle: None,
+        blocking_handle: crate::blocking::BlockingHandle::Empty(crate::blocking::BlockingStrategy::Panic),
+    };
+}
 
 scoped_thread_local!(pub(crate) static CURRENT: Context);
 
@@ -39,24 +49,33 @@ pub(crate) struct Context {
     pub(crate) tasks: TaskQueue,
     /// Time Handle
     pub(crate) time_handle: Option<TimeHandle>,
-}
 
-impl Default for Context {
-    fn default() -> Self {
-        Self::new()
-    }
+    /// Blocking Handle
+    #[cfg(feature = "sync")]
+    pub(crate) blocking_handle: crate::blocking::BlockingHandle,
 }
 
 impl Context {
+    #[cfg(feature = "sync")]
+    pub(crate) fn new(blocking_handle: crate::blocking::BlockingHandle) -> Self {
+        let thread_id = crate::builder::BUILD_THREAD_ID.with(|id| *id);
+
+        Self {
+            thread_id,
+            unpark_cache: std::cell::RefCell::new(fxhash::FxHashMap::default()),
+            waker_sender_cache: std::cell::RefCell::new(fxhash::FxHashMap::default()),
+            tasks: TaskQueue::default(),
+            time_handle: None,
+            blocking_handle,
+        }
+    }
+
+    #[cfg(not(feature = "sync"))]
     pub(crate) fn new() -> Self {
         let thread_id = crate::builder::BUILD_THREAD_ID.with(|id| *id);
 
         Self {
             thread_id,
-            #[cfg(feature = "sync")]
-            unpark_cache: std::cell::RefCell::new(fxhash::FxHashMap::default()),
-            #[cfg(feature = "sync")]
-            waker_sender_cache: std::cell::RefCell::new(fxhash::FxHashMap::default()),
             tasks: TaskQueue::default(),
             time_handle: None,
         }
@@ -79,7 +98,7 @@ impl Context {
             return;
         }
 
-        debug_assert!(false, "thread to unpark has not been registered");
+        panic!("thread to unpark has not been registered");
     }
 
     #[allow(unused)]
@@ -98,7 +117,7 @@ impl Context {
             return;
         }
 
-        debug_assert!(false, "sender has not been registered");
+        panic!("sender has not been registered");
     }
 }
 

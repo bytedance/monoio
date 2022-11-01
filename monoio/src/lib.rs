@@ -32,6 +32,9 @@ pub mod time;
 
 extern crate alloc;
 
+#[cfg(feature = "sync")]
+pub mod blocking;
+
 pub mod buf;
 pub mod fs;
 pub mod io;
@@ -41,6 +44,8 @@ pub mod utils;
 
 use std::future::Future;
 
+#[cfg(feature = "sync")]
+pub use blocking::spawn_blocking;
 pub use builder::{Buildable, RuntimeBuilder};
 pub use driver::Driver;
 #[cfg(all(target_os = "linux", feature = "iouring"))]

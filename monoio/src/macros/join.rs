@@ -78,7 +78,7 @@ macro_rules! join {
 
                 // Safety: future is stored on the stack above
                 // and never moved.
-                let mut fut = unsafe { Pin::new_unchecked(fut) };
+                let fut = unsafe { Pin::new_unchecked(fut) };
 
                 // Try polling
                 if fut.poll(cx).is_pending() {
@@ -95,7 +95,7 @@ macro_rules! join {
 
                     // Safety: future is stored on the stack above
                     // and never moved.
-                    let mut fut = unsafe { Pin::new_unchecked(fut) };
+                    let fut = unsafe { Pin::new_unchecked(fut) };
 
                     fut.take_output().expect("expected completed future")
                 },)*))

@@ -13,7 +13,7 @@ use crate::{
         waker::waker_ref,
         Schedule, Task,
     },
-    utils::thread_id::get_current_thread_id,
+    utils::thread_id::{try_get_current_thread_id, DEFAULT_THREAD_ID},
 };
 
 pub(crate) struct Harness<T: Future, S: 'static> {
@@ -103,6 +103,14 @@ where
         }
     }
 
+    #[cfg(feature = "sync")]
+    pub(super) fn finish(self, val: <T as Future>::Output) {
+        trace!("MONOIO DEBUG[Harness]:: finish");
+        self.header().state.transition_to_running();
+        self.core().stage.store_output(val);
+        self.complete();
+    }
+
     // ===== join handle =====
 
     /// Read the task output into `dst`.
@@ -152,24 +160,37 @@ where
     /// passed to this call.
     pub(super) fn wake_by_val(self) {
         trace!("MONOIO DEBUG[Harness]:: wake_by_val");
-        let (current_id, raw_id) = (get_current_thread_id(), self.header().owner_id);
-        if current_id != raw_id {
+        let owner_id = self.header().owner_id;
+        if is_remote_task(owner_id) {
+            // send to target thread
             trace!("MONOIO DEBUG[Harness]:: wake_by_val with another thread id");
             #[cfg(feature = "sync")]
             {
-                // # Ref Count: self -> waker
                 use crate::task::waker::raw_waker;
-                let raw_waker = raw_waker::<T, S>(self.cell.cast::<Header>().as_ptr());
-                let waker = unsafe { Waker::from_raw(raw_waker) };
-                crate::runtime::CURRENT.with(|ctx| {
-                    ctx.send_waker(raw_id, waker);
-                    ctx.unpark_thread(raw_id);
+                let waker = raw_waker::<T, S>(self.cell.cast::<Header>().as_ptr());
+                // # Ref Count: self -> waker
+                let waker = unsafe { Waker::from_raw(waker) };
+                crate::runtime::CURRENT.try_with(|maybe_ctx| match maybe_ctx {
+                    Some(ctx) => {
+                        ctx.send_waker(owner_id, waker);
+                        ctx.unpark_thread(owner_id);
+                    }
+                    None => {
+                        crate::runtime::DEFAULT_CTX.with(|default_ctx| {
+                            crate::runtime::CURRENT.set(default_ctx, || {
+                                crate::runtime::CURRENT.with(|ctx| {
+                                    ctx.send_waker(owner_id, waker);
+                                    ctx.unpark_thread(owner_id);
+                                });
+                            });
+                        });
+                    }
                 });
                 return;
             }
             #[cfg(not(feature = "sync"))]
             {
-                panic!("waker is sent across threads without `sync` feature enabled");
+                panic!("waker can only be sent across threads when `sync` feature enabled");
             }
         }
 
@@ -192,8 +213,9 @@ where
     /// submit it if necessary.
     pub(super) fn wake_by_ref(&self) {
         trace!("MONOIO DEBUG[Harness]:: wake_by_ref");
-        let (current_id, raw_id) = (get_current_thread_id(), self.header().owner_id);
-        if current_id != raw_id {
+        let owner_id = self.header().owner_id;
+        if is_remote_task(owner_id) {
+            // send to target thread
             trace!("MONOIO DEBUG[Harness]:: wake_by_ref with another thread id");
             #[cfg(feature = "sync")]
             {
@@ -202,15 +224,27 @@ where
                 // We create a new waker so we need to inc ref count.
                 let waker = unsafe { Waker::from_raw(waker) };
                 self.header().state.ref_inc();
-                crate::runtime::CURRENT.with(|ctx| {
-                    ctx.send_waker(raw_id, waker);
-                    ctx.unpark_thread(raw_id);
+                crate::runtime::CURRENT.try_with(|maybe_ctx| match maybe_ctx {
+                    Some(ctx) => {
+                        ctx.send_waker(owner_id, waker);
+                        ctx.unpark_thread(owner_id);
+                    }
+                    None => {
+                        crate::runtime::DEFAULT_CTX.with(|default_ctx| {
+                            crate::runtime::CURRENT.set(default_ctx, || {
+                                crate::runtime::CURRENT.with(|ctx| {
+                                    ctx.send_waker(owner_id, waker);
+                                    ctx.unpark_thread(owner_id);
+                                });
+                            });
+                        });
+                    }
                 });
                 return;
             }
             #[cfg(not(feature = "sync"))]
             {
-                panic!("waker is sent across threads without `sync` feature enabled");
+                panic!("waker can only be sent across threads when `sync` feature enabled");
             }
         }
 
@@ -270,6 +304,16 @@ where
         // safety: The header is at the beginning of the cell, so this cast is
         // safe.
         unsafe { Task::from_raw(self.cell.cast()) }
+    }
+}
+
+fn is_remote_task(owner_id: usize) -> bool {
+    if owner_id == DEFAULT_THREAD_ID {
+        return true;
+    }
+    match try_get_current_thread_id() {
+        Some(tid) => owner_id != tid,
+        None => true,
     }
 }
 

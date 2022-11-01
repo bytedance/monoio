@@ -29,6 +29,10 @@ pub(crate) struct Vtable {
 
     /// The join handle has been dropped
     pub(crate) drop_join_handle_slow: unsafe fn(NonNull<Header>),
+
+    /// Set future output
+    #[cfg(feature = "sync")]
+    pub(crate) finish: unsafe fn(NonNull<Header>, *mut ()),
 }
 
 /// Get the vtable for the requested `T` and `S` generics.
@@ -38,6 +42,8 @@ pub(super) fn vtable<T: Future, S: Schedule>() -> &'static Vtable {
         dealloc: dealloc::<T, S>,
         try_read_output: try_read_output::<T, S>,
         drop_join_handle_slow: drop_join_handle_slow::<T, S>,
+        #[cfg(feature = "sync")]
+        finish: finish::<T, S>,
     }
 }
 
@@ -85,6 +91,12 @@ impl RawTask {
         let vtable = self.header().vtable;
         unsafe { (vtable.drop_join_handle_slow)(self.ptr) }
     }
+
+    #[cfg(feature = "sync")]
+    pub(crate) unsafe fn finish(self, val_slot: *mut ()) {
+        let vtable = self.header().vtable;
+        unsafe { (vtable.finish)(self.ptr, val_slot) }
+    }
 }
 
 unsafe fn poll<T: Future, S: Schedule>(ptr: NonNull<Header>) {
@@ -95,6 +107,13 @@ unsafe fn poll<T: Future, S: Schedule>(ptr: NonNull<Header>) {
 unsafe fn dealloc<T: Future, S: Schedule>(ptr: NonNull<Header>) {
     let harness = Harness::<T, S>::from_raw(ptr);
     harness.dealloc();
+}
+
+#[cfg(feature = "sync")]
+unsafe fn finish<T: Future, S: Schedule>(ptr: NonNull<Header>, val: *mut ()) {
+    let harness = Harness::<T, S>::from_raw(ptr);
+    let val = &mut *(val as *mut Option<<T as Future>::Output>);
+    harness.finish(val.take().unwrap());
 }
 
 unsafe fn try_read_output<T: Future, S: Schedule>(
