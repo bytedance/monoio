@@ -1,7 +1,5 @@
 use std::{io, marker::PhantomData};
 
-use scoped_tls::scoped_thread_local;
-
 #[cfg(all(target_os = "linux", feature = "iouring"))]
 use crate::driver::IoUringDriver;
 #[cfg(all(unix, feature = "legacy"))]

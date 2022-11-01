@@ -1,14 +1,12 @@
 //! Blocking tasks related.
 
-use std::{cell::RefCell, future::Future, sync::Arc, task::Poll};
+use std::{future::Future, sync::Arc, task::Poll};
 
-use fxhash::FxHashMap;
 use threadpool::{Builder as ThreadPoolBuilder, ThreadPool as ThreadPoolImpl};
 
 use crate::{
-    runtime::Context,
     task::{new_task, JoinHandle},
-    utils::thread_id::BLOCKING_THREAD_ID,
+    utils::thread_id::DEFAULT_THREAD_ID,
 };
 
 /// Users may implement a ThreadPool and attach it to runtime.
@@ -58,32 +56,21 @@ impl Drop for BlockingTask {
     }
 }
 
-// scoped_thread_local!(static BLOCKING_CTX: Context);
-thread_local! {
-    static BLOCKING_CTX: Context = Context {
-        thread_id: BLOCKING_THREAD_ID,
-        unpark_cache: RefCell::new(FxHashMap::default()),
-        waker_sender_cache: RefCell::new(FxHashMap::default()),
-        tasks: Default::default(),
-        time_handle: None,
-        blocking_handle: BlockingHandle::Empty(BlockingStrategy::Panic),
-    };
-}
-
 impl BlockingTask {
     /// Run task.
     #[inline]
     pub fn run(mut self) {
         let task = self.task.take().unwrap();
-        // if we are within a runtime, just run it.
-        if crate::runtime::CURRENT.is_set() {
-            task.run();
-            return;
-        }
-        // if we are on a standalone thread, we will use thread local ctx as Context.
-        BLOCKING_CTX.with(|ctx| {
-            crate::runtime::CURRENT.set(ctx, || task.run());
-        });
+        task.run();
+        // // if we are within a runtime, just run it.
+        // if crate::runtime::CURRENT.is_set() {
+        //     task.run();
+        //     return;
+        // }
+        // // if we are on a standalone thread, we will use thread local ctx as Context.
+        // crate::runtime::DEFAULT_CTX.with(|ctx| {
+        //     crate::runtime::CURRENT.set(ctx, || task.run());
+        // });
     }
 }
 
@@ -108,8 +95,7 @@ where
     R: Send + 'static,
 {
     let fut = BlockingFuture(Some(func));
-    let (task, join) = new_task(BLOCKING_THREAD_ID, fut, NoopScheduler);
-    // TODO: send task to thread pool
+    let (task, join) = new_task(DEFAULT_THREAD_ID, fut, NoopScheduler);
     crate::runtime::CURRENT.with(|inner| {
         let handle = &inner.blocking_handle;
         match handle {

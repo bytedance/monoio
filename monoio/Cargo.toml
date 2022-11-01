@@ -17,7 +17,6 @@ monoio-macros = {version = "0.0.3", path = "../monoio-macros", optional = true}
 fxhash = "0.2"
 libc = "0.2"
 pin-project-lite = "0.2"
-scoped-tls = "1"
 socket2 = {version = "0.4", features = ["all"]}
 
 bytes = {version = "1", optional = true}

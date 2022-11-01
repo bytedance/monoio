@@ -1,7 +1,5 @@
 use std::future::Future;
 
-use scoped_tls::scoped_thread_local;
-
 #[cfg(any(all(target_os = "linux", feature = "iouring"), feature = "legacy"))]
 use crate::time::TimeDriver;
 #[cfg(all(target_os = "linux", feature = "iouring"))]
@@ -18,6 +16,18 @@ use crate::{
     },
     time::driver::Handle as TimeHandle,
 };
+
+#[cfg(feature = "sync")]
+thread_local! {
+    pub(crate) static DEFAULT_CTX: Context = Context {
+        thread_id: crate::utils::thread_id::DEFAULT_THREAD_ID,
+        unpark_cache: std::cell::RefCell::new(fxhash::FxHashMap::default()),
+        waker_sender_cache: std::cell::RefCell::new(fxhash::FxHashMap::default()),
+        tasks: Default::default(),
+        time_handle: None,
+        blocking_handle: crate::blocking::BlockingHandle::Empty(crate::blocking::BlockingStrategy::Panic),
+    };
+}
 
 scoped_thread_local!(pub(crate) static CURRENT: Context);
 
@@ -88,7 +98,7 @@ impl Context {
             return;
         }
 
-        debug_assert!(false, "thread to unpark has not been registered");
+        panic!("thread to unpark has not been registered");
     }
 
     #[allow(unused)]
@@ -107,7 +117,7 @@ impl Context {
             return;
         }
 
-        debug_assert!(false, "sender has not been registered");
+        panic!("sender has not been registered");
     }
 }
 
