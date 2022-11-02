@@ -28,6 +28,14 @@ impl<T: IoBuf> Op<Send<T>> {
         })
     }
 
+    #[allow(unused)]
+    pub(crate) fn send_raw(fd: &SharedFd, buf: T) -> Send<T> {
+        Send {
+            fd: fd.clone(),
+            buf,
+        }
+    }
+
     pub(crate) async fn write(self) -> BufResult<usize, T> {
         let complete = self.await;
         (complete.meta.result.map(|v| v as _), complete.data.buf)
