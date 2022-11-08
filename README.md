@@ -5,6 +5,7 @@ A thread-per-core Rust runtime with io_uring/epoll/kqueue.
 [![MIT/Apache-2 licensed][license-badge]][license-url]
 [![Build Status][actions-badge]][actions-url]
 [![Codecov][codecov-badge]][codecov-url]
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fbytedance%2Fmonoio.svg?type=shield)](https://app.fossa.com/projects/git%2Bgithub.com%2Fbytedance%2Fmonoio?ref=badge_shield)
 [中文说明][zh-readme-url]
 
 [crates-badge]: https://img.shields.io/crates/v/monoio.svg
@@ -111,3 +112,6 @@ HTTP framework and RPC framework are on the way.
 Monoio is licensed under the MIT license or Apache license.
 
 During developing we referenced a lot from Tokio, Mio, Tokio-uring and other related projects. We would like to thank the authors of these projects.
+
+
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fbytedance%2Fmonoio.svg?type=large)](https://app.fossa.com/projects/git%2Bgithub.com%2Fbytedance%2Fmonoio?ref=badge_large)
