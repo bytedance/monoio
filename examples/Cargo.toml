@@ -1,5 +1,6 @@
 [package]
 edition = "2021"
+license = "MIT/Apache-2.0"
 name = "monoio-examples"
 publish = false
 version = "0.0.0"
@@ -19,9 +20,9 @@ monoio = {path = "../monoio", default-features = false, features = ["async-cance
 hyper = {version = "0.14", features = ["http1", "client", "server", "stream"]}
 
 # For h2 examples
+bytes = {version = "1"}
 h2 = {version = "0.3"}
 http = {version = "0.2"}
-bytes = {version = "1"}
 
 # For hyper and h2 examples
 monoio-compat = {path = "../monoio-compat"}

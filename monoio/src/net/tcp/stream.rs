@@ -260,6 +260,7 @@ impl tokio::io::AsyncRead for TcpStream {
             let ret = ready!(crate::driver::op::PollLegacy::poll_legacy(&mut recv, cx));
 
             std::task::Poll::Ready(ret.result.map(|n| {
+                buf.assume_init(n as usize);
                 buf.advance(n as usize);
             }))
         }
