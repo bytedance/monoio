@@ -222,14 +222,14 @@ mod tests {
             let begin = std::time::Instant::now();
             let join = crate::spawn_blocking(|| {
                 // Simulate a heavy computation.
-                std::thread::sleep(std::time::Duration::from_millis(100));
+                std::thread::sleep(std::time::Duration::from_millis(400));
                 "hello spawn_blocking!".to_string()
             });
-            let sleep_async = crate::time::sleep(std::time::Duration::from_millis(100));
+            let sleep_async = crate::time::sleep(std::time::Duration::from_millis(400));
             let (result, _) = crate::join!(join, sleep_async);
             let eps = begin.elapsed();
-            assert!(eps < std::time::Duration::from_millis(190));
-            assert!(eps >= std::time::Duration::from_millis(100));
+            assert!(eps < std::time::Duration::from_millis(800));
+            assert!(eps >= std::time::Duration::from_millis(400));
             assert_eq!(result.unwrap(), "hello spawn_blocking!");
         });
     }
