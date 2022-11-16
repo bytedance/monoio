@@ -301,6 +301,25 @@ impl tokio::io::AsyncWrite for TcpStream {
         };
         std::task::Poll::Ready(res)
     }
+
+    fn poll_write_vectored(
+        self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+        bufs: &[std::io::IoSlice<'_>],
+    ) -> std::task::Poll<Result<usize, io::Error>> {
+        unsafe {
+            let raw_buf =
+                crate::buf::RawBufVectored::new(bufs.as_ptr() as *const libc::iovec, bufs.len());
+            let mut writev = Op::writev_raw(&self.fd, raw_buf);
+            let ret = ready!(crate::driver::op::PollLegacy::poll_legacy(&mut writev, cx));
+
+            std::task::Poll::Ready(ret.result.map(|n| n as usize))
+        }
+    }
+
+    fn is_write_vectored(&self) -> bool {
+        true
+    }
 }
 
 struct StreamMeta {
