@@ -1,0 +1,14 @@
+[package]
+edition = "2021"
+license = "MIT/Apache-2.0"
+name = "tokio-io-compat"
+publish = false
+version = "0.0.0"
+
+[dependencies]
+# legacy and tokio-compat enabled, iouring disabled.
+monoio = {path = "../../monoio", default-features = false, features = ["async-cancel", "sync", "bytes", "legacy", "macros", "utils", "tokio-compat"]}
+
+hyper = {version = "0.14", features = ["http1", "client", "server", "stream"]}
+tokio = {version = "1", default-features = false, features = ["io-util"]}
+tower-service = "0.3"

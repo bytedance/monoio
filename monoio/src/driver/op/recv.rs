@@ -29,6 +29,14 @@ impl<T: IoBufMut> Op<Recv<T>> {
         })
     }
 
+    #[allow(unused)]
+    pub(crate) fn recv_raw(fd: &SharedFd, buf: T) -> Recv<T> {
+        Recv {
+            fd: fd.clone(),
+            buf,
+        }
+    }
+
     pub(crate) async fn read(self) -> BufResult<usize, T> {
         let complete = self.await;
         let res = complete.meta.result.map(|v| v as _);

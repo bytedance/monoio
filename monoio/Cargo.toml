@@ -27,6 +27,7 @@ mio = {version = "0.8", features = [
   "os-ext",
 ], optional = true}
 threadpool = {version = "1", optional = true}
+tokio = {version = "1", default-features = false, optional = true}
 tracing = {version = "0.1", default-features = false, features = [
   "std",
 ], optional = true}
@@ -73,5 +74,7 @@ debug = ["tracing"]
 legacy = ["mio"]
 # iouring support
 iouring = []
+# tokio-compatiable(only have effect when legacy is enabled and iouring is not)
+tokio-compat = ["tokio"]
 # by default both iouring and legacy are enabled
 default = ["async-cancel", "bytes", "iouring", "legacy", "macros", "utils"]

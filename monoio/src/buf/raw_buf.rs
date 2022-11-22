@@ -99,3 +99,46 @@ impl RawBuf {
         }
     }
 }
+
+/// RawBufVectored behaves like RawBuf.
+/// And user must obey the following restrictions:
+/// 1. await the future with RawBuf Ready before drop the real buffer
+/// 2. make sure the pointer and length is valid before the future Ready
+pub struct RawBufVectored {
+    ptr: *const libc::iovec,
+    len: usize,
+}
+
+impl RawBufVectored {
+    /// Create a new RawBuf with given pointer and length.
+    /// # Safety
+    /// make sure the pointer and length is valid when RawBuf is used.
+    #[inline]
+    pub unsafe fn new(ptr: *const libc::iovec, len: usize) -> Self {
+        Self { ptr, len }
+    }
+}
+
+unsafe impl IoVecBuf for RawBufVectored {
+    #[inline]
+    fn read_iovec_ptr(&self) -> *const libc::iovec {
+        self.ptr
+    }
+
+    #[inline]
+    fn read_iovec_len(&self) -> usize {
+        self.len
+    }
+}
+
+unsafe impl IoVecBufMut for RawBufVectored {
+    fn write_iovec_ptr(&mut self) -> *mut libc::iovec {
+        self.ptr as *mut libc::iovec
+    }
+
+    fn write_iovec_len(&mut self) -> usize {
+        self.len
+    }
+
+    unsafe fn set_init(&mut self, _pos: usize) {}
+}

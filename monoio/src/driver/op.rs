@@ -58,6 +58,34 @@ pub(crate) trait OpAble {
     fn legacy_call(&mut self) -> io::Result<u32>;
 }
 
+/// If legacy is enabled and iouring is not, we can expose io interface in a poll-like way.
+/// This can provide better compatibility for crates programmed in poll-like way.
+#[cfg(all(unix, feature = "legacy"))]
+pub(crate) trait PollLegacy {
+    fn poll_legacy(&mut self, cx: &mut std::task::Context<'_>) -> std::task::Poll<CompletionMeta>;
+}
+
+#[cfg(all(unix, feature = "legacy"))]
+impl<T> PollLegacy for T
+where
+    T: OpAble,
+{
+    fn poll_legacy(&mut self, _cx: &mut std::task::Context<'_>) -> std::task::Poll<CompletionMeta> {
+        #[cfg(all(feature = "iouring", feature = "tokio-compat"))]
+        unsafe {
+            extern "C" {
+                #[link_name = "tokio-compat can only be enabled when legacy feature is enabled and \
+                               iouring is not"]
+                fn trigger() -> !;
+            }
+            trigger()
+        }
+
+        #[cfg(not(all(feature = "iouring", feature = "tokio-compat")))]
+        driver::CURRENT.with(|this| this.poll_op(self, 0, _cx))
+    }
+}
+
 impl<T> Op<T> {
     /// Submit an operation to uring.
     ///

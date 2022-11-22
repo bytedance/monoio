@@ -16,7 +16,7 @@ mod slice;
 pub use slice::{IoVecWrapper, IoVecWrapperMut, Slice, SliceMut};
 
 mod raw_buf;
-pub use raw_buf::RawBuf;
+pub use raw_buf::{RawBuf, RawBufVectored};
 
 mod vec_wrapper;
 pub(crate) use vec_wrapper::{read_vec_meta, write_vec_meta};

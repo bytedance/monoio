@@ -246,6 +246,82 @@ impl AsyncReadRent for TcpStream {
     }
 }
 
+#[cfg(all(unix, feature = "legacy", feature = "tokio-compat"))]
+impl tokio::io::AsyncRead for TcpStream {
+    fn poll_read(
+        self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+        buf: &mut tokio::io::ReadBuf<'_>,
+    ) -> std::task::Poll<io::Result<()>> {
+        unsafe {
+            let slice = buf.unfilled_mut();
+            let raw_buf = crate::buf::RawBuf::new(slice.as_ptr() as *const u8, slice.len());
+            let mut recv = Op::recv_raw(&self.fd, raw_buf);
+            let ret = ready!(crate::driver::op::PollLegacy::poll_legacy(&mut recv, cx));
+
+            std::task::Poll::Ready(ret.result.map(|n| {
+                buf.assume_init(n as usize);
+                buf.advance(n as usize);
+            }))
+        }
+    }
+}
+
+#[cfg(all(unix, feature = "legacy", feature = "tokio-compat"))]
+impl tokio::io::AsyncWrite for TcpStream {
+    fn poll_write(
+        self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+        buf: &[u8],
+    ) -> std::task::Poll<Result<usize, io::Error>> {
+        unsafe {
+            let raw_buf = crate::buf::RawBuf::new(buf.as_ptr() as *const u8, buf.len());
+            let mut send = Op::send_raw(&self.fd, raw_buf);
+            let ret = ready!(crate::driver::op::PollLegacy::poll_legacy(&mut send, cx));
+
+            std::task::Poll::Ready(ret.result.map(|n| n as usize))
+        }
+    }
+
+    fn poll_flush(
+        self: std::pin::Pin<&mut Self>,
+        _cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Result<(), io::Error>> {
+        std::task::Poll::Ready(Ok(()))
+    }
+
+    fn poll_shutdown(
+        self: std::pin::Pin<&mut Self>,
+        _cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Result<(), io::Error>> {
+        let fd = self.as_raw_fd();
+        let res = match unsafe { libc::shutdown(fd, libc::SHUT_WR) } {
+            -1 => Err(io::Error::last_os_error()),
+            _ => Ok(()),
+        };
+        std::task::Poll::Ready(res)
+    }
+
+    fn poll_write_vectored(
+        self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+        bufs: &[std::io::IoSlice<'_>],
+    ) -> std::task::Poll<Result<usize, io::Error>> {
+        unsafe {
+            let raw_buf =
+                crate::buf::RawBufVectored::new(bufs.as_ptr() as *const libc::iovec, bufs.len());
+            let mut writev = Op::writev_raw(&self.fd, raw_buf);
+            let ret = ready!(crate::driver::op::PollLegacy::poll_legacy(&mut writev, cx));
+
+            std::task::Poll::Ready(ret.result.map(|n| n as usize))
+        }
+    }
+
+    fn is_write_vectored(&self) -> bool {
+        true
+    }
+}
+
 struct StreamMeta {
     socket: Option<socket2::Socket>,
     meta: UnsafeCell<Meta>,

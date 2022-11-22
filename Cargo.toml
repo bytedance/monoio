@@ -6,5 +6,6 @@ members = [
     "monoio-compat",
 
     # Internal
-    "examples"
+    "examples",
+    "examples/tokio-io-compat"
 ]

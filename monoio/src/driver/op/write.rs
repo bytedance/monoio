@@ -100,6 +100,14 @@ impl<T: IoVecBuf> Op<WriteVec<T>> {
         })
     }
 
+    #[allow(unused)]
+    pub(crate) fn writev_raw(fd: &SharedFd, buf_vec: T) -> WriteVec<T> {
+        WriteVec {
+            fd: fd.clone(),
+            buf_vec,
+        }
+    }
+
     pub(crate) async fn write(self) -> BufResult<usize, T> {
         let complete = self.await;
         (complete.meta.result.map(|v| v as _), complete.data.buf_vec)
