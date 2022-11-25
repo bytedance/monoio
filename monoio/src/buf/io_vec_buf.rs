@@ -4,6 +4,7 @@
 ///
 /// # Safety
 /// See the safety note of the methods.
+#[allow(clippy::unnecessary_safety_doc)]
 pub unsafe trait IoVecBuf: Unpin + 'static {
     /// Returns a raw pointer to iovec struct.
     /// struct iovec {
@@ -145,6 +146,7 @@ impl From<VecBuf> for Vec<Vec<u8>> {
 ///
 /// # Safety
 /// See the safety note of the methods.
+#[allow(clippy::unnecessary_safety_doc)]
 pub unsafe trait IoVecBufMut: Unpin + 'static {
     #[cfg(unix)]
     /// Returns a raw mutable pointer to iovec struct.
