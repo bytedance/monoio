@@ -44,7 +44,7 @@ windows = {version = "0.43.0", features = [
 
 # unix dependencies
 [target.'cfg(unix)'.dependencies]
-nix = {version = "0.25", optional = true}
+nix = {version = "0.26", optional = true}
 
 [target.'cfg(target_os = "linux")'.dependencies]
 io-uring = {version = "0.5", features = ["unstable"]}
