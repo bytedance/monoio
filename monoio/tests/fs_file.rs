@@ -93,28 +93,25 @@ async fn explicit_close() {
 #[monoio::test_all]
 async fn drop_open() {
     let tempfile = tempfile();
-    let _ = File::create(tempfile.path());
 
     // Do something else
-    let file = File::create(tempfile.path()).await.unwrap();
-
-    file.write_at(HELLO, 0).await.0.unwrap();
-    drop(file);
+    let file_w = File::create(tempfile.path()).await.unwrap();
+    file_w.write_at(HELLO, 0).await.0.unwrap();
 
     let file = std::fs::read(tempfile.path()).unwrap();
     assert_eq!(file, HELLO);
+    drop(file_w);
 }
 #[cfg(unix)]
 #[test]
 fn drop_off_runtime() {
+    let tempfile = tempfile();
     #[cfg(target_os = "linux")]
     let file = monoio::start::<monoio::IoUringDriver, _>(async {
-        let tempfile = tempfile();
         File::open(tempfile.path()).await.unwrap()
     });
     #[cfg(not(target_os = "linux"))]
     let file = monoio::start::<monoio::LegacyDriver, _>(async {
-        let tempfile = tempfile();
         File::open(tempfile.path()).await.unwrap()
     });
 
@@ -135,11 +132,12 @@ async fn sync_doesnt_kill_anything() {
     file.sync_all().await.unwrap();
     file.sync_data().await.unwrap();
 }
-#[cfg(unix)]
 
+#[cfg(unix)]
 fn tempfile() -> NamedTempFile {
     NamedTempFile::new().expect("unable to create tempfile")
 }
+
 #[cfg(unix)]
 #[allow(unused)]
 async fn poll_once(future: impl std::future::Future) {

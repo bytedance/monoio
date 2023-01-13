@@ -194,7 +194,7 @@ impl ops::Sub<Duration> for Instant {
     type Output = Instant;
 
     fn sub(self, rhs: Duration) -> Instant {
-        Instant::from_std(self.std - rhs)
+        Instant::from_std(self.std.checked_sub(rhs).unwrap())
     }
 }
 

@@ -187,9 +187,8 @@ fn parse_knobs(
                     )?,
                     name => {
                         let msg = format!(
-                            "Unknown attribute {} is specified; expected one of: \
+                            "Unknown attribute {name} is specified; expected one of: \
                              `worker_threads`, `entries`, `timer_enabled`",
-                            name,
                         );
                         return Err(syn::Error::new_spanned(namevalue, msg));
                     }
@@ -202,9 +201,8 @@ fn parse_knobs(
                     .to_string()
                     .to_lowercase();
                 let msg = format!(
-                    "Unknown attribute {} is specified; expected one of: `worker_threads`, \
-                     `entries`, `timer_enabled`",
-                    name
+                    "Unknown attribute {name} is specified; expected one of: `worker_threads`, \
+                     `entries`, `timer_enabled`"
                 );
                 return Err(syn::Error::new_spanned(path, msg));
             }
