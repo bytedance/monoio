@@ -35,7 +35,7 @@ tracing = {version = "0.1", default-features = false, features = [
 
 # windows dependencies
 [target.'cfg(windows)'.dependencies]
-windows = {version = "0.43.0", features = [
+windows = {version = "0.44.0", features = [
   "Data_Xml_Dom",
   "Win32_Foundation",
   "Win32_Security",
