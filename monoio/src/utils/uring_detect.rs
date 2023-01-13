@@ -1,13 +1,6 @@
 //! Detect if current platform support io_uring.
 
 #[cfg(all(target_os = "linux", feature = "iouring"))]
-macro_rules! op_codes {
-    ($($op: ident),*) => {
-        [$(io_uring::opcode::$op::CODE),*]
-    };
-}
-
-#[cfg(all(target_os = "linux", feature = "iouring"))]
 macro_rules! err_to_false {
     ($e: expr) => {
         match $e {
@@ -27,42 +20,28 @@ fn detect_uring_inner() -> bool {
         }
         _ => {}
     }
-    #[cfg(not(feature = "splice"))]
-    const USED_OP: [u8; 14] = op_codes![
-        Accept,
-        AsyncCancel,
-        Close,
-        Connect,
-        Fsync,
-        OpenAt,
-        ProvideBuffers,
-        Read,
-        Readv,
-        Recv,
-        Send,
-        Timeout,
-        Write,
-        Writev
-    ];
 
-    #[cfg(feature = "splice")]
-    const USED_OP: [u8; 15] = op_codes![
-        Accept,
-        AsyncCancel,
-        Close,
-        Connect,
-        Fsync,
-        OpenAt,
-        ProvideBuffers,
-        Read,
-        Readv,
-        Recv,
-        Send,
-        Timeout,
-        Write,
-        Writev,
-        Splice
-    ];
+    use io_uring::opcode::*;
+    auto_const_array::auto_const_array! {
+        const USED_OP: [u8; _] = [
+            Accept::CODE,
+            AsyncCancel::CODE,
+            Close::CODE,
+            Connect::CODE,
+            Fsync::CODE,
+            OpenAt::CODE,
+            ProvideBuffers::CODE,
+            Read::CODE,
+            Readv::CODE,
+            Recv::CODE,
+            Send::CODE,
+            Timeout::CODE,
+            Write::CODE,
+            Writev::CODE,
+            #[cfg(feature = "splice")]
+            Splice::CODE
+        ];
+    }
 
     let uring = err_to_false!(io_uring::IoUring::new(2));
     let mut probe = io_uring::Probe::new();
