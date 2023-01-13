@@ -1,5 +1,5 @@
 use std::sync::{
-    atomic::{AtomicUsize, Ordering},
+    atomic::{AtomicUsize, Ordering::Relaxed},
     LazyLock,
 };
 
@@ -12,7 +12,7 @@ pub(crate) const DEFAULT_THREAD_ID: usize = 0;
 
 /// Used to generate thread id.
 pub(crate) fn gen_id() -> usize {
-    ID_GEN.fetch_add(1, Ordering::AcqRel)
+    ID_GEN.fetch_add(1, Relaxed)
 }
 
 pub(crate) fn get_current_thread_id() -> usize {
