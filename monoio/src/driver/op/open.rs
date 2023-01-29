@@ -22,7 +22,10 @@ impl Op<Open> {
     pub(crate) fn open<P: AsRef<Path>>(path: P, options: &OpenOptions) -> io::Result<Op<Open>> {
         // Here the path will be copied, so its safe.
         let path = cstr(path.as_ref())?;
-        let flags = libc::O_CLOEXEC | options.access_mode()? | options.creation_mode()?;
+        let flags = libc::O_CLOEXEC
+            | options.access_mode()?
+            | options.creation_mode()?
+            | (options.custom_flags & !libc::O_ACCMODE);
         let mode = options.mode;
 
         Op::submit_with(Open { path, flags, mode })
