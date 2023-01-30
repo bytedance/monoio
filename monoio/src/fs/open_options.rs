@@ -91,6 +91,7 @@ impl OpenOptions {
             create_new: false,
             #[cfg(unix)]
             mode: 0o666,
+            #[cfg(unix)]
             custom_flags: 0,
         }
     }
