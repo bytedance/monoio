@@ -17,6 +17,10 @@ use crate::{
 pub struct RuntimeBuilder<D> {
     // iouring entries
     entries: Option<u32>,
+
+    #[cfg(all(target_os = "linux", feature = "iouring"))]
+    urb: io_uring::Builder,
+
     // blocking handle
     #[cfg(feature = "sync")]
     blocking_handle: crate::blocking::BlockingHandle,
@@ -40,6 +44,10 @@ impl<T> RuntimeBuilder<T> {
     pub fn new() -> Self {
         Self {
             entries: None,
+
+            #[cfg(all(target_os = "linux", feature = "iouring"))]
+            urb: io_uring::IoUring::builder(),
+
             #[cfg(feature = "sync")]
             blocking_handle: crate::blocking::BlockingStrategy::Panic.into(),
             _mark: PhantomData,
@@ -108,8 +116,8 @@ impl Buildable for IoUringDriver {
 
         BUILD_THREAD_ID.set(&thread_id, || {
             let driver = match this.entries {
-                Some(entries) => IoUringDriver::new_with_entries(entries)?,
-                None => IoUringDriver::new()?,
+                Some(entries) => IoUringDriver::new_with_entries(&this.urb, entries)?,
+                None => IoUringDriver::new(&this.urb)?,
             };
             #[cfg(feature = "sync")]
             let context = crate::runtime::Context::new(blocking_handle);
@@ -134,6 +142,18 @@ impl<D> RuntimeBuilder<D> {
         self.entries = Some(entries);
         self
     }
+
+    /// Replaces the default [`io_uring::Builder`], which controls the settings for the
+    /// inner `io_uring` API.
+    ///
+    /// Refer to the [`io_uring::Builder`] documentation for all the supported methods.
+
+    #[cfg(all(target_os = "linux", feature = "iouring"))]
+    #[must_use]
+    pub fn uring_builder(mut self, urb: &io_uring::Builder) -> Self {
+        self.urb = urb.clone();
+        self
+    }
 }
 
 // ===== FusionDriver =====
@@ -150,6 +170,7 @@ impl RuntimeBuilder<FusionDriver> {
         if crate::utils::detect_uring() {
             let builder = RuntimeBuilder::<IoUringDriver> {
                 entries: self.entries,
+                urb: self.urb.clone(),
                 #[cfg(feature = "sync")]
                 blocking_handle: self.blocking_handle.clone(),
                 _mark: PhantomData,
@@ -159,6 +180,7 @@ impl RuntimeBuilder<FusionDriver> {
         } else {
             let builder = RuntimeBuilder::<LegacyDriver> {
                 entries: self.entries,
+                urb: self.urb.clone(),
                 #[cfg(feature = "sync")]
                 blocking_handle: self.blocking_handle.clone(),
                 _mark: PhantomData,
@@ -185,6 +207,7 @@ impl RuntimeBuilder<FusionDriver> {
     pub fn build(&self) -> io::Result<crate::FusionRuntime<IoUringDriver>> {
         let builder = RuntimeBuilder::<IoUringDriver> {
             entries: self.entries,
+            urb: self.urb.clone(),
             #[cfg(feature = "sync")]
             blocking_handle: self.blocking_handle.clone(),
             _mark: PhantomData,
@@ -203,6 +226,7 @@ impl RuntimeBuilder<TimeDriver<FusionDriver>> {
         if crate::utils::detect_uring() {
             let builder = RuntimeBuilder::<TimeDriver<IoUringDriver>> {
                 entries: self.entries,
+                urb: self.urb.clone(),
                 #[cfg(feature = "sync")]
                 blocking_handle: self.blocking_handle.clone(),
                 _mark: PhantomData,
@@ -212,6 +236,7 @@ impl RuntimeBuilder<TimeDriver<FusionDriver>> {
         } else {
             let builder = RuntimeBuilder::<TimeDriver<LegacyDriver>> {
                 entries: self.entries,
+                urb: self.urb.clone(),
                 #[cfg(feature = "sync")]
                 blocking_handle: self.blocking_handle.clone(),
                 _mark: PhantomData,
@@ -238,6 +263,7 @@ impl RuntimeBuilder<TimeDriver<FusionDriver>> {
     pub fn build(&self) -> io::Result<crate::FusionRuntime<TimeDriver<IoUringDriver>>> {
         let builder = RuntimeBuilder::<TimeDriver<IoUringDriver>> {
             entries: self.entries,
+            urb: self.urb.clone(),
             #[cfg(feature = "sync")]
             blocking_handle: self.blocking_handle.clone(),
             _mark: PhantomData,
@@ -269,6 +295,8 @@ where
             mut context,
         } = Buildable::build(&RuntimeBuilder::<D> {
             entries: this.entries,
+            #[cfg(all(target_os = "linux", feature = "iouring"))]
+            urb: this.urb.clone(),
             #[cfg(feature = "sync")]
             blocking_handle: this.blocking_handle.clone(),
             _mark: PhantomData,
@@ -295,12 +323,16 @@ impl<D: time_wrap::TimeWrapable> RuntimeBuilder<D> {
     pub fn enable_timer(self) -> RuntimeBuilder<TimeDriver<D>> {
         let Self {
             entries,
+            #[cfg(all(target_os = "linux", feature = "iouring"))]
+            urb,
             #[cfg(feature = "sync")]
             blocking_handle,
             ..
         } = self;
         RuntimeBuilder {
             entries,
+            #[cfg(all(target_os = "linux", feature = "iouring"))]
+            urb,
             #[cfg(feature = "sync")]
             blocking_handle,
             _mark: PhantomData,

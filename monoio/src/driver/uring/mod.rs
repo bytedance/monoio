@@ -79,13 +79,16 @@ struct Ops {
 impl IoUringDriver {
     const DEFAULT_ENTRIES: u32 = 1024;
 
-    pub(crate) fn new() -> io::Result<IoUringDriver> {
-        Self::new_with_entries(Self::DEFAULT_ENTRIES)
+    pub(crate) fn new(b: &io_uring::Builder) -> io::Result<IoUringDriver> {
+        Self::new_with_entries(b, Self::DEFAULT_ENTRIES)
     }
 
     #[cfg(not(feature = "sync"))]
-    pub(crate) fn new_with_entries(entries: u32) -> io::Result<IoUringDriver> {
-        let uring = ManuallyDrop::new(IoUring::new(entries)?);
+    pub(crate) fn new_with_entries(
+        urb: &io_uring::Builder,
+        entries: u32,
+    ) -> io::Result<IoUringDriver> {
+        let uring = ManuallyDrop::new(urb.build(entries)?);
 
         let inner = Rc::new(UnsafeCell::new(UringInner {
             ops: Ops::new(),
@@ -99,8 +102,11 @@ impl IoUringDriver {
     }
 
     #[cfg(feature = "sync")]
-    pub(crate) fn new_with_entries(entries: u32) -> io::Result<IoUringDriver> {
-        let uring = ManuallyDrop::new(IoUring::new(entries)?);
+    pub(crate) fn new_with_entries(
+        urb: &io_uring::Builder,
+        entries: u32,
+    ) -> io::Result<IoUringDriver> {
+        let uring = ManuallyDrop::new(urb.build(entries)?);
 
         // Create eventfd and register it to the ring.
         let waker = {
