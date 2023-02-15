@@ -13,7 +13,10 @@ use super::{
     socket_addr::{local_addr, pair, peer_addr, socket_addr},
     SocketAddr,
 };
-use crate::driver::{op::Op, shared_fd::SharedFd};
+use crate::{
+    driver::{op::Op, shared_fd::SharedFd},
+    net::new_socket,
+};
 
 /// UnixDatagram
 pub struct UnixDatagram {
@@ -58,7 +61,8 @@ impl UnixDatagram {
         sockaddr: libc::sockaddr_un,
         socklen: libc::socklen_t,
     ) -> io::Result<Self> {
-        let op = Op::connect_unix(sockaddr, socklen)?;
+        let socket = new_socket(libc::AF_UNIX, libc::SOCK_STREAM)?;
+        let op = Op::connect_unix(SharedFd::new(socket)?, sockaddr, socklen)?;
         let completion = op.await;
         completion.meta.result?;
 
@@ -67,8 +71,13 @@ impl UnixDatagram {
 
     /// Creates new `UnixDatagram` from a `std::os::unix::net::UnixDatagram`.
     pub fn from_std(datagram: StdUnixDatagram) -> io::Result<Self> {
-        let fd = datagram.into_raw_fd();
-        Ok(Self::from_shared_fd(SharedFd::new(fd)?))
+        match SharedFd::new(datagram.as_raw_fd()) {
+            Ok(shared) => {
+                datagram.into_raw_fd();
+                Ok(Self::from_shared_fd(shared))
+            }
+            Err(e) => Err(e),
+        }
     }
 
     /// Returns the socket address of the local half of this connection.

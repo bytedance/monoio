@@ -60,7 +60,12 @@ impl TcpStream {
     #[cfg(unix)]
     /// Establishe a connection to the specified `addr`.
     pub async fn connect_addr(addr: SocketAddr) -> io::Result<Self> {
-        let op = Op::connect(libc::SOCK_STREAM, addr)?;
+        let domain = match addr {
+            SocketAddr::V4(_) => libc::AF_INET,
+            SocketAddr::V6(_) => libc::AF_INET6,
+        };
+        let socket = crate::net::new_socket(domain, libc::SOCK_STREAM)?;
+        let op = Op::connect(SharedFd::new(socket)?, addr)?;
         let completion = op.await;
         completion.meta.result?;
 
@@ -121,8 +126,13 @@ impl TcpStream {
 
     /// Creates new `TcpStream` from a `std::net::TcpStream`.
     pub fn from_std(stream: std::net::TcpStream) -> io::Result<Self> {
-        let fd = stream.into_raw_fd();
-        Ok(Self::from_shared_fd(SharedFd::new(fd)?))
+        match SharedFd::new(stream.as_raw_fd()) {
+            Ok(shared) => {
+                stream.into_raw_fd();
+                Ok(Self::from_shared_fd(shared))
+            }
+            Err(e) => Err(e),
+        }
     }
 }
 

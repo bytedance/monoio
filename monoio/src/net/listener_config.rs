@@ -14,6 +14,7 @@ pub struct ListenerConfig {
 }
 
 impl Default for ListenerConfig {
+    #[inline]
     fn default() -> Self {
         Self {
             reuse_port: true,

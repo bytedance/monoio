@@ -38,6 +38,8 @@ fn detect_uring_inner() -> bool {
             Timeout::CODE,
             Write::CODE,
             Writev::CODE,
+            SendMsg::CODE,
+            RecvMsg::CODE,
             #[cfg(feature = "splice")]
             Splice::CODE
         ];
