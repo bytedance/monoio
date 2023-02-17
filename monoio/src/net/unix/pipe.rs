@@ -23,7 +23,7 @@ pub fn new_pipe() -> io::Result<(Pipe, Pipe)> {
     let mut pipes = [0 as libc::c_int; 2];
     #[cfg(target_os = "linux")]
     let flag = {
-        if crate::driver::op::non_blocking() {
+        if crate::driver::op::is_legacy() {
             libc::O_NONBLOCK
         } else {
             0

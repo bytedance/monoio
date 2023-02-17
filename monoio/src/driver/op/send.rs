@@ -95,10 +95,6 @@ impl<T: IoBuf> OpAble for Send<T> {
         #[cfg(not(target_os = "linux"))]
         let flags = 0;
 
-        if self.buf.bytes_init() == 0 {
-            return Ok(0);
-        }
-
         syscall_u32!(send(
             fd,
             self.buf.read_ptr() as _,

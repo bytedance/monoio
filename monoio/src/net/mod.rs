@@ -12,7 +12,7 @@ pub use tcp::{TcpListener, TcpStream};
 #[cfg(unix)]
 pub use unix::{Pipe, UnixDatagram, UnixListener, UnixStream};
 
-use crate::driver::op::non_blocking;
+use crate::driver::op::is_legacy;
 
 // Copied from mio.
 pub(crate) fn new_socket(
@@ -31,7 +31,7 @@ pub(crate) fn new_socket(
 
     #[cfg(target_os = "linux")]
     let socket_type = {
-        if non_blocking() {
+        if is_legacy() {
             socket_type | libc::SOCK_CLOEXEC | libc::SOCK_NONBLOCK
         } else {
             socket_type | libc::SOCK_CLOEXEC

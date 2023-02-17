@@ -19,8 +19,6 @@ use crate::{
     },
 };
 
-const EMPTY_SLICE: [u8; 0] = [];
-
 /// TcpStream
 pub struct TcpStream {
     fd: SharedFd,
@@ -69,10 +67,11 @@ impl TcpStream {
         let completion = op.await;
         completion.meta.result?;
 
-        let mut stream = TcpStream::from_shared_fd(completion.data.fd);
-        // wait write ready
-        // TODO: not use write to detect writable
-        let _ = stream.write(&EMPTY_SLICE).await;
+        let stream = TcpStream::from_shared_fd(completion.data.fd);
+        // wait write ready on epoll branch
+        if crate::driver::op::is_legacy() {
+            stream.writable(true).await?;
+        }
         // getsockopt
         let sys_socket = unsafe { std::net::TcpStream::from_raw_fd(stream.fd.raw_fd()) };
         let err = sys_socket.take_error();
@@ -133,6 +132,36 @@ impl TcpStream {
             }
             Err(e) => Err(e),
         }
+    }
+
+    /// Wait for read readiness.
+    /// Note: Do not use it before every io. It is different from other runtimes!
+    ///
+    /// Everytime call to this method may pay a syscall cost.
+    /// In uring impl, it will push a PollAdd op; in epoll impl, it will use use
+    /// inner readiness state; if !relaxed, it will call syscall poll after that.
+    ///
+    /// If relaxed, on legacy driver it may return false positive result.
+    /// If you want to do io by your own, you must maintain io readiness and wait
+    /// for io ready with relaxed=false.
+    pub async fn readable(&self, relaxed: bool) -> io::Result<()> {
+        let op = Op::poll_read(&self.fd, relaxed).unwrap();
+        op.wait().await
+    }
+
+    /// Wait for write readiness.
+    /// Note: Do not use it before every io. It is different from other runtimes!
+    ///
+    /// Everytime call to this method may pay a syscall cost.
+    /// In uring impl, it will push a PollAdd op; in epoll impl, it will use use
+    /// inner readiness state; if !relaxed, it will call syscall poll after that.
+    ///
+    /// If relaxed, on legacy driver it may return false positive result.
+    /// If you want to do io by your own, you must maintain io readiness and wait
+    /// for io ready with relaxed=false.
+    pub async fn writable(&self, relaxed: bool) -> io::Result<()> {
+        let op = Op::poll_write(&self.fd, relaxed).unwrap();
+        op.wait().await
     }
 }
 

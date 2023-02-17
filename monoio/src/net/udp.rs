@@ -21,6 +21,7 @@ use crate::{
 /// to set an address where data should be sent and received from. After setting a remote
 /// address with [`connect`], data can be sent to and received from that address with
 /// [`send`] and [`recv`].
+#[derive(Debug)]
 pub struct UdpSocket {
     fd: SharedFd,
 }
@@ -156,6 +157,36 @@ impl UdpSocket {
         let r = socket.set_reuse_port(reuse);
         socket.into_raw_fd();
         r
+    }
+
+    /// Wait for read readiness.
+    /// Note: Do not use it before every io. It is different from other runtimes!
+    ///
+    /// Everytime call to this method may pay a syscall cost.
+    /// In uring impl, it will push a PollAdd op; in epoll impl, it will use use
+    /// inner readiness state; if !relaxed, it will call syscall poll after that.
+    ///
+    /// If relaxed, on legacy driver it may return false positive result.
+    /// If you want to do io by your own, you must maintain io readiness and wait
+    /// for io ready with relaxed=false.
+    pub async fn readable(&self, relaxed: bool) -> io::Result<()> {
+        let op = Op::poll_read(&self.fd, relaxed).unwrap();
+        op.wait().await
+    }
+
+    /// Wait for write readiness.
+    /// Note: Do not use it before every io. It is different from other runtimes!
+    ///
+    /// Everytime call to this method may pay a syscall cost.
+    /// In uring impl, it will push a PollAdd op; in epoll impl, it will use use
+    /// inner readiness state; if !relaxed, it will call syscall poll after that.
+    ///
+    /// If relaxed, on legacy driver it may return false positive result.
+    /// If you want to do io by your own, you must maintain io readiness and wait
+    /// for io ready with relaxed=false.
+    pub async fn writable(&self, relaxed: bool) -> io::Result<()> {
+        let op = Op::poll_write(&self.fd, relaxed).unwrap();
+        op.wait().await
     }
 }
 

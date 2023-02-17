@@ -61,3 +61,40 @@ async fn echo_server() {
 
     assert!(rx.await.is_ok());
 }
+
+#[cfg(unix)]
+#[monoio::test_all(timer_enabled = true)]
+async fn rw_able() {
+    const MSG: &str = "foo bar baz";
+
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let listener_addr = listener.local_addr().unwrap();
+
+    monoio::select! {
+        _ = monoio::time::sleep(std::time::Duration::from_millis(50)) => {},
+        _ = listener.readable(false) => {
+            panic!("unexpected readable");
+        }
+    }
+    let mut active = TcpStream::connect(listener_addr).await.unwrap();
+
+    assert!(active.writable(false).await.is_ok());
+    assert!(listener.readable(false).await.is_ok());
+    let (conn, _) = listener.accept().await.unwrap();
+    monoio::select! {
+        _ = monoio::time::sleep(std::time::Duration::from_millis(50)) => {},
+        _ = conn.readable(false) => {
+            panic!("unexpected readable");
+        }
+        _ = active.readable(false) => {
+            panic!("unexpected readable");
+        }
+        _ = listener.readable(false) => {
+            // even listener's inner readiness state is ready, we will check it again
+            panic!("unexpected readable");
+        }
+    }
+    let (res, _) = active.write_all("MSG").await;
+    assert!(res.is_ok());
+    assert!(conn.readable(false).await.is_ok());
+}

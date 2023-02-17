@@ -13,6 +13,7 @@ mod accept;
 mod connect;
 mod fsync;
 mod open;
+mod poll;
 mod read;
 mod recv;
 mod send;
@@ -137,11 +138,11 @@ impl<T> Drop for Op<T> {
 
 #[allow(unused)]
 #[cfg(not(target_os = "linux"))]
-pub(crate) fn non_blocking() -> bool {
+pub(crate) fn is_legacy() -> bool {
     true
 }
 
 #[cfg(target_os = "linux")]
-pub(crate) fn non_blocking() -> bool {
+pub(crate) fn is_legacy() -> bool {
     super::CURRENT.with(|inner| inner.is_legacy())
 }

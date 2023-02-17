@@ -3,7 +3,7 @@ use monoio::net::udp::UdpSocket;
 #[cfg(unix)]
 #[monoio::test_all]
 async fn connect() {
-    const MSG: &'static str = "foo bar baz";
+    const MSG: &str = "foo bar baz";
 
     let passive = UdpSocket::bind("127.0.0.1:0").unwrap();
     let passive_addr = passive.local_addr().unwrap();
@@ -24,7 +24,7 @@ async fn connect() {
 #[cfg(unix)]
 #[monoio::test_all]
 async fn send_to() {
-    const MSG: &'static str = "foo bar baz";
+    const MSG: &str = "foo bar baz";
 
     macro_rules! must_success {
         ($r: expr, $expect_addr: expr) => {
@@ -57,4 +57,27 @@ async fn send_to() {
     must_success!(passive1.recv_from(vec![0; 20]).await, active_addr);
     must_success!(passive2.recv_from(vec![0; 20]).await, active_addr);
     must_success!(passive3.recv_from(vec![0; 20]).await, active_addr);
+}
+
+#[cfg(unix)]
+#[monoio::test_all(timer_enabled = true)]
+async fn rw_able() {
+    const MSG: &str = "foo bar baz";
+
+    let passive = UdpSocket::bind("127.0.0.1:0").unwrap();
+    let passive_addr = passive.local_addr().unwrap();
+
+    let active = UdpSocket::bind("127.0.0.1:0").unwrap();
+
+    assert!(active.writable(false).await.is_ok());
+    monoio::select! {
+        _ = monoio::time::sleep(std::time::Duration::from_millis(50)) => {},
+        _ = passive.readable(false) => {
+            panic!("unexpected readable");
+        }
+    }
+
+    active.connect(passive_addr).await.unwrap();
+    active.send(MSG).await.0.unwrap();
+    assert!(passive.readable(false).await.is_ok());
 }
