@@ -68,18 +68,16 @@ async fn main() {
 
 async fn echo(stream: TcpStream) -> std::io::Result<()> {
     let mut buf: Vec<u8> = Vec::with_capacity(8 * 1024);
+    let mut res;
     loop {
         // read
-        let (res, _buf) = stream.read(buf).await;
-        buf = _buf;
-        let res: usize = res?;
-        if res == 0 {
+        (res, buf) = stream.read(buf).await;
+        if res? == 0 {
             return Ok(());
         }
 
         // write all
-        let (res, _buf) = stream.write_all(buf).await;
-        buf = _buf;
+        (res, buf) = stream.write_all(buf).await;
         res?;
 
         // clear
