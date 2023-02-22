@@ -30,16 +30,19 @@ fn detect_uring_inner() -> bool {
             Connect::CODE,
             Fsync::CODE,
             OpenAt::CODE,
+            PollAdd::CODE,
             ProvideBuffers::CODE,
             Read::CODE,
             Readv::CODE,
             Recv::CODE,
             Send::CODE,
+            SendMsg::CODE,
+            RecvMsg::CODE,
+            #[cfg(feature = "splice")]
+            Splice::CODE,
             Timeout::CODE,
             Write::CODE,
             Writev::CODE,
-            #[cfg(feature = "splice")]
-            Splice::CODE
         ];
     }
 

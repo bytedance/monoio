@@ -15,18 +15,12 @@ pub(crate) struct Connect {
 
 impl Op<Connect> {
     /// Submit a request to connect.
-    pub(crate) fn connect(socket_type: libc::c_int, addr: SocketAddr) -> io::Result<Op<Connect>> {
+    pub(crate) fn connect(socket: SharedFd, addr: SocketAddr) -> io::Result<Op<Connect>> {
         #[cfg(unix)]
         {
-            let domain = match addr {
-                SocketAddr::V4(_) => libc::AF_INET,
-                SocketAddr::V6(_) => libc::AF_INET6,
-            };
-            let socket = super::new_socket(domain, socket_type)?;
             let (raw_addr, raw_addr_length) = socket_addr(&addr);
-
             Op::submit_with(Connect {
-                fd: SharedFd::new(socket)?,
+                fd: socket,
                 socket_addr: Box::new(raw_addr),
                 socket_addr_len: raw_addr_length,
             })
@@ -78,13 +72,12 @@ impl Op<ConnectUnix> {
 
     /// Submit a request to connect.
     pub(crate) fn connect_unix(
+        socket: SharedFd,
         socket_addr: libc::sockaddr_un,
         socket_len: libc::socklen_t,
     ) -> io::Result<Op<ConnectUnix>> {
-        let socket = super::new_socket(libc::AF_UNIX, libc::SOCK_STREAM)?;
-
         Op::submit_with(ConnectUnix {
-            fd: SharedFd::new(socket)?,
+            fd: socket,
             socket_addr: Box::new((socket_addr, socket_len)),
         })
     }

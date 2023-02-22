@@ -13,7 +13,10 @@ use super::{
     socket_addr::{local_addr, pair, peer_addr, socket_addr},
     SocketAddr,
 };
-use crate::driver::{op::Op, shared_fd::SharedFd};
+use crate::{
+    driver::{op::Op, shared_fd::SharedFd},
+    net::new_socket,
+};
 
 /// UnixDatagram
 pub struct UnixDatagram {
@@ -58,7 +61,8 @@ impl UnixDatagram {
         sockaddr: libc::sockaddr_un,
         socklen: libc::socklen_t,
     ) -> io::Result<Self> {
-        let op = Op::connect_unix(sockaddr, socklen)?;
+        let socket = new_socket(libc::AF_UNIX, libc::SOCK_STREAM)?;
+        let op = Op::connect_unix(SharedFd::new(socket)?, sockaddr, socklen)?;
         let completion = op.await;
         completion.meta.result?;
 
@@ -67,8 +71,13 @@ impl UnixDatagram {
 
     /// Creates new `UnixDatagram` from a `std::os::unix::net::UnixDatagram`.
     pub fn from_std(datagram: StdUnixDatagram) -> io::Result<Self> {
-        let fd = datagram.into_raw_fd();
-        Ok(Self::from_shared_fd(SharedFd::new(fd)?))
+        match SharedFd::new(datagram.as_raw_fd()) {
+            Ok(shared) => {
+                datagram.into_raw_fd();
+                Ok(Self::from_shared_fd(shared))
+            }
+            Err(e) => Err(e),
+        }
     }
 
     /// Returns the socket address of the local half of this connection.
@@ -79,6 +88,36 @@ impl UnixDatagram {
     /// Returns the socket address of the remote half of this connection.
     pub fn peer_addr(&self) -> io::Result<SocketAddr> {
         peer_addr(self.as_raw_fd())
+    }
+
+    /// Wait for read readiness.
+    /// Note: Do not use it before every io. It is different from other runtimes!
+    ///
+    /// Everytime call to this method may pay a syscall cost.
+    /// In uring impl, it will push a PollAdd op; in epoll impl, it will use use
+    /// inner readiness state; if !relaxed, it will call syscall poll after that.
+    ///
+    /// If relaxed, on legacy driver it may return false positive result.
+    /// If you want to do io by your own, you must maintain io readiness and wait
+    /// for io ready with relaxed=false.
+    pub async fn readable(&self, relaxed: bool) -> io::Result<()> {
+        let op = Op::poll_read(&self.fd, relaxed).unwrap();
+        op.wait().await
+    }
+
+    /// Wait for write readiness.
+    /// Note: Do not use it before every io. It is different from other runtimes!
+    ///
+    /// Everytime call to this method may pay a syscall cost.
+    /// In uring impl, it will push a PollAdd op; in epoll impl, it will use use
+    /// inner readiness state; if !relaxed, it will call syscall poll after that.
+    ///
+    /// If relaxed, on legacy driver it may return false positive result.
+    /// If you want to do io by your own, you must maintain io readiness and wait
+    /// for io ready with relaxed=false.
+    pub async fn writable(&self, relaxed: bool) -> io::Result<()> {
+        let op = Op::poll_write(&self.fd, relaxed).unwrap();
+        op.wait().await
     }
 }
 

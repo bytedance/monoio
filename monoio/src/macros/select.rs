@@ -178,7 +178,7 @@
 ///     // do work
 /// }
 ///
-/// #[monoio::main]
+/// #[monoio::main(timer_enabled = true)]
 /// async fn main() {
 ///     let sleep = time::sleep(Duration::from_millis(50));
 ///     monoio::pin!(sleep);
