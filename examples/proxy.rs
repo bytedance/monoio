@@ -40,18 +40,16 @@ async fn copy_one_direction<FROM: AsyncReadRent, TO: AsyncWriteRent>(
     to: &mut TO,
 ) -> Result<Vec<u8>, std::io::Error> {
     let mut buf = Vec::with_capacity(8 * 1024);
+    let mut res;
     loop {
         // read
-        let (res, _buf) = from.read(buf).await;
-        buf = _buf;
-        let res: usize = res?;
-        if res == 0 {
+        (res, buf) = from.read(buf).await;
+        if res? == 0 {
             return Ok(buf);
         }
 
         // write all
-        let (res, _buf) = to.write_all(buf).await;
-        buf = _buf;
+        (res, buf) = to.write_all(buf).await;
         res?;
 
         // clear
