@@ -107,11 +107,8 @@ pub(crate) struct ReadVec<T> {
 }
 
 impl<T: IoVecBufMut> Op<ReadVec<T>> {
-    pub(crate) fn readv(fd: &SharedFd, buf_vec: T) -> io::Result<Self> {
-        Op::submit_with(ReadVec {
-            fd: fd.clone(),
-            buf_vec,
-        })
+    pub(crate) fn readv(fd: SharedFd, buf_vec: T) -> io::Result<Self> {
+        Op::submit_with(ReadVec { fd, buf_vec })
     }
 
     pub(crate) async fn read(self) -> BufResult<usize, T> {

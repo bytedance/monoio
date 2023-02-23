@@ -10,6 +10,8 @@ use std::{
 };
 
 use super::stream::TcpStream;
+#[cfg(unix)]
+use crate::io::CancelHandle;
 use crate::{
     driver::{op::Op, shared_fd::SharedFd},
     io::stream::Stream,
@@ -93,6 +95,59 @@ impl TcpListener {
     /// Accept
     pub async fn accept(&self) -> io::Result<(TcpStream, SocketAddr)> {
         let op = Op::accept(&self.fd)?;
+
+        // Await the completion of the event
+        let completion = op.await;
+
+        // Convert fd
+        let fd = completion.meta.result?;
+
+        // Construct stream
+        let stream = TcpStream::from_shared_fd(SharedFd::new(fd as _)?);
+
+        // Construct SocketAddr
+        let storage = completion.data.addr.0.as_ptr() as *const _ as *const libc::sockaddr_storage;
+        let addr = unsafe {
+            match (*storage).ss_family as libc::c_int {
+                libc::AF_INET => {
+                    // Safety: if the ss_family field is AF_INET then storage must be a sockaddr_in.
+                    let addr: &libc::sockaddr_in = &*(storage as *const libc::sockaddr_in);
+                    let ip = Ipv4Addr::from(addr.sin_addr.s_addr.to_ne_bytes());
+                    let port = u16::from_be(addr.sin_port);
+                    SocketAddr::V4(SocketAddrV4::new(ip, port))
+                }
+                libc::AF_INET6 => {
+                    // Safety: if the ss_family field is AF_INET6 then storage must be a
+                    // sockaddr_in6.
+                    let addr: &libc::sockaddr_in6 = &*(storage as *const libc::sockaddr_in6);
+                    let ip = Ipv6Addr::from(addr.sin6_addr.s6_addr);
+                    let port = u16::from_be(addr.sin6_port);
+                    SocketAddr::V6(SocketAddrV6::new(
+                        ip,
+                        port,
+                        addr.sin6_flowinfo,
+                        addr.sin6_scope_id,
+                    ))
+                }
+                _ => {
+                    return Err(io::ErrorKind::InvalidInput.into());
+                }
+            }
+        };
+
+        Ok((stream, addr))
+    }
+
+    #[cfg(unix)]
+    /// Cancelable accept
+    pub async fn cancelable_accept(&self, c: CancelHandle) -> io::Result<(TcpStream, SocketAddr)> {
+        use crate::io::operation_canceled;
+
+        if c.canceled() {
+            return Err(operation_canceled());
+        }
+        let op = Op::accept(&self.fd)?;
+        let _guard = c.assocate_op(op.op_canceller());
 
         // Await the completion of the event
         let completion = op.await;

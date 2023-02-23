@@ -7,6 +7,8 @@ const READABLE: u8 = 0b0_01;
 const WRITABLE: u8 = 0b0_10;
 const READ_CLOSED: u8 = 0b0_0100;
 const WRITE_CLOSED: u8 = 0b0_1000;
+const READ_CANCELED: u8 = 0b01_0000;
+const WRITE_CANCELED: u8 = 0b10_0000;
 
 /// Describes the readiness state of an I/O resources.
 ///
@@ -30,6 +32,18 @@ impl Ready {
 
     /// Returns a `Ready` representing write closed readiness.
     pub(crate) const WRITE_CLOSED: Ready = Ready(WRITE_CLOSED);
+
+    /// Returns a `Ready` representing read canceled readiness.
+    pub(crate) const READ_CANCELED: Ready = Ready(READ_CANCELED);
+
+    /// Returns a `Ready` representing write canceled readiness.
+    pub(crate) const WRITE_CANCELED: Ready = Ready(WRITE_CANCELED);
+
+    /// Returns a `Ready` representing read or write canceled readiness.
+    pub(crate) const CANCELED: Ready = Ready(READ_CANCELED | WRITE_CANCELED);
+
+    pub(crate) const READ_ALL: Ready = Ready(READABLE | READ_CLOSED | READ_CANCELED);
+    pub(crate) const WRITE_ALL: Ready = Ready(WRITABLE | WRITE_CLOSED | WRITE_CANCELED);
 
     // Must remain crate-private to avoid adding a public dependency on Mio.
     pub(crate) fn from_mio(event: &mio::event::Event) -> Ready {
@@ -72,12 +86,12 @@ impl Ready {
 
     /// Returns `true` if the value includes `readable`.
     pub(crate) fn is_readable(self) -> bool {
-        self.contains(Ready::READABLE) || self.is_read_closed()
+        !(self & Ready::READ_ALL).is_empty()
     }
 
     /// Returns `true` if the value includes writable `readiness`.
     pub(crate) fn is_writable(self) -> bool {
-        self.contains(Ready::WRITABLE) || self.is_write_closed()
+        !(self & Ready::WRITE_ALL).is_empty()
     }
 
     /// Returns `true` if the value includes read-closed `readiness`.
@@ -88,6 +102,10 @@ impl Ready {
     /// Returns `true` if the value includes write-closed `readiness`.
     pub(crate) fn is_write_closed(self) -> bool {
         self.contains(Ready::WRITE_CLOSED)
+    }
+
+    pub(crate) fn is_canceled(self) -> bool {
+        !(self & Ready::CANCELED).is_empty()
     }
 
     /// Returns true if `self` is a superset of `other`.
@@ -184,7 +202,7 @@ impl fmt::Debug for Ready {
     }
 }
 
-#[derive(Debug, Eq, PartialEq, Clone, Copy)]
+#[derive(Debug, Eq, PartialEq, Clone, Copy, Hash)]
 pub(crate) enum Direction {
     Read,
     Write,
@@ -193,8 +211,8 @@ pub(crate) enum Direction {
 impl Direction {
     pub(crate) fn mask(self) -> Ready {
         match self {
-            Direction::Read => Ready::READABLE | Ready::READ_CLOSED,
-            Direction::Write => Ready::WRITABLE | Ready::WRITE_CLOSED,
+            Direction::Read => Ready::READABLE | Ready::READ_CLOSED | Ready::READ_CANCELED,
+            Direction::Write => Ready::WRITABLE | Ready::WRITE_CLOSED | Ready::WRITE_CANCELED,
         }
     }
 }

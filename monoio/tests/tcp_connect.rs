@@ -109,6 +109,52 @@ async fn connect_invalid_dst() {
     assert!(TcpStream::connect("127.0.0.1:1").await.is_err());
 }
 
+#[cfg(unix)]
+#[monoio::test_all(timer_enabled = true)]
+async fn cancel_read() {
+    use monoio::io::CancelableAsyncReadRent;
+
+    let mut s = TcpStream::connect("rsproxy.cn:80").await.unwrap();
+    let buf = vec![0; 20];
+
+    let canceler = monoio::io::Canceller::new();
+    let handle = canceler.handle();
+    monoio::spawn(async move {
+        monoio::time::sleep(std::time::Duration::from_millis(100)).await;
+        canceler.cancel();
+    });
+    let (res, _) = s.cancelable_read(buf, handle).await;
+    assert!(res.is_err());
+}
+
+#[cfg(unix)]
+#[monoio::test_all(timer_enabled = true)]
+async fn cancel_select() {
+    use monoio::io::CancelableAsyncReadRent;
+
+    let mut s = TcpStream::connect("rsproxy.cn:80").await.unwrap();
+    let buf = vec![0; 20];
+
+    let canceler = monoio::io::Canceller::new();
+    let handle = canceler.handle();
+
+    let timer = monoio::time::sleep(std::time::Duration::from_millis(100));
+    monoio::pin!(timer);
+    let recv = s.cancelable_read(buf, handle);
+    monoio::pin!(recv);
+
+    monoio::select! {
+        _ = &mut timer => {
+            canceler.cancel();
+            let (res, _buf) = recv.await;
+            assert!(res.is_err());
+        },
+        _ = &mut recv => {
+            // process data
+        }
+    }
+}
+
 #[derive(Default, Clone)]
 struct DropFlag(std::rc::Rc<std::cell::RefCell<bool>>);
 

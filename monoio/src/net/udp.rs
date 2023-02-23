@@ -9,7 +9,7 @@ use std::{
 use crate::{
     buf::{IoBuf, IoBufMut},
     driver::{op::Op, shared_fd::SharedFd},
-    io::Split,
+    io::{operation_canceled, CancelHandle, Split},
 };
 
 /// A UDP socket.
@@ -74,7 +74,7 @@ impl UdpSocket {
     /// Receives a single datagram message on the socket. On success, returns the number
     /// of bytes read and the origin.
     pub async fn recv_from<T: IoBufMut>(&self, buf: T) -> crate::BufResult<(usize, SocketAddr), T> {
-        let op = Op::recv_msg(&self.fd, buf).unwrap();
+        let op = Op::recv_msg(self.fd.clone(), buf).unwrap();
         op.wait().await
     }
 
@@ -85,7 +85,7 @@ impl UdpSocket {
         buf: T,
         socket_addr: SocketAddr,
     ) -> crate::BufResult<usize, T> {
-        let op = Op::send_msg(&self.fd, buf, Some(socket_addr)).unwrap();
+        let op = Op::send_msg(self.fd.clone(), buf, Some(socket_addr)).unwrap();
         op.wait().await
     }
 
@@ -121,14 +121,14 @@ impl UdpSocket {
 
     /// Sends data on the socket to the remote address to which it is connected.
     pub async fn send<T: IoBuf>(&self, buf: T) -> crate::BufResult<usize, T> {
-        let op = Op::send_msg(&self.fd, buf, None).unwrap();
+        let op = Op::send_msg(self.fd.clone(), buf, None).unwrap();
         op.wait().await
     }
 
     /// Receives a single datagram message on the socket from the remote address to
     /// which it is connected. On success, returns the number of bytes read.
     pub async fn recv<T: IoBufMut>(&self, buf: T) -> crate::BufResult<usize, T> {
-        let op = Op::recv(&self.fd, buf).unwrap();
+        let op = Op::recv(self.fd.clone(), buf).unwrap();
         op.read().await
     }
 
@@ -193,5 +193,72 @@ impl UdpSocket {
 impl AsRawFd for UdpSocket {
     fn as_raw_fd(&self) -> std::os::fd::RawFd {
         self.fd.raw_fd()
+    }
+}
+
+/// Cancelable related methods
+impl UdpSocket {
+    /// Receives a single datagram message on the socket. On success, returns the number
+    /// of bytes read and the origin.
+    pub async fn cancelable_recv_from<T: IoBufMut>(
+        &self,
+        buf: T,
+        c: CancelHandle,
+    ) -> crate::BufResult<(usize, SocketAddr), T> {
+        if c.canceled() {
+            return (Err(operation_canceled()), buf);
+        }
+
+        let op = Op::recv_msg(self.fd.clone(), buf).unwrap();
+        let _guard = c.assocate_op(op.op_canceller());
+        op.wait().await
+    }
+
+    /// Sends data on the socket to the given address. On success, returns the
+    /// number of bytes written.
+    pub async fn cancelable_send_to<T: IoBuf>(
+        &self,
+        buf: T,
+        socket_addr: SocketAddr,
+        c: CancelHandle,
+    ) -> crate::BufResult<usize, T> {
+        if c.canceled() {
+            return (Err(operation_canceled()), buf);
+        }
+
+        let op = Op::send_msg(self.fd.clone(), buf, Some(socket_addr)).unwrap();
+        let _guard = c.assocate_op(op.op_canceller());
+        op.wait().await
+    }
+
+    /// Sends data on the socket to the remote address to which it is connected.
+    pub async fn cancelable_send<T: IoBuf>(
+        &self,
+        buf: T,
+        c: CancelHandle,
+    ) -> crate::BufResult<usize, T> {
+        if c.canceled() {
+            return (Err(operation_canceled()), buf);
+        }
+
+        let op = Op::send_msg(self.fd.clone(), buf, None).unwrap();
+        let _guard = c.assocate_op(op.op_canceller());
+        op.wait().await
+    }
+
+    /// Receives a single datagram message on the socket from the remote address to
+    /// which it is connected. On success, returns the number of bytes read.
+    pub async fn cancelable_recv<T: IoBufMut>(
+        &self,
+        buf: T,
+        c: CancelHandle,
+    ) -> crate::BufResult<usize, T> {
+        if c.canceled() {
+            return (Err(operation_canceled()), buf);
+        }
+
+        let op = Op::recv(self.fd.clone(), buf).unwrap();
+        let _guard = c.assocate_op(op.op_canceller());
+        op.read().await
     }
 }

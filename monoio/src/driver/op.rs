@@ -111,6 +111,31 @@ impl<T> Op<T> {
             Err(io::ErrorKind::Other.into())
         }
     }
+
+    pub(crate) fn op_canceller(&self) -> OpCanceller
+    where
+        T: OpAble,
+    {
+        #[cfg(all(unix, feature = "legacy"))]
+        if is_legacy() {
+            return if let Some((dir, id)) = self.data.as_ref().unwrap().legacy_interest() {
+                OpCanceller {
+                    index: id,
+                    direction: Some(dir),
+                }
+            } else {
+                OpCanceller {
+                    index: 0,
+                    direction: None,
+                }
+            };
+        }
+        OpCanceller {
+            index: self.index,
+            #[cfg(all(unix, feature = "legacy"))]
+            direction: None,
+        }
+    }
 }
 
 impl<T> Future for Op<T>
@@ -145,4 +170,17 @@ pub(crate) fn is_legacy() -> bool {
 #[cfg(target_os = "linux")]
 pub(crate) fn is_legacy() -> bool {
     super::CURRENT.with(|inner| inner.is_legacy())
+}
+
+#[derive(Debug, Eq, PartialEq, Clone, Hash)]
+pub(crate) struct OpCanceller {
+    pub(super) index: usize,
+    #[cfg(all(unix, feature = "legacy"))]
+    pub(super) direction: Option<super::legacy::ready::Direction>,
+}
+
+impl OpCanceller {
+    pub(crate) unsafe fn cancel(&self) {
+        super::CURRENT.with(|inner| inner.cancel_op(self))
+    }
 }

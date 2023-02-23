@@ -39,8 +39,8 @@ impl ScheduledIo {
         }
     }
 
-    pub(crate) fn clear_readiness(&mut self, direction: Direction) {
-        self.readiness = self.readiness - direction.mask();
+    pub(crate) fn clear_readiness(&mut self, ready: Ready) {
+        self.readiness = self.readiness - ready;
     }
 
     pub(crate) fn poll_readiness(
