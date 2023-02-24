@@ -26,7 +26,7 @@ pub struct UdpSocket {
     fd: SharedFd,
 }
 
-/// TcpStream is safe to split to two parts
+/// UdpSocket is safe to split to two parts
 unsafe impl Split for UdpSocket {}
 
 impl UdpSocket {

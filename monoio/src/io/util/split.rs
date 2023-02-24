@@ -17,6 +17,7 @@ use crate::{
 pub struct OwnedReadHalf<T>(pub Rc<UnsafeCell<T>>);
 /// Owned Write Half Part
 #[derive(Debug)]
+#[repr(transparent)]
 pub struct OwnedWriteHalf<T>(pub Rc<UnsafeCell<T>>)
 where
     T: AsyncWriteRent;
@@ -269,7 +270,10 @@ pub(crate) fn reunite<T: AsyncWriteRent>(
     write: OwnedWriteHalf<T>,
 ) -> Result<T, ReuniteError<T>> {
     if Rc::ptr_eq(&read.0, &write.0) {
-        drop(write);
+        // we cannot execute drop for OwnedWriteHalf.
+        unsafe {
+            let _inner: Rc<UnsafeCell<T>> = std::mem::transmute(write);
+        }
         // This unwrap cannot fail as the api does not allow creating more than two
         // Arcs, and we just dropped the other half.
         Ok(Rc::try_unwrap(read.0)

@@ -26,7 +26,7 @@ pub struct UnixStream {
     fd: SharedFd,
 }
 
-/// TcpStream is safe to split to two parts
+/// UnixStream is safe to split to two parts
 unsafe impl Split for UnixStream {}
 
 impl UnixStream {
