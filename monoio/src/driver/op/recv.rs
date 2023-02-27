@@ -26,11 +26,8 @@ pub(crate) struct Recv<T> {
 }
 
 impl<T: IoBufMut> Op<Recv<T>> {
-    pub(crate) fn recv(fd: &SharedFd, buf: T) -> io::Result<Self> {
-        Op::submit_with(Recv {
-            fd: fd.clone(),
-            buf,
-        })
+    pub(crate) fn recv(fd: SharedFd, buf: T) -> io::Result<Self> {
+        Op::submit_with(Recv { fd, buf })
     }
 
     #[allow(unused)]
@@ -100,7 +97,7 @@ pub(crate) struct RecvMsg<T> {
 }
 
 impl<T: IoBufMut> Op<RecvMsg<T>> {
-    pub(crate) fn recv_msg(fd: &SharedFd, mut buf: T) -> io::Result<Self> {
+    pub(crate) fn recv_msg(fd: SharedFd, mut buf: T) -> io::Result<Self> {
         let iovec = [libc::iovec {
             iov_base: buf.write_ptr() as *mut _,
             iov_len: buf.bytes_total(),
@@ -116,11 +113,7 @@ impl<T: IoBufMut> Op<RecvMsg<T>> {
         info.2.msg_name = &mut info.0 as *mut _ as *mut libc::c_void;
         info.2.msg_namelen = std::mem::size_of::<libc::sockaddr_storage>() as libc::socklen_t;
 
-        Op::submit_with(RecvMsg {
-            fd: fd.clone(),
-            buf,
-            info,
-        })
+        Op::submit_with(RecvMsg { fd, buf, info })
     }
 
     pub(crate) async fn wait(self) -> BufResult<(usize, SocketAddr), T> {

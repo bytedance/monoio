@@ -22,11 +22,8 @@ pub(crate) struct Send<T> {
 }
 
 impl<T: IoBuf> Op<Send<T>> {
-    pub(crate) fn send(fd: &SharedFd, buf: T) -> io::Result<Self> {
-        Op::submit_with(Send {
-            fd: fd.clone(),
-            buf,
-        })
+    pub(crate) fn send(fd: SharedFd, buf: T) -> io::Result<Self> {
+        Op::submit_with(Send { fd, buf })
     }
 
     #[allow(unused)]
@@ -117,7 +114,7 @@ pub(crate) struct SendMsg<T> {
 
 impl<T: IoBuf> Op<SendMsg<T>> {
     pub(crate) fn send_msg(
-        fd: &SharedFd,
+        fd: SharedFd,
         buf: T,
         socket_addr: Option<SocketAddr>,
     ) -> io::Result<Self> {
@@ -144,11 +141,7 @@ impl<T: IoBuf> Op<SendMsg<T>> {
             }
         }
 
-        Op::submit_with(SendMsg {
-            fd: fd.clone(),
-            buf,
-            info,
-        })
+        Op::submit_with(SendMsg { fd, buf, info })
     }
 
     pub(crate) async fn wait(self) -> BufResult<usize, T> {

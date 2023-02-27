@@ -402,7 +402,9 @@ impl UringInner {
             #[cfg(features = "async-cancel")]
             if !_must_finished {
                 unsafe {
-                    let cancel = io_uring::opcode::AsyncCancel::new(index as u64).build();
+                    let cancel = io_uring::opcode::AsyncCancel::new(index as u64)
+                        .build()
+                        .user_data(u64::MAX);
 
                     // Try push cancel, if failed, will submit and re-push.
                     if inner.uring.submission().push(&cancel).is_err() {
@@ -411,6 +413,17 @@ impl UringInner {
                     }
                 }
             }
+        }
+    }
+
+    pub(crate) unsafe fn cancel_op(this: &Rc<UnsafeCell<UringInner>>, index: usize) {
+        let inner = &mut *this.get();
+        let cancel = io_uring::opcode::AsyncCancel::new(index as u64)
+            .build()
+            .user_data(u64::MAX);
+        if inner.uring.submission().push(&cancel).is_err() {
+            let _ = inner.submit();
+            let _ = inner.uring.submission().push(&cancel);
         }
     }
 }

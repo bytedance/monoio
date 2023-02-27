@@ -219,7 +219,18 @@ impl LegacyInner {
         let mut scheduled_io = inner.io_dispatch.get(index).expect("scheduled_io lost");
         let ref_mut = scheduled_io.as_mut();
         loop {
-            ready!(ref_mut.poll_readiness(cx, direction));
+            let readiness = ready!(ref_mut.poll_readiness(cx, direction));
+
+            // check if canceled
+            if readiness.is_canceled() {
+                // clear CANCELED part only
+                ref_mut.clear_readiness(readiness & Ready::CANCELED);
+                return Poll::Ready(CompletionMeta {
+                    result: Err(io::Error::from_raw_os_error(125)),
+                    flags: 0,
+                });
+            }
+
             match OpAble::legacy_call(data) {
                 Ok(n) => {
                     return Poll::Ready(CompletionMeta {
@@ -228,7 +239,7 @@ impl LegacyInner {
                     })
                 }
                 Err(ref e) if e.kind() == io::ErrorKind::WouldBlock => {
-                    ref_mut.clear_readiness(direction);
+                    ref_mut.clear_readiness(direction.mask());
                     continue;
                 }
                 Err(e) => {
@@ -239,6 +250,19 @@ impl LegacyInner {
                 }
             }
         }
+    }
+
+    pub(crate) fn cancel_op(
+        this: &Rc<UnsafeCell<LegacyInner>>,
+        index: usize,
+        direction: ready::Direction,
+    ) {
+        let inner = unsafe { &mut *this.get() };
+        let ready = match direction {
+            ready::Direction::Read => Ready::READ_CANCELED,
+            ready::Direction::Write => Ready::WRITE_CANCELED,
+        };
+        inner.dispatch(mio::Token(index), ready);
     }
 
     pub(crate) fn submit_with_data<T>(

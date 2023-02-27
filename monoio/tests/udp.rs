@@ -81,3 +81,22 @@ async fn rw_able() {
     active.send(MSG).await.0.unwrap();
     assert!(passive.readable(false).await.is_ok());
 }
+
+#[cfg(unix)]
+#[monoio::test_all(timer_enabled = true)]
+async fn cancel_recv_from() {
+    let passive = UdpSocket::bind("127.0.0.1:0").unwrap();
+    let canceller = monoio::io::Canceller::new();
+    let recv = passive.cancelable_recv_from(vec![0; 20], canceller.handle());
+    monoio::pin!(recv);
+
+    monoio::select! {
+        _ = monoio::time::sleep(std::time::Duration::from_millis(50)) => {
+            canceller.cancel();
+            assert!(recv.await.0.is_err());
+        },
+        _ = &mut recv => {
+            panic!("unexpected readable");
+        }
+    }
+}

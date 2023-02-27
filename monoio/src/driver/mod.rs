@@ -157,6 +157,29 @@ impl Inner {
         }
     }
 
+    #[allow(unused)]
+    pub(super) unsafe fn cancel_op(&self, op_canceller: &op::OpCanceller) {
+        match self {
+            #[cfg(windows)]
+            _ => unimplemented!(),
+            #[cfg(all(target_os = "linux", feature = "iouring"))]
+            Inner::Uring(this) => UringInner::cancel_op(this, op_canceller.index),
+            #[cfg(all(unix, feature = "legacy"))]
+            Inner::Legacy(this) => {
+                if let Some(direction) = op_canceller.direction {
+                    LegacyInner::cancel_op(this, op_canceller.index, direction)
+                }
+            }
+            #[cfg(all(
+                not(feature = "legacy"),
+                not(all(target_os = "linux", feature = "iouring"))
+            ))]
+            _ => {
+                util::feature_panic();
+            }
+        }
+    }
+
     #[cfg(all(target_os = "linux", feature = "iouring", feature = "legacy"))]
     fn is_legacy(&self) -> bool {
         matches!(self, Inner::Legacy(..))
