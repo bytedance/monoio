@@ -18,7 +18,7 @@ auto-const-array = "0.2"
 fxhash = "0.2"
 libc = "0.2"
 pin-project-lite = "0.2"
-socket2 = {version = "0.4", features = ["all"]}
+socket2 = {version = "0.5", features = ["all"]}
 
 bytes = {version = "1", optional = true}
 flume = {version = "0.10", optional = true}
