@@ -65,8 +65,6 @@ async fn echo_server() {
 #[cfg(unix)]
 #[monoio::test_all(timer_enabled = true)]
 async fn rw_able() {
-    const MSG: &str = "foo bar baz";
-
     let listener = TcpListener::bind("127.0.0.1:0").unwrap();
     let listener_addr = listener.local_addr().unwrap();
 
