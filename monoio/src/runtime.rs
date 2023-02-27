@@ -166,7 +166,7 @@ impl<D> Runtime<D> {
                         }
 
                         // Check main future
-                        if should_poll() {
+                        while should_poll() {
                             // check if ready
                             if let std::task::Poll::Ready(t) = join.as_mut().poll(cx) {
                                 return t;
