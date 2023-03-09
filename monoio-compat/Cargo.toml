@@ -8,12 +8,12 @@ license = "MIT/Apache-2.0"
 name = "monoio-compat"
 readme = "README.md"
 repository = "https://github.com/bytedance/monoio"
-version = "0.0.9"
+version = "0.1.0"
 
 [dependencies]
-monoio = {version = "0.0.9", path = "../monoio", default-features = false}
+monoio = {version = "0.1.0", path = "../monoio", default-features = false}
 reusable-box-future = "0.2"
 tokio = {version = "1", default-features = false, features = ["io-util"]}
 
 [dev-dependencies]
-monoio = {version = "0.0.9", path = "../monoio", features = ["async-cancel", "macros"]}
+monoio = {version = "0.1.0", path = "../monoio", features = ["async-cancel", "macros"]}
