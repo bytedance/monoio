@@ -52,7 +52,7 @@ io-uring = {version = "0.5", features = ["unstable"]}
 
 [dev-dependencies]
 futures = "0.3"
-local-sync = "0.0.5"
+local-sync = "0.1.0"
 tempfile = "3.2"
 
 [features]
