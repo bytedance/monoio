@@ -4,13 +4,26 @@
 use proc_macro::TokenStream;
 use proc_macro2::Span;
 use quote::{quote, quote_spanned, ToTokens};
+use syn::parse::Parser;
 
+// syn::AttributeArgs does not implement syn::Parse
+type AttributeArgs = syn::punctuated::Punctuated<syn::Meta, syn::Token![,]>;
+
+#[derive(Clone, Copy)]
 struct FinalConfig {
     entries: Option<u32>,
     timer_enabled: Option<bool>,
     threads: Option<u32>,
     driver: DriverType,
 }
+
+/// Config used in case of the attribute not being able to build a valid config
+const DEFAULT_ERROR_CONFIG: FinalConfig = FinalConfig {
+    entries: None,
+    timer_enabled: None,
+    threads: None,
+    driver: DriverType::Fusion,
+};
 
 struct Configuration {
     entries: Option<(u32, Span)>,
@@ -146,20 +159,17 @@ fn parse_bool(bool: syn::Lit, span: Span, field: &str) -> Result<bool, syn::Erro
     }
 }
 
-fn parse_knobs(
-    mut input: syn::ItemFn,
-    args: syn::AttributeArgs,
-    is_test: bool,
-    mut config: Configuration,
-) -> Result<TokenStream, syn::Error> {
-    if input.sig.asyncness.take().is_none() {
+fn build_config(input: syn::ItemFn, args: AttributeArgs) -> Result<FinalConfig, syn::Error> {
+    if input.sig.asyncness.is_none() {
         let msg = "the `async` keyword is missing from the function declaration";
         return Err(syn::Error::new_spanned(input.sig.fn_token, msg));
     }
 
+    let mut config = Configuration::new();
+
     for arg in args {
         match arg {
-            syn::NestedMeta::Meta(syn::Meta::NameValue(namevalue)) => {
+            syn::Meta::NameValue(namevalue) => {
                 let ident = namevalue
                     .path
                     .get_ident()
@@ -168,23 +178,30 @@ fn parse_knobs(
                     })?
                     .to_string()
                     .to_lowercase();
+                let lit = match &namevalue.value {
+                    syn::Expr::Lit(syn::ExprLit { lit, .. }) => lit,
+                    expr => return Err(syn::Error::new_spanned(expr, "Must be a literal")),
+                };
                 match ident.as_str() {
-                    "entries" => config.set_entries(
-                        namevalue.lit.clone(),
-                        syn::spanned::Spanned::span(&namevalue.lit),
-                    )?,
-                    "timer_enabled" | "enable_timer" | "timer" => config.set_timer_enabled(
-                        namevalue.lit.clone(),
-                        syn::spanned::Spanned::span(&namevalue.lit),
-                    )?,
-                    "worker_threads" | "workers" | "threads" => config.set_threads(
-                        namevalue.lit.clone(),
-                        syn::spanned::Spanned::span(&namevalue.lit),
-                    )?,
-                    "driver" => config.set_driver(
-                        namevalue.lit.clone(),
-                        syn::spanned::Spanned::span(&namevalue.lit),
-                    )?,
+                    "entries" => {
+                        config.set_entries(lit.clone(), syn::spanned::Spanned::span(lit))?
+                    }
+                    "timer_enabled" | "enable_timer" | "timer" => {
+                        config.set_timer_enabled(lit.clone(), syn::spanned::Spanned::span(lit))?
+                    }
+                    "worker_threads" | "workers" | "threads" => {
+                        config.set_threads(lit.clone(), syn::spanned::Spanned::span(lit))?;
+                        // Function must return `()` since it will be swallowed.
+                        if !matches!(config.threads, None | Some((1, _)))
+                            && !matches!(input.sig.output, syn::ReturnType::Default)
+                        {
+                            return Err(syn::Error::new(
+                                syn::spanned::Spanned::span(lit),
+                                "With multi-thread function can not have a return value",
+                            ));
+                        }
+                    }
+                    "driver" => config.set_driver(lit.clone(), syn::spanned::Spanned::span(lit))?,
                     name => {
                         let msg = format!(
                             "Unknown attribute {name} is specified; expected one of: \
@@ -194,7 +211,7 @@ fn parse_knobs(
                     }
                 }
             }
-            syn::NestedMeta::Meta(syn::Meta::Path(path)) => {
+            syn::Meta::Path(path) => {
                 let name = path
                     .get_ident()
                     .ok_or_else(|| syn::Error::new_spanned(&path, "Must have specified ident"))?
@@ -215,7 +232,11 @@ fn parse_knobs(
         }
     }
 
-    let config = config.build()?;
+    config.build()
+}
+
+fn parse_knobs(mut input: syn::ItemFn, is_test: bool, config: FinalConfig) -> TokenStream {
+    input.sig.asyncness = None;
 
     // If type mismatch occurs, the current rustc points to the last statement.
     let (last_stmt_start_span, last_stmt_end_span) = {
@@ -257,7 +278,7 @@ fn parse_knobs(
     let body = &input.block;
     let brace_token = input.block.brace_token;
     let (tail_return, tail_semicolon) = match body.stmts.last() {
-        Some(syn::Stmt::Semi(expr, _)) => (
+        Some(syn::Stmt::Expr(expr, Some(_))) => (
             match expr {
                 syn::Expr::Return(_) => quote! { return },
                 _ => quote! {},
@@ -282,13 +303,8 @@ fn parse_knobs(
         })
         .expect("Parsing failure");
     } else {
-        // Function must return `()` since it will be swallowed.
-        if !matches!(input.sig.output, syn::ReturnType::Default) {
-            return Err(syn::Error::new(
-                last_stmt_end_span,
-                "With multi-thread function can not have a return value",
-            ));
-        }
+        // Check covered when building config.
+        debug_assert!(matches!(input.sig.output, syn::ReturnType::Default));
 
         let threads = config.threads.unwrap() - 1;
         input.block = syn::parse2(quote_spanned! {last_stmt_end_span=>
@@ -340,69 +356,111 @@ fn parse_knobs(
         #cfg_attr
         #input
     };
-    Ok(result.into())
+    result.into()
+}
+
+fn token_stream_with_error(mut tokens: TokenStream, error: syn::Error) -> TokenStream {
+    tokens.extend(TokenStream::from(error.into_compile_error()));
+    tokens
 }
 
 pub(crate) fn main(args: TokenStream, item: TokenStream) -> TokenStream {
-    let input = syn::parse_macro_input!(item as syn::ItemFn);
-    let args = syn::parse_macro_input!(args as syn::AttributeArgs);
+    // If any of the steps for this macro fail, we still want to expand to an item that is as close
+    // to the expected output as possible. This helps out IDEs such that completions and other
+    // related features keep working.
+    let input: syn::ItemFn = match syn::parse(item.clone()) {
+        Ok(it) => it,
+        Err(e) => return token_stream_with_error(item, e),
+    };
 
-    if input.sig.ident == "main" && !input.sig.inputs.is_empty() {
+    let config = if input.sig.ident == "main" && !input.sig.inputs.is_empty() {
         let msg = "the main function cannot accept arguments";
-        return syn::Error::new_spanned(&input.sig.ident, msg)
-            .to_compile_error()
-            .into();
-    }
+        Err(syn::Error::new_spanned(&input.sig.ident, msg))
+    } else {
+        AttributeArgs::parse_terminated
+            .parse(args)
+            .and_then(|args| build_config(input.clone(), args))
+    };
 
-    parse_knobs(input, args, false, Configuration::new())
-        .unwrap_or_else(|e| e.to_compile_error().into())
+    match config {
+        Ok(config) => parse_knobs(input, false, config),
+        Err(e) => token_stream_with_error(parse_knobs(input, false, DEFAULT_ERROR_CONFIG), e),
+    }
 }
 
 pub(crate) fn test(args: TokenStream, item: TokenStream) -> TokenStream {
-    let input = syn::parse_macro_input!(item as syn::ItemFn);
-    let args = syn::parse_macro_input!(args as syn::AttributeArgs);
+    // If any of the steps for this macro fail, we still want to expand to an item that is as close
+    // to the expected output as possible. This helps out IDEs such that completions and other
+    // related features keep working.
+    let input: syn::ItemFn = match syn::parse(item.clone()) {
+        Ok(it) => it,
+        Err(e) => return token_stream_with_error(item, e),
+    };
+    let config = if let Some(attr) = input
+        .attrs
+        .iter()
+        .find(|attr| attr.meta.path().is_ident("test"))
+    {
+        let msg = "second test attribute is supplied";
+        Err(syn::Error::new_spanned(attr, msg))
+    } else {
+        AttributeArgs::parse_terminated
+            .parse(args)
+            .and_then(|args| build_config(input.clone(), args))
+    };
 
-    for attr in &input.attrs {
-        if attr.path.is_ident("test") {
-            let msg = "second test attribute is supplied";
-            return syn::Error::new_spanned(attr, msg).to_compile_error().into();
-        }
+    match config {
+        Ok(config) => parse_knobs(input, true, config),
+        Err(e) => token_stream_with_error(parse_knobs(input, true, DEFAULT_ERROR_CONFIG), e),
     }
-
-    parse_knobs(input, args, true, Configuration::new())
-        .unwrap_or_else(|e| e.to_compile_error().into())
 }
 
 pub(crate) fn test_all(args: TokenStream, item: TokenStream) -> TokenStream {
-    let input = syn::parse_macro_input!(item as syn::ItemFn);
-    let args = syn::parse_macro_input!(args as syn::AttributeArgs);
-
-    for attr in &input.attrs {
-        if attr.path.is_ident("test") {
-            let msg = "second test attribute is supplied";
-            return syn::Error::new_spanned(attr, msg).to_compile_error().into();
+    // If any of the steps for this macro fail, we still want to expand to an item that is as close
+    // to the expected output as possible. This helps out IDEs such that completions and other
+    // related features keep working.
+    let input: syn::ItemFn = match syn::parse(item.clone()) {
+        Ok(it) => it,
+        Err(e) => return token_stream_with_error(item, e),
+    };
+    let config = if let Some(attr) = input
+        .attrs
+        .iter()
+        .find(|attr| attr.meta.path().is_ident("test"))
+    {
+        let msg = "second test attribute is supplied";
+        Err(syn::Error::new_spanned(attr, msg))
+    } else {
+        AttributeArgs::parse_terminated
+            .parse(args)
+            .and_then(|args| build_config(input.clone(), args))
+    };
+    let mut config = match config {
+        Ok(config) => config,
+        Err(e) => {
+            return token_stream_with_error(parse_knobs(input, true, DEFAULT_ERROR_CONFIG), e)
         }
-    }
+    };
+
+    let mut output = TokenStream::new();
 
     let mut input_uring = input.clone();
     input_uring.sig.ident = proc_macro2::Ident::new(
         &format!("uring_{}", input_uring.sig.ident),
         input_uring.sig.ident.span(),
     );
-    let mut config = Configuration::new();
-    config.driver = Some((DriverType::Uring, Span::call_site()));
-    let mut token_uring = parse_knobs(input_uring, args.clone(), true, config)
-        .unwrap_or_else(|e| e.to_compile_error().into());
+    config.driver = DriverType::Uring;
+    let token_uring = parse_knobs(input_uring, true, config);
+    output.extend(token_uring);
 
     let mut input_legacy = input;
     input_legacy.sig.ident = proc_macro2::Ident::new(
         &format!("legacy_{}", input_legacy.sig.ident),
         input_legacy.sig.ident.span(),
     );
-    let mut config = Configuration::new();
-    config.driver = Some((DriverType::Legacy, Span::call_site()));
-    let token_legacy = parse_knobs(input_legacy, args, true, config)
-        .unwrap_or_else(|e| e.to_compile_error().into());
-    token_uring.extend(token_legacy);
-    token_uring
+    config.driver = DriverType::Uring;
+    let token_legacy = parse_knobs(input_legacy, true, config);
+    output.extend(token_legacy);
+
+    output
 }

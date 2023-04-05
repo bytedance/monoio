@@ -17,6 +17,7 @@
 #![feature(stmt_expr_attributes)]
 #![feature(unboxed_closures)]
 #![feature(once_cell)]
+#![feature(lazy_cell)]
 
 #[macro_use]
 pub mod macros;
