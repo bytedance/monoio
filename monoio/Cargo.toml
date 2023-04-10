@@ -48,7 +48,7 @@ tracing = {version = "0.1", default-features = false, features = [
 nix = {version = "0.25", optional = true}
 
 [target.'cfg(target_os = "linux")'.dependencies]
-io-uring = {version = "0.5", features = ["unstable"]}
+io-uring = {version = "0.6", features = ["unstable"]}
 
 [dev-dependencies]
 futures = "0.3"
