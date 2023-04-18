@@ -12,7 +12,8 @@ pub trait Sink<Item> {
     /// Future representing the send result.
     type SendFuture<'a>: std::future::Future<Output = Result<(), Self::Error>>
     where
-        Self: 'a;
+        Self: 'a,
+        Item: 'a;
 
     /// Future representing the flush result.
     type FlushFuture<'a>: std::future::Future<Output = Result<(), Self::Error>>
@@ -25,7 +26,9 @@ pub trait Sink<Item> {
         Self: 'a;
 
     /// Send item.
-    fn send(&mut self, item: Item) -> Self::SendFuture<'_>;
+    fn send<'a>(&'a mut self, item: Item) -> Self::SendFuture<'a>
+    where
+        Item: 'a;
 
     /// Flush any remaining output from this sink.
     fn flush(&mut self) -> Self::FlushFuture<'_>;
@@ -39,7 +42,7 @@ impl<T, S: ?Sized + Sink<T>> Sink<T> for &mut S {
 
     type SendFuture<'a> = S::SendFuture<'a>
     where
-        Self: 'a;
+        Self: 'a, T: 'a;
 
     type FlushFuture<'a> = S::FlushFuture<'a>
     where
@@ -49,7 +52,10 @@ impl<T, S: ?Sized + Sink<T>> Sink<T> for &mut S {
     where
         Self: 'a;
 
-    fn send(&mut self, item: T) -> Self::SendFuture<'_> {
+    fn send<'a>(&'a mut self, item: T) -> Self::SendFuture<'a>
+    where
+        T: 'a,
+    {
         (**self).send(item)
     }
 
