@@ -1,8 +1,10 @@
+#[cfg(unix)]
 use std::{
     io::{Error, ErrorKind, Read, Result, Write},
     net, thread,
 };
 
+#[cfg(unix)]
 use monoio::{
     io::{AsyncReadRent, AsyncWriteRentExt, Splitable},
     net::{TcpListener, TcpStream},

@@ -7,8 +7,10 @@ pub mod udp;
 #[cfg(unix)]
 pub mod unix;
 
-pub use listener_config::ListenerConfig;
-pub use tcp::{TcpListener, TcpStream};
+pub use listener_config::ListenerOpts;
+#[deprecated(since = "0.2.0", note = "use ListenerOpts")]
+pub use listener_config::ListenerOpts as ListenerConfig;
+pub use tcp::{TcpConnectOpts, TcpListener, TcpStream};
 #[cfg(unix)]
 pub use unix::{Pipe, UnixDatagram, UnixListener, UnixStream};
 

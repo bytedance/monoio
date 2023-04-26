@@ -1,6 +1,7 @@
-/// Custom listener config
+/// Custom listener options
 #[derive(Debug, Clone, Copy)]
-pub struct ListenerConfig {
+#[non_exhaustive]
+pub struct ListenerOpts {
     /// Whether to enable reuse_port.
     pub reuse_port: bool,
     /// Whether to enable reuse_addr.
@@ -11,22 +12,31 @@ pub struct ListenerConfig {
     pub send_buf_size: Option<usize>,
     /// Recv buffer size or None to use default.
     pub recv_buf_size: Option<usize>,
+    /// TCP fast open.
+    pub tcp_fast_open: bool,
 }
 
-impl Default for ListenerConfig {
+impl Default for ListenerOpts {
     #[inline]
     fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl ListenerOpts {
+    /// Create a default ListenerOpts.
+    #[inline]
+    pub const fn new() -> Self {
         Self {
             reuse_port: true,
             reuse_addr: true,
             backlog: 1024,
             send_buf_size: None,
             recv_buf_size: None,
+            tcp_fast_open: false,
         }
     }
-}
 
-impl ListenerConfig {
     /// Enable SO_REUSEPORT
     #[must_use]
     #[inline]
@@ -64,6 +74,18 @@ impl ListenerConfig {
     #[inline]
     pub fn recv_buf_size(mut self, recv_buf_size: usize) -> Self {
         self.recv_buf_size = Some(recv_buf_size);
+        self
+    }
+
+    /// Specify FastOpen.
+    /// Note: if it is enabled, the connection will be
+    /// established on first peer data sent, which means
+    /// data cannot be sent immediately after connection
+    /// accepted if client does not send something.
+    #[must_use]
+    #[inline]
+    pub fn tcp_fast_open(mut self, fast_open: bool) -> Self {
+        self.tcp_fast_open = fast_open;
         self
     }
 }

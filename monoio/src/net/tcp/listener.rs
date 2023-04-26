@@ -15,7 +15,7 @@ use crate::io::CancelHandle;
 use crate::{
     driver::{op::Op, shared_fd::SharedFd},
     io::stream::Stream,
-    net::ListenerConfig,
+    net::ListenerOpts,
 };
 
 /// TcpListener
@@ -39,10 +39,7 @@ impl TcpListener {
     }
 
     /// Bind to address with config
-    pub fn bind_with_config<A: ToSocketAddrs>(
-        addr: A,
-        config: &ListenerConfig,
-    ) -> io::Result<Self> {
+    pub fn bind_with_config<A: ToSocketAddrs>(addr: A, opts: &ListenerOpts) -> io::Result<Self> {
         let addr = addr
             .to_socket_addrs()?
             .next()
@@ -61,20 +58,26 @@ impl TcpListener {
 
         let addr = socket2::SockAddr::from(addr);
         #[cfg(unix)]
-        if config.reuse_port {
+        if opts.reuse_port {
             sys_listener.set_reuse_port(true)?;
         }
-        if config.reuse_addr {
+        if opts.reuse_addr {
             sys_listener.set_reuse_address(true)?;
         }
-        if let Some(send_buf_size) = config.send_buf_size {
+        if let Some(send_buf_size) = opts.send_buf_size {
             sys_listener.set_send_buffer_size(send_buf_size)?;
         }
-        if let Some(recv_buf_size) = config.recv_buf_size {
+        if let Some(recv_buf_size) = opts.recv_buf_size {
             sys_listener.set_recv_buffer_size(recv_buf_size)?;
         }
+        if opts.tcp_fast_open {
+            #[cfg(any(target_os = "linux", target_os = "android"))]
+            super::tfo::set_tcp_fastopen(&sys_listener, opts.backlog)?;
+            #[cfg(any(target_os = "ios", target_os = "macos"))]
+            super::tfo::set_tcp_fastopen(&sys_listener)?;
+        }
         sys_listener.bind(&addr)?;
-        sys_listener.listen(config.backlog)?;
+        sys_listener.listen(opts.backlog)?;
 
         #[cfg(unix)]
         let fd = SharedFd::new(sys_listener.into_raw_fd())?;
@@ -87,8 +90,8 @@ impl TcpListener {
 
     /// Bind to address
     pub fn bind<A: ToSocketAddrs>(addr: A) -> io::Result<Self> {
-        let cfg = ListenerConfig::default();
-        Self::bind_with_config(addr, &cfg)
+        const DEFAULT_CFG: ListenerOpts = ListenerOpts::new();
+        Self::bind_with_config(addr, &DEFAULT_CFG)
     }
 
     #[cfg(unix)]
@@ -236,6 +239,17 @@ impl TcpListener {
     pub async fn readable(&self, relaxed: bool) -> io::Result<()> {
         let op = Op::poll_read(&self.fd, relaxed).unwrap();
         op.wait().await
+    }
+
+    /// Creates new `TcpListener` from a `std::net::TcpListener`.
+    pub fn from_std(stdl: std::net::TcpListener) -> io::Result<Self> {
+        match SharedFd::new(stdl.as_raw_fd()) {
+            Ok(shared) => {
+                stdl.into_raw_fd();
+                Ok(Self::from_shared_fd(shared))
+            }
+            Err(e) => Err(e),
+        }
     }
 }
 

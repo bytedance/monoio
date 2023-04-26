@@ -11,22 +11,25 @@ pub(crate) struct Connect {
     pub(crate) fd: SharedFd,
     socket_addr: Box<SocketAddrCRepr>,
     socket_addr_len: libc::socklen_t,
+    #[cfg(any(target_os = "ios", target_os = "macos"))]
+    tfo: bool,
 }
 
 impl Op<Connect> {
     /// Submit a request to connect.
-    pub(crate) fn connect(socket: SharedFd, addr: SocketAddr) -> io::Result<Op<Connect>> {
-        #[cfg(unix)]
-        {
-            let (raw_addr, raw_addr_length) = socket_addr(&addr);
-            Op::submit_with(Connect {
-                fd: socket,
-                socket_addr: Box::new(raw_addr),
-                socket_addr_len: raw_addr_length,
-            })
-        }
-        #[cfg(windows)]
-        unimplemented!()
+    pub(crate) fn connect(
+        socket: SharedFd,
+        addr: SocketAddr,
+        _tfo: bool,
+    ) -> io::Result<Op<Connect>> {
+        let (raw_addr, raw_addr_length) = socket_addr(&addr);
+        Op::submit_with(Connect {
+            fd: socket,
+            socket_addr: Box::new(raw_addr),
+            socket_addr_len: raw_addr_length,
+            #[cfg(any(target_os = "ios", target_os = "macos"))]
+            tfo: _tfo,
+        })
     }
 }
 
@@ -48,6 +51,31 @@ impl OpAble for Connect {
 
     #[cfg(all(unix, feature = "legacy"))]
     fn legacy_call(&mut self) -> io::Result<u32> {
+        // For ios/macos, if tfo is enabled, we will
+        // call connectx here.
+        // For linux/android, we have already set socket
+        // via set_tcp_fastopen_connect.
+        #[cfg(any(target_os = "ios", target_os = "macos"))]
+        if self.tfo {
+            let mut endpoints: libc::sa_endpoints_t = unsafe { std::mem::zeroed() };
+            endpoints.sae_dstaddr = self.socket_addr.as_ptr();
+            endpoints.sae_dstaddrlen = self.socket_addr_len;
+
+            return match crate::syscall_u32!(connectx(
+                self.fd.raw_fd(),
+                &endpoints as *const _,
+                libc::SAE_ASSOCID_ANY,
+                libc::CONNECT_DATA_IDEMPOTENT | libc::CONNECT_RESUME_ON_READ_WRITE,
+                std::ptr::null(),
+                0,
+                std::ptr::null_mut(),
+                std::ptr::null_mut(),
+            )) {
+                Err(err) if err.raw_os_error() != Some(libc::EINPROGRESS) => Err(err),
+                _ => Ok(self.fd.raw_fd() as u32),
+            };
+        }
+
         match crate::syscall_u32!(connect(
             self.fd.raw_fd(),
             self.socket_addr.as_ptr(),
