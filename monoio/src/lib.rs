@@ -43,6 +43,7 @@ pub mod io;
 pub mod net;
 pub mod task;
 pub mod utils;
+pub mod scoped;
 
 use std::future::Future;
 

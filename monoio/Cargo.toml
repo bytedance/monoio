@@ -12,26 +12,27 @@ version = "0.1.2"
 
 # common dependencies
 [dependencies]
-monoio-macros = {version = "0.0.3", path = "../monoio-macros", optional = true}
+monoio-macros = { version = "0.0.3", path = "../monoio-macros", optional = true }
 
 auto-const-array = "0.2"
 fxhash = "0.2"
 libc = "0.2"
 pin-project-lite = "0.2"
-socket2 = {version = "0.5", features = ["all"]}
+socket2 = { version = "0.5", features = ["all"] }
 
-bytes = {version = "1", optional = true}
-flume = {version = "0.10", optional = true}
-mio = {version = "0.8", features = [
+bytes = { version = "1", optional = true }
+flume = { version = "0.10", optional = true }
+mio = { version = "0.8", features = [
   "net",
   "os-poll",
   "os-ext",
-], optional = true}
-threadpool = {version = "1", optional = true}
-tokio = {version = "1", default-features = false, optional = true}
-tracing = {version = "0.1", default-features = false, features = [
+], optional = true }
+threadpool = { version = "1", optional = true }
+tokio = { version = "1", default-features = false, optional = true }
+tracing = { version = "0.1", default-features = false, features = [
   "std",
-], optional = true}
+], optional = true }
+waker-fn = "1"
 
 # windows dependencies(will be added when windows support finished)
 # [target.'cfg(windows)'.dependencies]
@@ -45,10 +46,10 @@ tracing = {version = "0.1", default-features = false, features = [
 
 # unix dependencies
 [target.'cfg(unix)'.dependencies]
-nix = {version = "0.25", optional = true}
+nix = { version = "0.25", optional = true }
 
 [target.'cfg(target_os = "linux")'.dependencies]
-io-uring = {version = "0.5", features = ["unstable"]}
+io-uring = { version = "0.5", features = ["unstable"] }
 
 [dev-dependencies]
 futures = "0.3"

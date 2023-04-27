@@ -395,8 +395,7 @@ where
     join
 }
 
-#[cfg(feature = "sync")]
-unsafe fn spawn_without_static<T>(future: T) -> JoinHandle<T::Output>
+pub(crate) unsafe fn spawn_without_static<T>(future: T) -> JoinHandle<T::Output>
 where
     T: Future,
 {
