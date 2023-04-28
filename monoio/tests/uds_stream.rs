@@ -1,7 +1,10 @@
+#[cfg(unix)]
 use futures::future::try_join;
+#[cfg(unix)]
 use monoio::io::{AsyncReadRent, AsyncReadRentExt, AsyncWriteRent, AsyncWriteRentExt};
 #[cfg(unix)]
 use monoio::net::{UnixListener, UnixStream};
+
 #[cfg(unix)]
 #[monoio::test_all]
 async fn accept_read_write() -> std::io::Result<()> {
@@ -29,6 +32,7 @@ async fn accept_read_write() -> std::io::Result<()> {
     assert_eq!(len, 0);
     Ok(())
 }
+
 #[cfg(unix)]
 #[monoio::test_all]
 async fn shutdown() -> std::io::Result<()> {

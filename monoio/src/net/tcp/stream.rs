@@ -20,6 +20,42 @@ use crate::{
     },
 };
 
+/// Custom tcp connect options
+#[derive(Debug, Clone, Copy)]
+#[non_exhaustive]
+pub struct TcpConnectOpts {
+    /// TCP fast open.
+    pub tcp_fast_open: bool,
+}
+
+impl Default for TcpConnectOpts {
+    #[inline]
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl TcpConnectOpts {
+    /// Create a default TcpConnectOpts.
+    #[inline]
+    pub const fn new() -> Self {
+        Self {
+            tcp_fast_open: false,
+        }
+    }
+
+    /// Specify FastOpen
+    /// Note: This option only works for linux 4.1+
+    /// and macos/ios 9.0+.
+    /// If it is enabled, the connection will be
+    /// established on the first call to write.
+    #[must_use]
+    #[inline]
+    pub fn tcp_fast_open(mut self, fast_open: bool) -> Self {
+        self.tcp_fast_open = fast_open;
+        self
+    }
+}
 /// TcpStream
 pub struct TcpStream {
     fd: SharedFd,
@@ -57,14 +93,43 @@ impl TcpStream {
     }
 
     #[cfg(unix)]
-    /// Establishe a connection to the specified `addr`.
+    /// Establish a connection to the specified `addr`.
     pub async fn connect_addr(addr: SocketAddr) -> io::Result<Self> {
+        const DEFAULT_OPTS: TcpConnectOpts = TcpConnectOpts {
+            tcp_fast_open: false,
+        };
+        Self::connect_addr_with_config(addr, &DEFAULT_OPTS).await
+    }
+
+    #[cfg(windows)]
+    /// Establish a connection to the specified `addr`.
+    pub async fn connect_addr(addr: SocketAddr) -> io::Result<Self> {
+        unimplemented!()
+    }
+
+    /// Establish a connection to the specified `addr` with given config.
+    pub async fn connect_addr_with_config(
+        addr: SocketAddr,
+        opts: &TcpConnectOpts,
+    ) -> io::Result<Self> {
         let domain = match addr {
             SocketAddr::V4(_) => libc::AF_INET,
             SocketAddr::V6(_) => libc::AF_INET6,
         };
         let socket = crate::net::new_socket(domain, libc::SOCK_STREAM)?;
-        let op = Op::connect(SharedFd::new(socket)?, addr)?;
+        #[allow(unused_mut)]
+        let mut tfo = opts.tcp_fast_open;
+
+        if tfo {
+            #[cfg(any(target_os = "linux", target_os = "android"))]
+            super::tfo::try_set_tcp_fastopen_connect(&socket);
+            #[cfg(any(target_os = "ios", target_os = "macos"))]
+            // if we cannot set force tcp fastopen, we will not use it.
+            if super::tfo::set_tcp_fastopen_force_enable(&socket).is_err() {
+                tfo = false;
+            }
+        }
+        let op = Op::connect(SharedFd::new(socket)?, addr, tfo)?;
         let completion = op.await;
         completion.meta.result?;
 
@@ -72,21 +137,16 @@ impl TcpStream {
         // wait write ready on epoll branch
         if crate::driver::op::is_legacy() {
             stream.writable(true).await?;
-        }
-        // getsockopt
-        let sys_socket = unsafe { std::net::TcpStream::from_raw_fd(stream.fd.raw_fd()) };
-        let err = sys_socket.take_error();
-        let _ = sys_socket.into_raw_fd();
-        if let Some(e) = err? {
-            return Err(e);
+
+            // getsockopt libc::SO_ERROR
+            let sys_socket = unsafe { std::net::TcpStream::from_raw_fd(stream.fd.raw_fd()) };
+            let err = sys_socket.take_error();
+            let _ = sys_socket.into_raw_fd();
+            if let Some(e) = err? {
+                return Err(e);
+            }
         }
         Ok(stream)
-    }
-
-    #[cfg(windows)]
-    /// Establishe a connection to the specified `addr`.
-    pub async fn connect_addr(addr: SocketAddr) -> io::Result<Self> {
-        unimplemented!()
     }
 
     /// Return the local address that this stream is bound to.

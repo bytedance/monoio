@@ -1,8 +1,10 @@
+#[cfg(unix)]
 use std::net::{IpAddr, SocketAddr};
 
-use monoio::net::{TcpListener, TcpStream};
 #[cfg(unix)]
+use monoio::net::{TcpListener, TcpStream};
 
+#[cfg(unix)]
 macro_rules! test_accept {
     ($(($ident:ident, $target:expr),)*) => {
         $(
@@ -22,8 +24,8 @@ macro_rules! test_accept {
         )*
     }
 }
-#[cfg(unix)]
 
+#[cfg(unix)]
 test_accept! {
     (ip_str, "127.0.0.1:0"),
     (host_str, "localhost:0"),

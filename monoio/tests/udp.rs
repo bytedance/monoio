@@ -1,3 +1,4 @@
+#[cfg(unix)]
 use monoio::net::udp::UdpSocket;
 
 #[cfg(unix)]

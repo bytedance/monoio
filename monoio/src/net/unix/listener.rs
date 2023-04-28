@@ -9,7 +9,7 @@ use super::{socket_addr::SocketAddr, UnixStream};
 use crate::{
     driver::{op::Op, shared_fd::SharedFd},
     io::{stream::Stream, CancelHandle},
-    net::ListenerConfig,
+    net::ListenerOpts,
 };
 
 /// UnixListener
@@ -31,7 +31,7 @@ impl UnixListener {
     /// config.
     pub fn bind_with_config<P: AsRef<Path>>(
         path: P,
-        config: &ListenerConfig,
+        config: &ListenerOpts,
     ) -> io::Result<UnixListener> {
         let sys_listener =
             socket2::Socket::new(socket2::Domain::UNIX, socket2::Type::STREAM, None)?;
@@ -61,7 +61,7 @@ impl UnixListener {
     /// Creates a new `UnixListener` bound to the specified socket with default
     /// config.
     pub fn bind<P: AsRef<Path>>(path: P) -> io::Result<UnixListener> {
-        Self::bind_with_config(path, &ListenerConfig::default())
+        Self::bind_with_config(path, &ListenerOpts::default())
     }
 
     /// Accept

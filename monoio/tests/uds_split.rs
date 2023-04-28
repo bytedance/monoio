@@ -1,3 +1,4 @@
+#[cfg(unix)]
 use monoio::io::{AsyncReadRent, AsyncReadRentExt, AsyncWriteRent, AsyncWriteRentExt, Splitable};
 #[cfg(unix)]
 use monoio::net::UnixStream;

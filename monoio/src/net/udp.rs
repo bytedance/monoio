@@ -113,7 +113,7 @@ impl UdpSocket {
     /// `recv` syscalls to be used to send data and also applies filters to only
     /// receive data from the specified address.
     pub async fn connect(&self, socket_addr: SocketAddr) -> io::Result<()> {
-        let op = Op::connect(self.fd.clone(), socket_addr)?;
+        let op = Op::connect(self.fd.clone(), socket_addr, false)?;
         let completion = op.await;
         completion.meta.result?;
         Ok(())

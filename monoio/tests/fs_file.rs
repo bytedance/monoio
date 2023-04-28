@@ -5,8 +5,10 @@ use std::os::unix::io::{AsRawFd, FromRawFd, RawFd};
 use monoio::fs::File;
 use tempfile::NamedTempFile;
 
+#[cfg(unix)]
 const HELLO: &[u8] = b"hello world...";
 
+#[cfg(unix)]
 async fn read_hello(file: &File) {
     let buf = Vec::with_capacity(1024);
     let (res, buf) = file.read_at(buf, 0).await;
