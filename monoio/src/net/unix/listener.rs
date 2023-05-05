@@ -132,6 +132,17 @@ impl UnixListener {
         let op = Op::poll_read(&self.fd, relaxed).unwrap();
         op.wait().await
     }
+
+    /// Creates new `UnixListener` from a `std::os::unix::net::UnixListener`.
+    pub fn from_std(sys_listener: std::os::unix::net::UnixListener) -> io::Result<Self> {
+        match SharedFd::new(sys_listener.as_raw_fd()) {
+            Ok(shared) => Ok(Self {
+                fd: shared,
+                sys_listener: Some(sys_listener),
+            }),
+            Err(e) => Err(e),
+        }
+    }
 }
 
 impl Stream for UnixListener {
