@@ -22,6 +22,11 @@ impl Default for ScheduledIo {
 }
 
 impl ScheduledIo {
+    #[allow(unused)]
+    pub(crate) fn set_writable(&mut self) {
+        self.readiness |= Ready::WRITABLE;
+    }
+
     pub(crate) fn set_readiness(&mut self, f: impl Fn(Ready) -> Ready) {
         self.readiness = f(self.readiness);
     }

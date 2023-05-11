@@ -74,10 +74,15 @@ impl TcpListener {
             #[cfg(any(target_os = "linux", target_os = "android"))]
             super::tfo::set_tcp_fastopen(&sys_listener, opts.backlog)?;
             #[cfg(any(target_os = "ios", target_os = "macos"))]
-            super::tfo::set_tcp_fastopen(&sys_listener)?;
+            let _ = super::tfo::set_tcp_fastopen_force_enable(&sys_listener);
         }
         sys_listener.bind(&addr)?;
         sys_listener.listen(opts.backlog)?;
+
+        #[cfg(any(target_os = "ios", target_os = "macos"))]
+        if opts.tcp_fast_open {
+            super::tfo::set_tcp_fastopen(&sys_listener)?;
+        }
 
         #[cfg(unix)]
         let fd = SharedFd::new(sys_listener.into_raw_fd())?;
