@@ -24,7 +24,7 @@ mod waker;
 pub(crate) use waker::UnparkHandle;
 
 pub(crate) struct LegacyInner {
-    io_dispatch: Slab<ScheduledIo>,
+    pub(crate) io_dispatch: Slab<ScheduledIo>,
     events: Option<mio::Events>,
     poll: mio::Poll,
 

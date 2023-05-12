@@ -136,6 +136,23 @@ impl TcpStream {
         let stream = TcpStream::from_shared_fd(completion.data.fd);
         // wait write ready on epoll branch
         if crate::driver::op::is_legacy() {
+            #[cfg(any(target_os = "ios", target_os = "macos"))]
+            if !tfo {
+                stream.writable(true).await?;
+            } else {
+                // set writable as init state
+                crate::driver::CURRENT.with(|inner| match inner {
+                    crate::driver::Inner::Legacy(inner) => {
+                        let idx = stream.fd.registered_index().unwrap();
+                        if let Some(mut readiness) =
+                            unsafe { &mut *inner.get() }.io_dispatch.get(idx)
+                        {
+                            readiness.set_writable();
+                        }
+                    }
+                })
+            }
+            #[cfg(not(any(target_os = "ios", target_os = "macos")))]
             stream.writable(true).await?;
 
             // getsockopt libc::SO_ERROR

@@ -59,6 +59,10 @@ name = "echo"
 path = "echo.rs"
 
 [[example]]
+name = "echo-tfo"
+path = "echo_tfo.rs"
+
+[[example]]
 name = "join"
 path = "join.rs"
 
