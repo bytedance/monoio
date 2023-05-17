@@ -1,6 +1,6 @@
 //! Blocking tasks related.
 
-use std::{future::Future, sync::Arc, task::Poll};
+use std::{future::Future, task::Poll};
 
 use threadpool::{Builder as ThreadPoolBuilder, ThreadPool as ThreadPoolImpl};
 
@@ -121,6 +121,7 @@ where
 /// DefaultThreadPool is a simple wrapped `threadpool::ThreadPool` that implememt
 /// `monoio::blocking::ThreadPool`. You may use this implementation, or you can use your own thread
 /// pool implementation.
+#[derive(Clone)]
 pub struct DefaultThreadPool {
     pool: ThreadPoolImpl,
 }
@@ -153,9 +154,8 @@ impl crate::task::Schedule for NoopScheduler {
     }
 }
 
-#[derive(Clone)]
 pub(crate) enum BlockingHandle {
-    Attached(Arc<dyn ThreadPool>),
+    Attached(Box<dyn crate::blocking::ThreadPool + Send + 'static>),
     Empty(BlockingStrategy),
 }
 
@@ -188,8 +188,6 @@ where
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Arc;
-
     use super::DefaultThreadPool;
 
     /// NaiveThreadPool always create a new thread on executing tasks.
@@ -212,7 +210,7 @@ mod tests {
 
     #[test]
     fn hello_blocking() {
-        let shared_pool = Arc::new(NaiveThreadPool);
+        let shared_pool = Box::new(NaiveThreadPool);
         let mut rt = crate::RuntimeBuilder::<crate::FusionDriver>::new()
             .attach_thread_pool(shared_pool)
             .enable_timer()
@@ -272,7 +270,7 @@ mod tests {
 
     #[test]
     fn drop_task() {
-        let shared_pool = Arc::new(FakeThreadPool);
+        let shared_pool = Box::new(FakeThreadPool);
         let mut rt = crate::RuntimeBuilder::<crate::FusionDriver>::new()
             .attach_thread_pool(shared_pool)
             .enable_timer()
@@ -286,7 +284,7 @@ mod tests {
 
     #[test]
     fn default_pool() {
-        let shared_pool = Arc::new(DefaultThreadPool::new(3));
+        let shared_pool = Box::new(DefaultThreadPool::new(3));
         let mut rt = crate::RuntimeBuilder::<crate::FusionDriver>::new()
             .attach_thread_pool(shared_pool)
             .enable_timer()
