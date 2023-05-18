@@ -97,7 +97,7 @@ where
     F::Output: 'static,
     D: Buildable + Driver,
 {
-    let mut rt = builder::Buildable::build(&builder::RuntimeBuilder::<D>::new())
+    let mut rt = builder::Buildable::build(builder::RuntimeBuilder::<D>::new())
         .expect("Unable to build runtime.");
     rt.block_on(future)
 }
