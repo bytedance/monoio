@@ -5,17 +5,18 @@ use reusable_box_future::ReusableLocalBoxFuture;
 
 use crate::buf::{Buf, RawBuf};
 
-pub(crate) struct MaybeArmedBoxFuture<T> {
+#[derive(Debug)]
+pub struct MaybeArmedBoxFuture<T> {
     slot: ReusableLocalBoxFuture<T>,
     armed: bool,
 }
 
 impl<T> MaybeArmedBoxFuture<T> {
-    pub(crate) fn armed(&self) -> bool {
+    pub fn armed(&self) -> bool {
         self.armed
     }
 
-    pub(crate) fn arm_future<F>(&mut self, f: F)
+    pub fn arm_future<F>(&mut self, f: F)
     where
         F: Future<Output = T> + 'static,
     {
@@ -23,13 +24,23 @@ impl<T> MaybeArmedBoxFuture<T> {
         self.slot.set(f);
     }
 
-    pub(crate) fn poll(&mut self, cx: &mut std::task::Context<'_>) -> std::task::Poll<T> {
+    pub fn poll(&mut self, cx: &mut std::task::Context<'_>) -> std::task::Poll<T> {
         match self.slot.poll(cx) {
             r @ std::task::Poll::Ready(_) => {
                 self.armed = false;
                 r
             }
             p => p,
+        }
+    }
+
+    pub fn new<F>(f: F) -> Self
+    where
+        F: Future<Output = T> + 'static,
+    {
+        Self {
+            slot: ReusableLocalBoxFuture::new(f),
+            armed: false,
         }
     }
 }
