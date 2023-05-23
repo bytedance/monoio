@@ -4,7 +4,30 @@ use crate::{
     io::{AsyncReadRent, AsyncWriteRent, CancelableAsyncReadRent, CancelableAsyncWriteRent},
 };
 
-/// Wrapped IO with given read prefix.
+/// PrefixedReadIO facilitates the addition of a prefix to an IO stream,
+/// enabling stream rewinding and peeking capabilities.
+/// Subsequent reads will preserve access to the original stream contents.
+/// ```
+/// # use monoio::io::PrefixedReadIo;
+/// # use monoio::io::{AsyncReadRent, AsyncWriteRent, AsyncReadRentExt};
+///
+/// async fn demo<T>(mut stream: T)
+/// where
+///     T: AsyncReadRent + AsyncWriteRent,
+/// {
+///     // let stream = b"hello world";
+///     let buf = vec![0 as u8; 6];
+///     let (_, buf) = stream.read_exact(buf).await;
+///     assert_eq!(buf, b"hello ");
+///
+///     let prefix_buf = std::io::Cursor::new(buf);
+///     let mut pio = PrefixedReadIo::new(stream, prefix_buf);
+///
+///     let buf = vec![0 as u8; 11];
+///     let (_, buf) = pio.read_exact(buf).await;
+///     assert_eq!(buf, b"hello world");
+/// }
+/// ```
 pub struct PrefixedReadIo<I, P> {
     io: I,
     prefix: P,
