@@ -2,7 +2,7 @@
 
 #![feature(new_uninit)]
 
-mod box_future;
+pub mod box_future;
 mod buf;
 
 mod safe_wrapper;
