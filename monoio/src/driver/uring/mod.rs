@@ -399,7 +399,7 @@ impl UringInner {
         }
         if let Some(lifecycle) = inner.ops.slab.get(index) {
             let _must_finished = lifecycle.drop_op(data);
-            #[cfg(features = "async-cancel")]
+            #[cfg(feature = "async-cancel")]
             if !_must_finished {
                 unsafe {
                     let cancel = io_uring::opcode::AsyncCancel::new(index as u64)
