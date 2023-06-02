@@ -180,8 +180,7 @@
 ///
 /// #[monoio::main(timer_enabled = true)]
 /// async fn main() {
-///     let sleep = time::sleep(Duration::from_millis(50));
-///     monoio::pin!(sleep);
+///     let mut sleep = std::pin::pin!(time::sleep(Duration::from_millis(50)));
 ///
 ///     while !sleep.is_elapsed() {
 ///         monoio::select! {
@@ -216,8 +215,7 @@
 ///
 /// #[monoio::main(timer_enabled = true)]
 /// async fn main() {
-///     let sleep = time::sleep(Duration::from_millis(50));
-///     monoio::pin!(sleep);
+///     let mut sleep = std::pin::pin!(time::sleep(Duration::from_millis(50)));
 ///
 ///     loop {
 ///         monoio::select! {

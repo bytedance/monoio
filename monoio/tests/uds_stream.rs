@@ -1,11 +1,9 @@
-#[cfg(unix)]
 use futures::future::try_join;
-#[cfg(unix)]
-use monoio::io::{AsyncReadRent, AsyncReadRentExt, AsyncWriteRent, AsyncWriteRentExt};
-#[cfg(unix)]
-use monoio::net::{UnixListener, UnixStream};
+use monoio::{
+    io::{AsyncReadRent, AsyncReadRentExt, AsyncWriteRent, AsyncWriteRentExt},
+    net::{UnixListener, UnixStream},
+};
 
-#[cfg(unix)]
 #[monoio::test_all]
 async fn accept_read_write() -> std::io::Result<()> {
     let dir = tempfile::Builder::new()
@@ -33,7 +31,6 @@ async fn accept_read_write() -> std::io::Result<()> {
     Ok(())
 }
 
-#[cfg(unix)]
 #[monoio::test_all]
 async fn shutdown() -> std::io::Result<()> {
     let dir = tempfile::Builder::new()

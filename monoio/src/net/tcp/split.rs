@@ -11,7 +11,7 @@ pub type TcpReadHalf<'a> = ReadHalf<'a, TcpStream>;
 /// WriteHalf
 pub type TcpWriteHalf<'a> = WriteHalf<'a, TcpStream>;
 
-#[allow(clippy::cast_ref_to_mut)]
+#[allow(cast_ref_to_mut)]
 impl<'t> AsReadFd for TcpReadHalf<'t> {
     #[inline]
     fn as_reader_fd(&mut self) -> &SharedFdWrapper {
@@ -20,7 +20,7 @@ impl<'t> AsReadFd for TcpReadHalf<'t> {
     }
 }
 
-#[allow(clippy::cast_ref_to_mut)]
+#[allow(cast_ref_to_mut)]
 impl<'t> AsWriteFd for TcpWriteHalf<'t> {
     #[inline]
     fn as_writer_fd(&mut self) -> &SharedFdWrapper {

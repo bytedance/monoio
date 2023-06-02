@@ -83,7 +83,7 @@ impl tokio::io::AsyncRead for TcpStreamCompat {
         let raw_buf = this.read_dst.check_and_to_rawbuf(ptr, len);
         if !this.read_fut.armed() {
             // we must leak the stream
-            #[allow(clippy::cast_ref_to_mut)]
+            #[allow(cast_ref_to_mut)]
             let stream = unsafe { &mut *(&this.stream as *const TcpStream as *mut TcpStream) };
             this.read_fut
                 .arm_future(AsyncReadRent::read(stream, raw_buf));
@@ -115,7 +115,7 @@ impl tokio::io::AsyncWrite for TcpStreamCompat {
         let raw_buf = this.write_dst.check_and_to_rawbuf(ptr, len);
         if !this.write_fut.armed() {
             // we must leak the stream
-            #[allow(clippy::cast_ref_to_mut)]
+            #[allow(cast_ref_to_mut)]
             let stream = unsafe { &mut *(&this.stream as *const TcpStream as *mut TcpStream) };
             this.write_fut
                 .arm_future(AsyncWriteRent::write(stream, raw_buf));
@@ -138,7 +138,7 @@ impl tokio::io::AsyncWrite for TcpStreamCompat {
         let this = self.get_mut();
 
         if !this.flush_fut.armed() {
-            #[allow(clippy::cast_ref_to_mut)]
+            #[allow(cast_ref_to_mut)]
             let stream = unsafe { &mut *(&this.stream as *const TcpStream as *mut TcpStream) };
             this.flush_fut.arm_future(stream.flush());
         }
@@ -152,7 +152,7 @@ impl tokio::io::AsyncWrite for TcpStreamCompat {
         let this = self.get_mut();
 
         if !this.shutdown_fut.armed() {
-            #[allow(clippy::cast_ref_to_mut)]
+            #[allow(cast_ref_to_mut)]
             let stream = unsafe { &mut *(&this.stream as *const TcpStream as *mut TcpStream) };
             this.shutdown_fut.arm_future(stream.shutdown());
         }

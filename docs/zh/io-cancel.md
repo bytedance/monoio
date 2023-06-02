@@ -46,10 +46,8 @@ let mut buf = vec![0; 1024];
 let canceler = monoio::io::Canceller::new();
 let handle = canceler.handle();
 
-let timer = monoio::time::sleep(std::time::Duration::from_millis(100));
-monoio::pin!(timer);
-let recv = conn.cancelable_read(buf, handle);
-monoio::pin!(recv);
+let mut timer = std::pin::pin!(monoio::time::sleep(std::time::Duration::from_millis(100)));
+let mut recv = std::pin::pin!(conn.cancelable_read(buf, handle));
 
 monoio::select! {
     _ = &mut timer => {

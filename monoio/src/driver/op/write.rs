@@ -19,7 +19,7 @@ pub(crate) struct Write<T> {
     /// while the operation is in-flight.
     #[allow(unused)]
     fd: SharedFd,
-    offset: libc::off_t,
+    offset: u64,
 
     pub(crate) buf: T,
 }
@@ -28,7 +28,7 @@ impl<T: IoBuf> Op<Write<T>> {
     pub(crate) fn write_at(fd: &SharedFd, buf: T, offset: u64) -> io::Result<Op<Write<T>>> {
         Op::submit_with(Write {
             fd: fd.clone(),
-            offset: offset as _,
+            offset,
             buf,
         })
     }
@@ -61,8 +61,13 @@ impl<T: IoBuf> OpAble for Write<T> {
     #[cfg(all(unix, feature = "legacy"))]
     fn legacy_call(&mut self) -> io::Result<u32> {
         let fd = self.fd.as_raw_fd();
+        let seek_offset = libc::off_t::try_from(self.offset)
+            .map_err(|_| io::Error::new(io::ErrorKind::Other, "offset too big"))?;
+        let neg_seek_offset = seek_offset
+            .checked_neg()
+            .ok_or_else(|| io::Error::new(io::ErrorKind::Other, "offset too big"))?;
         if self.offset != 0 {
-            syscall_u32!(lseek(fd, self.offset, libc::SEEK_CUR))?;
+            syscall_u32!(lseek(fd, seek_offset, libc::SEEK_CUR))?;
             syscall_u32!(write(
                 fd,
                 self.buf.read_ptr() as _,
@@ -70,7 +75,7 @@ impl<T: IoBuf> OpAble for Write<T> {
             ))
             .map_err(|e| {
                 // seek back if read fail...
-                let _ = syscall_u32!(lseek(fd, -self.offset, libc::SEEK_CUR));
+                let _ = syscall_u32!(lseek(fd, neg_seek_offset, libc::SEEK_CUR));
                 e
             })
         } else {

@@ -458,7 +458,7 @@ pub(crate) fn test_all(args: TokenStream, item: TokenStream) -> TokenStream {
         &format!("legacy_{}", input_legacy.sig.ident),
         input_legacy.sig.ident.span(),
     );
-    config.driver = DriverType::Uring;
+    config.driver = DriverType::Legacy;
     let token_legacy = parse_knobs(input_legacy, true, config);
     output.extend(token_legacy);
 

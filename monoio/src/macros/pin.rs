@@ -88,6 +88,7 @@
 ///     }
 /// }
 /// ```
+#[deprecated(note = "use std::pin::pin instead")]
 #[macro_export]
 macro_rules! pin {
     ($($x:ident),*) => { $(

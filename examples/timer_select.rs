@@ -1,6 +1,6 @@
 //! An example to illustrate selecting by macro or manually.
 
-use std::future::Future;
+use std::{future::Future, pin::pin};
 
 use monoio::{io::Canceller, net::TcpListener, time::Duration};
 use pin_project_lite::pin_project;
@@ -44,8 +44,7 @@ async fn main() {
     let canceller = Canceller::new();
     let timeout_fut = monoio::time::sleep(Duration::from_millis(100));
     let listener = TcpListener::bind("127.0.0.1:0").unwrap();
-    let io_fut = listener.cancelable_accept(canceller.handle());
-    monoio::pin!(io_fut);
+    let mut io_fut = pin!(listener.cancelable_accept(canceller.handle()));
 
     monoio::select! {
         _ = timeout_fut => {

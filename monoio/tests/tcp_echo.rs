@@ -2,7 +2,7 @@ use monoio::{
     io::{self, AsyncReadRentExt, AsyncWriteRentExt, Splitable},
     net::{TcpListener, TcpStream},
 };
-#[cfg(unix)]
+
 #[monoio::test_all]
 async fn echo_server() {
     const ITER: usize = 1024;
@@ -62,7 +62,6 @@ async fn echo_server() {
     assert!(rx.await.is_ok());
 }
 
-#[cfg(unix)]
 #[monoio::test_all(timer_enabled = true)]
 async fn rw_able() {
     let listener = TcpListener::bind("127.0.0.1:0").unwrap();
@@ -97,7 +96,6 @@ async fn rw_able() {
     assert!(conn.readable(false).await.is_ok());
 }
 
-#[cfg(unix)]
 #[monoio::test_all]
 async fn echo_tfo() {
     use std::net::SocketAddr;
