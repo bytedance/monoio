@@ -1,7 +1,6 @@
 use std::net::{IpAddr, SocketAddr};
 
 use monoio::net::{TcpListener, TcpStream};
-#[cfg(unix)]
 
 macro_rules! test_connect_ip {
     ($(($ident:ident, $target:expr, $addr_f:path),)*) => {
@@ -29,13 +28,11 @@ macro_rules! test_connect_ip {
         )*
     }
 }
-#[cfg(unix)]
 
 test_connect_ip! {
     (connect_v4, "127.0.0.1:0", SocketAddr::is_ipv4),
     (connect_v6, "[::1]:0", SocketAddr::is_ipv6),
 }
-#[cfg(unix)]
 
 macro_rules! test_connect {
     ($(($ident:ident, $mapping:tt),)*) => {
@@ -59,7 +56,6 @@ macro_rules! test_connect {
         )*
     }
 }
-#[cfg(unix)]
 
 test_connect! {
     (ip_string, (|listener: &TcpListener| {
@@ -84,7 +80,7 @@ test_connect! {
         ("127.0.0.1", addr.port())
     })),
 }
-#[cfg(unix)]
+
 #[monoio::test_all(timer_enabled = true)]
 async fn connect_timeout_dst() {
     let drop_flag = DropFlag::default();
@@ -103,13 +99,12 @@ async fn connect_timeout_dst() {
     }
     drop_flag.assert_dropped();
 }
-#[cfg(unix)]
+
 #[monoio::test_all]
 async fn connect_invalid_dst() {
     assert!(TcpStream::connect("127.0.0.1:1").await.is_err());
 }
 
-#[cfg(unix)]
 #[monoio::test_all(timer_enabled = true)]
 async fn cancel_read() {
     use monoio::io::CancelableAsyncReadRent;
@@ -127,9 +122,10 @@ async fn cancel_read() {
     assert!(res.is_err());
 }
 
-#[cfg(unix)]
 #[monoio::test_all(timer_enabled = true)]
 async fn cancel_select() {
+    use std::pin::pin;
+
     use monoio::io::CancelableAsyncReadRent;
 
     let mut s = TcpStream::connect("rsproxy.cn:80").await.unwrap();
@@ -138,10 +134,8 @@ async fn cancel_select() {
     let canceler = monoio::io::Canceller::new();
     let handle = canceler.handle();
 
-    let timer = monoio::time::sleep(std::time::Duration::from_millis(100));
-    monoio::pin!(timer);
-    let recv = s.cancelable_read(buf, handle);
-    monoio::pin!(recv);
+    let mut timer = pin!(monoio::time::sleep(std::time::Duration::from_millis(100)));
+    let mut recv = pin!(s.cancelable_read(buf, handle));
 
     monoio::select! {
         _ = &mut timer => {

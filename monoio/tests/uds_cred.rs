@@ -1,10 +1,6 @@
-#[cfg(unix)]
-use libc::getegid;
-#[cfg(unix)]
-use libc::geteuid;
-#[cfg(unix)]
+use libc::{getegid, geteuid};
 use monoio::net::UnixStream;
-#[cfg(unix)]
+
 #[monoio::test_all]
 async fn test_socket_pair() {
     let (a, b) = UnixStream::pair().unwrap();

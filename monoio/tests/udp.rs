@@ -1,7 +1,5 @@
-#[cfg(unix)]
 use monoio::net::udp::UdpSocket;
 
-#[cfg(unix)]
 #[monoio::test_all]
 async fn connect() {
     const MSG: &str = "foo bar baz";
@@ -22,7 +20,6 @@ async fn connect() {
     assert_eq!(active.peer_addr().unwrap(), passive_addr);
 }
 
-#[cfg(unix)]
 #[monoio::test_all]
 async fn send_to() {
     const MSG: &str = "foo bar baz";
@@ -60,7 +57,6 @@ async fn send_to() {
     must_success!(passive3.recv_from(vec![0; 20]).await, active_addr);
 }
 
-#[cfg(unix)]
 #[monoio::test_all(timer_enabled = true)]
 async fn rw_able() {
     const MSG: &str = "foo bar baz";
@@ -83,13 +79,12 @@ async fn rw_able() {
     assert!(passive.readable(false).await.is_ok());
 }
 
-#[cfg(unix)]
 #[monoio::test_all(timer_enabled = true)]
 async fn cancel_recv_from() {
     let passive = UdpSocket::bind("127.0.0.1:0").unwrap();
     let canceller = monoio::io::Canceller::new();
     let recv = passive.cancelable_recv_from(vec![0; 20], canceller.handle());
-    monoio::pin!(recv);
+    let mut recv = std::pin::pin!(recv);
 
     monoio::select! {
         _ = monoio::time::sleep(std::time::Duration::from_millis(50)) => {

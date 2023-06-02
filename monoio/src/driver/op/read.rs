@@ -19,7 +19,7 @@ pub(crate) struct Read<T> {
     /// while the operation is in-flight.
     #[allow(unused)]
     fd: SharedFd,
-    offset: libc::off_t,
+    offset: u64,
 
     /// Reference to the in-flight buffer.
     pub(crate) buf: T,
@@ -29,7 +29,7 @@ impl<T: IoBufMut> Op<Read<T>> {
     pub(crate) fn read_at(fd: &SharedFd, buf: T, offset: u64) -> io::Result<Op<Read<T>>> {
         Op::submit_with(Read {
             fd: fd.clone(),
-            offset: offset as _,
+            offset,
             buf,
         })
     }
@@ -75,7 +75,12 @@ impl<T: IoBufMut> OpAble for Read<T> {
     fn legacy_call(&mut self) -> io::Result<u32> {
         let fd = self.fd.as_raw_fd();
         if self.offset != 0 {
-            syscall_u32!(lseek(fd, self.offset, libc::SEEK_CUR))?;
+            let seek_offset = libc::off_t::try_from(self.offset)
+                .map_err(|_| io::Error::new(io::ErrorKind::Other, "offset too big"))?;
+            let neg_seek_offset = seek_offset
+                .checked_neg()
+                .ok_or_else(|| io::Error::new(io::ErrorKind::Other, "offset too big"))?;
+            syscall_u32!(lseek(fd, seek_offset, libc::SEEK_CUR))?;
             syscall_u32!(read(
                 fd,
                 self.buf.write_ptr() as _,
@@ -83,7 +88,7 @@ impl<T: IoBufMut> OpAble for Read<T> {
             ))
             .map_err(|e| {
                 // seek back if read fail...
-                let _ = syscall_u32!(lseek(fd, -self.offset, libc::SEEK_CUR));
+                let _ = syscall_u32!(lseek(fd, neg_seek_offset, libc::SEEK_CUR));
                 e
             })
         } else {

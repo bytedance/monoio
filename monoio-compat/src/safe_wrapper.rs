@@ -79,7 +79,7 @@ impl<T: AsyncReadRent + Unpin + 'static> tokio::io::AsyncRead for StreamWrapper<
                 // there is no data in buffer. we will construct the future
                 let buf = unsafe { this.read_buf.take().unwrap_unchecked() };
                 // we must leak the stream
-                #[allow(clippy::cast_ref_to_mut)]
+                #[allow(cast_ref_to_mut)]
                 let stream = unsafe { &mut *(&this.stream as *const T as *mut T) };
                 this.read_fut.arm_future(AsyncReadRent::read(stream, buf));
             }
@@ -145,7 +145,7 @@ impl<T: AsyncWriteRent + Unpin + 'static> tokio::io::AsyncWrite for StreamWrappe
         unsafe { owned_buf.set_init(len) };
 
         // we must leak the stream
-        #[allow(clippy::cast_ref_to_mut)]
+        #[allow(cast_ref_to_mut)]
         let stream = unsafe { &mut *(&this.stream as *const T as *mut T) };
         this.write_fut
             .arm_future(AsyncWriteRentExt::write_all(stream, owned_buf));
@@ -184,7 +184,7 @@ impl<T: AsyncWriteRent + Unpin + 'static> tokio::io::AsyncWrite for StreamWrappe
         }
 
         if !this.flush_fut.armed() {
-            #[allow(clippy::cast_ref_to_mut)]
+            #[allow(cast_ref_to_mut)]
             let stream = unsafe { &mut *(&this.stream as *const T as *mut T) };
             this.flush_fut.arm_future(stream.flush());
         }
@@ -211,7 +211,7 @@ impl<T: AsyncWriteRent + Unpin + 'static> tokio::io::AsyncWrite for StreamWrappe
         }
 
         if !this.shutdown_fut.armed() {
-            #[allow(clippy::cast_ref_to_mut)]
+            #[allow(cast_ref_to_mut)]
             let stream = unsafe { &mut *(&this.stream as *const T as *mut T) };
             this.shutdown_fut.arm_future(stream.shutdown());
         }

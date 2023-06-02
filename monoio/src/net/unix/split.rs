@@ -12,7 +12,7 @@ pub type UnixReadHalf<'a> = ReadHalf<'a, UnixStream>;
 /// WriteHalf.
 pub type UnixWriteHalf<'a> = WriteHalf<'a, UnixStream>;
 
-#[allow(clippy::cast_ref_to_mut)]
+#[allow(cast_ref_to_mut)]
 impl<'t> AsReadFd for UnixReadHalf<'t> {
     #[inline]
     fn as_reader_fd(&mut self) -> &SharedFdWrapper {
@@ -21,7 +21,7 @@ impl<'t> AsReadFd for UnixReadHalf<'t> {
     }
 }
 
-#[allow(clippy::cast_ref_to_mut)]
+#[allow(cast_ref_to_mut)]
 impl<'t> AsWriteFd for UnixWriteHalf<'t> {
     #[inline]
     fn as_writer_fd(&mut self) -> &SharedFdWrapper {

@@ -63,7 +63,6 @@ pub trait Splitable {
     fn split(&mut self) -> (Self::Read<'_>, Self::Write<'_>);
 }
 
-#[allow(clippy::cast_ref_to_mut)]
 impl<'t, Inner> AsyncReadRent for ReadHalf<'t, Inner>
 where
     Inner: AsyncReadRent,
@@ -79,6 +78,7 @@ where
         T: IoBufMut,
     {
         // Submit the read operation
+        #[allow(cast_ref_to_mut)]
         let raw_stream = unsafe { &mut *(self.0 as *const Inner as *mut Inner) };
         raw_stream.read(buf)
     }
@@ -86,12 +86,12 @@ where
     #[inline]
     fn readv<T: IoVecBufMut>(&mut self, buf: T) -> Self::ReadvFuture<'_, T> {
         // Submit the read operation
+        #[allow(cast_ref_to_mut)]
         let raw_stream = unsafe { &mut *(self.0 as *const Inner as *mut Inner) };
         raw_stream.readv(buf)
     }
 }
 
-#[allow(clippy::cast_ref_to_mut)]
 impl<'t, Inner> CancelableAsyncReadRent for ReadHalf<'t, Inner>
 where
     Inner: CancelableAsyncReadRent,
@@ -111,6 +111,7 @@ where
         T: IoBufMut,
     {
         // Submit the read operation
+        #[allow(cast_ref_to_mut)]
         let raw_stream = unsafe { &mut *(self.0 as *const Inner as *mut Inner) };
         raw_stream.cancelable_read(buf, c)
     }
@@ -122,12 +123,12 @@ where
         c: CancelHandle,
     ) -> Self::CancelableReadvFuture<'_, T> {
         // Submit the read operation
+        #[allow(cast_ref_to_mut)]
         let raw_stream = unsafe { &mut *(self.0 as *const Inner as *mut Inner) };
         raw_stream.cancelable_readv(buf, c)
     }
 }
 
-#[allow(clippy::cast_ref_to_mut)]
 impl<'t, Inner> AsyncWriteRent for WriteHalf<'t, Inner>
 where
     Inner: AsyncWriteRent,
@@ -147,30 +148,33 @@ where
         T: IoBuf,
     {
         // Submit the write operation
+        #[allow(cast_ref_to_mut)]
         let raw_stream = unsafe { &mut *(self.0 as *const Inner as *mut Inner) };
         raw_stream.write(buf)
     }
 
     #[inline]
     fn writev<T: IoVecBuf>(&mut self, buf_vec: T) -> Self::WritevFuture<'_, T> {
+        #[allow(cast_ref_to_mut)]
         let raw_stream = unsafe { &mut *(self.0 as *const Inner as *mut Inner) };
         raw_stream.writev(buf_vec)
     }
 
     #[inline]
     fn flush(&mut self) -> Self::FlushFuture<'_> {
+        #[allow(cast_ref_to_mut)]
         let raw_stream = unsafe { &mut *(self.0 as *const Inner as *mut Inner) };
         raw_stream.flush()
     }
 
     #[inline]
     fn shutdown(&mut self) -> Self::ShutdownFuture<'_> {
+        #[allow(cast_ref_to_mut)]
         let raw_stream = unsafe { &mut *(self.0 as *const Inner as *mut Inner) };
         raw_stream.shutdown()
     }
 }
 
-#[allow(clippy::cast_ref_to_mut)]
 impl<'t, Inner> CancelableAsyncWriteRent for WriteHalf<'t, Inner>
 where
     Inner: CancelableAsyncWriteRent,
@@ -194,6 +198,7 @@ where
         T: IoBuf,
     {
         // Submit the write operation
+        #[allow(cast_ref_to_mut)]
         let raw_stream = unsafe { &mut *(self.0 as *const Inner as *mut Inner) };
         raw_stream.cancelable_write(buf, c)
     }
@@ -204,18 +209,21 @@ where
         buf_vec: T,
         c: CancelHandle,
     ) -> Self::CancelableWritevFuture<'_, T> {
+        #[allow(cast_ref_to_mut)]
         let raw_stream = unsafe { &mut *(self.0 as *const Inner as *mut Inner) };
         raw_stream.cancelable_writev(buf_vec, c)
     }
 
     #[inline]
     fn cancelable_flush(&mut self, c: CancelHandle) -> Self::CancelableFlushFuture<'_> {
+        #[allow(cast_ref_to_mut)]
         let raw_stream = unsafe { &mut *(self.0 as *const Inner as *mut Inner) };
         raw_stream.cancelable_flush(c)
     }
 
     #[inline]
     fn cancelable_shutdown(&mut self, c: CancelHandle) -> Self::CancelableShutdownFuture<'_> {
+        #[allow(cast_ref_to_mut)]
         let raw_stream = unsafe { &mut *(self.0 as *const Inner as *mut Inner) };
         raw_stream.cancelable_shutdown(c)
     }
