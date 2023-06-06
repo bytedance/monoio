@@ -1,18 +1,22 @@
+use windows_sys::Win32::Networking::WinSock::WSABUF;
+
 use super::{IoVecBuf, IoVecBufMut};
 
 pub(crate) struct IoVecMeta {
     #[cfg(unix)]
     data: Vec<libc::iovec>,
+    #[cfg(windows)]
+    data: Vec<WSABUF>,
     offset: usize,
     len: usize,
 }
 
 /// Read IoVecBuf meta data into a Vec.
-pub(crate) fn read_vec_meta<T: IoVecBuf>(iovec_buf: &T) -> IoVecMeta {
+pub(crate) fn read_vec_meta<T: IoVecBuf>(buf: &T) -> IoVecMeta {
     #[cfg(unix)]
     {
-        let ptr = iovec_buf.read_iovec_ptr();
-        let iovec_len = iovec_buf.read_iovec_len();
+        let ptr = buf.read_iovec_ptr();
+        let iovec_len = buf.read_iovec_len();
 
         let mut data = Vec::with_capacity(iovec_len);
         let mut len = 0;
@@ -29,16 +33,30 @@ pub(crate) fn read_vec_meta<T: IoVecBuf>(iovec_buf: &T) -> IoVecMeta {
     }
     #[cfg(windows)]
     {
-        unimplemented!()
+        let ptr = buf.read_wsabuf_ptr();
+        let wsabuf_len = buf.read_wsabuf_len();
+
+        let mut data = Vec::with_capacity(wsabuf_len);
+        let mut len = 0;
+        for i in 0..wsabuf_len {
+            let wsabuf = unsafe { *ptr.add(i) };
+            data.push(wsabuf);
+            len += wsabuf.len;
+        }
+        IoVecMeta {
+            data,
+            offset: 0,
+            len,
+        }
     }
 }
 
 /// Read IoVecBufMut meta data into a Vec.
-pub(crate) fn write_vec_meta<T: IoVecBufMut>(iovec_buf: &mut T) -> IoVecMeta {
+pub(crate) fn write_vec_meta<T: IoVecBufMut>(buf: &mut T) -> IoVecMeta {
     #[cfg(unix)]
     {
-        let ptr = iovec_buf.write_iovec_ptr();
-        let iovec_len = iovec_buf.write_iovec_len();
+        let ptr = buf.write_iovec_ptr();
+        let iovec_len = buf.write_iovec_len();
 
         let mut data = Vec::with_capacity(iovec_len);
         let mut len = 0;
@@ -55,7 +73,21 @@ pub(crate) fn write_vec_meta<T: IoVecBufMut>(iovec_buf: &mut T) -> IoVecMeta {
     }
     #[cfg(windows)]
     {
-        unimplemented!()
+        let ptr = buf.write_wsabuf_ptr();
+        let wsabuf_len = buf.write_wsabuf_len();
+
+        let mut data = Vec::with_capacity(wsabuf_len);
+        let mut len = 0;
+        for i in 0..wsabuf_len {
+            let wsabuf = unsafe { *ptr.add(i) };
+            data.push(wsabuf);
+            len += wsabuf.len;
+        }
+        IoVecMeta {
+            data,
+            offset: 0,
+            len,
+        }
     }
 }
 
@@ -89,6 +121,34 @@ impl IoVecMeta {
             }
             panic!("try to consume more than owned")
         }
+        #[cfg(windows)]
+        {
+            if amt == 0 {
+                return;
+            }
+            let mut offset = self.offset;
+            while let Some(wsabuf) = self.data.get_mut(offset) {
+                match wsabuf.len.cmp(&amt) {
+                    std::cmp::Ordering::Less => {
+                        amt -= wsabuf.len;
+                        offset += 1;
+                        continue;
+                    }
+                    std::cmp::Ordering::Equal => {
+                        offset += 1;
+                        self.offset = offset;
+                        return;
+                    }
+                    std::cmp::Ordering::Greater => {
+                        unsafe { wsabuf.len.add(amt) };
+                        wsabuf.len -= amt;
+                        self.offset = offset;
+                        return;
+                    }
+                }
+            }
+            panic!("try to consume more than owned")
+        }
     }
 
     pub(crate) fn len(&self) -> usize {
@@ -105,6 +165,14 @@ unsafe impl IoVecBuf for IoVecMeta {
     fn read_iovec_len(&self) -> usize {
         self.data.len()
     }
+    #[cfg(windows)]
+    fn read_wsabuf_ptr(&self) -> *const WSABUF {
+        unsafe { self.data.as_ptr().add(self.offset) }
+    }
+    #[cfg(windows)]
+    fn read_wsabuf_len(&self) -> usize {
+        self.data.len()
+    }
 }
 
 unsafe impl IoVecBufMut for IoVecMeta {
@@ -113,13 +181,19 @@ unsafe impl IoVecBufMut for IoVecMeta {
         unsafe { self.data.as_mut_ptr().add(self.offset) }
     }
 
+    #[cfg(unix)]
     fn write_iovec_len(&mut self) -> usize {
-        #[cfg(unix)]
-        {
-            self.data.len()
-        }
-        #[cfg(windows)]
-        unimplemented!()
+        self.data.len()
+    }
+
+    #[cfg(windows)]
+    fn write_wsabuf_ptr(&mut self) -> *mut WSABUF {
+        unsafe { self.data.as_mut_ptr().add(self.offset) }
+    }
+
+    #[cfg(windows)]
+    fn write_wsabuf_len(&mut self) -> usize {
+        self.data.len()
     }
 
     unsafe fn set_init(&mut self, pos: usize) {

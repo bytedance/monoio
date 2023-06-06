@@ -263,12 +263,16 @@ pub struct IoVecWrapper<T> {
 
 impl<T: IoVecBuf> IoVecWrapper<T> {
     /// Create a new IoVecWrapper with something that impl IoVecBuf.
-    pub fn new(iovec_buf: T) -> Result<Self, T> {
+    pub fn new(buf: T) -> Result<Self, T> {
         #[cfg(unix)]
-        if iovec_buf.read_iovec_len() == 0 {
-            return Err(iovec_buf);
+        if buf.read_iovec_len() == 0 {
+            return Err(buf);
         }
-        Ok(Self { raw: iovec_buf })
+        #[cfg(windows)]
+        if buf.read_wsabuf_len() == 0 {
+            return Err(buf);
+        }
+        Ok(Self { raw: buf })
     }
 
     /// Consume self and return raw iovec buf.
@@ -287,7 +291,8 @@ unsafe impl<T: IoVecBuf> IoBuf for IoVecWrapper<T> {
         }
         #[cfg(windows)]
         {
-            unimplemented!()
+            let wsabuf = unsafe { *self.raw.read_wsabuf_ptr() };
+            wsabuf.buf as *const u8
         }
     }
 
@@ -300,7 +305,8 @@ unsafe impl<T: IoVecBuf> IoBuf for IoVecWrapper<T> {
         }
         #[cfg(windows)]
         {
-            unimplemented!()
+            let wsabuf = unsafe { *self.raw.read_wsabuf_ptr() };
+            wsabuf.len
         }
     }
 }
@@ -335,7 +341,8 @@ unsafe impl<T: IoVecBufMut> IoBufMut for IoVecWrapperMut<T> {
         }
         #[cfg(windows)]
         {
-            unimplemented!()
+            let wsabuf = unsafe { *self.raw.write_wsabuf_ptr() };
+            wsabuf.buf as *mut u8
         }
     }
 
@@ -347,7 +354,8 @@ unsafe impl<T: IoVecBufMut> IoBufMut for IoVecWrapperMut<T> {
         }
         #[cfg(windows)]
         {
-            unimplemented!()
+            let wsabuf = unsafe { *self.raw.write_wsabuf_ptr() };
+            wsabuf.len
         }
     }
 
