@@ -285,8 +285,7 @@ impl Driver for IoUringDriver {
 
     #[cfg(feature = "sync")]
     fn unpark(&self) -> Self::Unpark {
-        let weak = unsafe { std::sync::Arc::downgrade(&((*self.inner.get()).shared_waker)) };
-        waker::UnparkHandle(weak)
+        UringInner::unpark(&self.inner)
     }
 }
 
@@ -425,6 +424,13 @@ impl UringInner {
             let _ = inner.submit();
             let _ = inner.uring.submission().push(&cancel);
         }
+    }
+
+    #[cfg(feature = "sync")]
+    pub(crate) fn unpark(this: &Rc<UnsafeCell<UringInner>>) -> waker::UnparkHandle {
+        let inner = unsafe { &*this.get() };
+        let weak = std::sync::Arc::downgrade(&inner.shared_waker);
+        waker::UnparkHandle(weak)
     }
 }
 

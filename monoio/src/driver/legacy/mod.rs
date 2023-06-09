@@ -279,6 +279,13 @@ impl LegacyInner {
             data: Some(data),
         })
     }
+
+    #[cfg(feature = "sync")]
+    pub(crate) fn unpark(this: &Rc<UnsafeCell<LegacyInner>>) -> waker::UnparkHandle {
+        let inner = unsafe { &*this.get() };
+        let weak = std::sync::Arc::downgrade(&inner.shared_waker);
+        waker::UnparkHandle(weak)
+    }
 }
 
 impl Driver for LegacyDriver {
@@ -305,8 +312,7 @@ impl Driver for LegacyDriver {
 
     #[cfg(feature = "sync")]
     fn unpark(&self) -> Self::Unpark {
-        let weak = unsafe { std::sync::Arc::downgrade(&((*self.inner.get()).shared_waker)) };
-        waker::UnparkHandle(weak)
+        LegacyInner::unpark(&self.inner)
     }
 }
 

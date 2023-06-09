@@ -32,6 +32,7 @@ tokio = { version = "1", default-features = false, optional = true }
 tracing = { version = "0.1", default-features = false, features = [
   "std",
 ], optional = true }
+ctrlc = { version = "3", optional = true }
 
 # windows dependencies(will be added when windows support finished)
 # [target.'cfg(windows)'.dependencies]
@@ -77,5 +78,8 @@ legacy = ["mio"]
 iouring = []
 # tokio-compatiable(only have effect when legacy is enabled and iouring is not)
 tokio-compat = ["tokio"]
+# signal enables setting ctrl_c handler
+signal = ["ctrlc", "sync"]
+signal-termination = ["signal", "ctrlc/termination"]
 # by default both iouring and legacy are enabled
 default = ["async-cancel", "bytes", "iouring", "legacy", "macros", "utils"]
