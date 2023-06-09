@@ -203,6 +203,7 @@ impl Inner {
 pub(crate) enum UnparkHandle {
     #[cfg(all(target_os = "linux", feature = "iouring"))]
     Uring(self::uring::UnparkHandle),
+    #[cfg(all(unix, feature = "legacy"))]
     Legacy(self::legacy::UnparkHandle),
 }
 
@@ -236,5 +237,18 @@ impl From<self::uring::UnparkHandle> for UnparkHandle {
 impl From<self::legacy::UnparkHandle> for UnparkHandle {
     fn from(inner: self::legacy::UnparkHandle) -> Self {
         Self::Legacy(inner)
+    }
+}
+
+#[cfg(feature = "sync")]
+impl UnparkHandle {
+    #[allow(unused)]
+    pub(crate) fn current() -> Self {
+        CURRENT.with(|inner| match inner {
+            #[cfg(all(target_os = "linux", feature = "iouring"))]
+            Inner::Uring(this) => UringInner::unpark(this).into(),
+            #[cfg(all(unix, feature = "legacy"))]
+            Inner::Legacy(this) => LegacyInner::unpark(this).into(),
+        })
     }
 }
