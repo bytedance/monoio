@@ -35,7 +35,7 @@ impl Future for CtrlC {
             let new_waker = Box::new(cx.waker().clone());
             let old_waker_ptr = WAKER.swap(Box::into_raw(new_waker), Ordering::SeqCst);
             if !old_waker_ptr.is_null() {
-                unsafe { Box::from_raw(old_waker_ptr) };
+                let _ = unsafe { Box::from_raw(old_waker_ptr) };
             }
             Poll::Pending
         }

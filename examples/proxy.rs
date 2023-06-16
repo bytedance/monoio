@@ -13,12 +13,12 @@ async fn main() {
     let listener = TcpListener::bind(LISTEN_ADDRESS)
         .unwrap_or_else(|_| panic!("[Server] Unable to bind to {LISTEN_ADDRESS}"));
     loop {
-        if let Ok((mut in_conn, _addr)) = listener.accept().await {
+        if let Ok((in_conn, _addr)) = listener.accept().await {
             let out_conn = TcpStream::connect(TARGET_ADDRESS).await;
-            if let Ok(mut out_conn) = out_conn {
+            if let Ok(out_conn) = out_conn {
                 monoio::spawn(async move {
-                    let (mut in_r, mut in_w) = in_conn.split();
-                    let (mut out_r, mut out_w) = out_conn.split();
+                    let (mut in_r, mut in_w) = in_conn.into_split();
+                    let (mut out_r, mut out_w) = out_conn.into_split();
                     let _ = monoio::join!(
                         copy_one_direction(&mut in_r, &mut out_w),
                         copy_one_direction(&mut out_r, &mut in_w),

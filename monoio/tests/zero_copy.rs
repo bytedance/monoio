@@ -12,8 +12,8 @@ async fn zero_copy_for_tcp() {
     let (mut c_tx, mut c_rx) = local_sync::oneshot::channel::<()>();
     let addr = srv.local_addr().unwrap();
     monoio::spawn(async move {
-        let mut stream = TcpStream::connect(&addr).await.unwrap();
-        let (mut rx, mut tx) = stream.split();
+        let stream = TcpStream::connect(&addr).await.unwrap();
+        let (mut rx, mut tx) = stream.into_split();
         tx.write_all(MSG).await.0.unwrap();
         let buf = Vec::<u8>::with_capacity(MSG.len()).slice_mut(0..MSG.len());
         let (res, buf) = rx.read_exact(buf).await;
@@ -46,8 +46,8 @@ async fn zero_copy_for_uds() {
     let srv = monoio::net::UnixListener::bind(&sock_path).unwrap();
     let (mut c_tx, mut c_rx) = local_sync::oneshot::channel::<()>();
     monoio::spawn(async move {
-        let mut stream = UnixStream::connect(&sock_path).await.unwrap();
-        let (mut rx, mut tx) = stream.split();
+        let stream = UnixStream::connect(&sock_path).await.unwrap();
+        let (mut rx, mut tx) = stream.into_split();
         tx.write_all(MSG).await.0.unwrap();
         let buf = Vec::<u8>::with_capacity(MSG.len()).slice_mut(0..MSG.len());
         let (res, buf) = rx.read_exact(buf).await;

@@ -3,32 +3,8 @@ use std::io;
 use super::{SocketAddr, UnixStream};
 use crate::io::{
     as_fd::{AsReadFd, AsWriteFd, SharedFdWrapper},
-    OwnedReadHalf, OwnedWriteHalf, ReadHalf, WriteHalf,
+    OwnedReadHalf, OwnedWriteHalf,
 };
-
-/// ReadHalf.
-pub type UnixReadHalf<'a> = ReadHalf<'a, UnixStream>;
-
-/// WriteHalf.
-pub type UnixWriteHalf<'a> = WriteHalf<'a, UnixStream>;
-
-#[allow(cast_ref_to_mut)]
-impl<'t> AsReadFd for UnixReadHalf<'t> {
-    #[inline]
-    fn as_reader_fd(&mut self) -> &SharedFdWrapper {
-        let raw_stream = unsafe { &mut *(self.0 as *const UnixStream as *mut UnixStream) };
-        raw_stream.as_reader_fd()
-    }
-}
-
-#[allow(cast_ref_to_mut)]
-impl<'t> AsWriteFd for UnixWriteHalf<'t> {
-    #[inline]
-    fn as_writer_fd(&mut self) -> &SharedFdWrapper {
-        let raw_stream = unsafe { &mut *(self.0 as *const UnixStream as *mut UnixStream) };
-        raw_stream.as_writer_fd()
-    }
-}
 
 /// OwnedReadHalf.
 pub type UnixOwnedReadHalf = OwnedReadHalf<UnixStream>;

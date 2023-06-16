@@ -29,5 +29,5 @@ pub(crate) use util::operation_canceled;
 pub use util::zero_copy;
 pub use util::{
     copy, BufReader, BufWriter, CancelHandle, Canceller, OwnedReadHalf, OwnedWriteHalf,
-    PrefixedReadIo, ReadHalf, Split, Splitable, WriteHalf,
+    PrefixedReadIo, Split, Splitable,
 };
