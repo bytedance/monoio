@@ -1,5 +1,6 @@
 use std::ptr::null;
 
+#[cfg(windows)]
 use windows_sys::Win32::Networking::WinSock::WSABUF;
 
 use super::{IoBuf, IoBufMut, IoVecBuf, IoVecBufMut};

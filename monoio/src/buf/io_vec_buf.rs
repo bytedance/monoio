@@ -1,5 +1,6 @@
 // use super::shared_buf::Shared;
 
+#[cfg(windows)]
 use windows_sys::Win32::Networking::WinSock::WSABUF;
 
 /// An `io_uring` compatible iovec buffer.
