@@ -33,7 +33,7 @@ pub unsafe trait IoVecBuf: Unpin + 'static {
 
     #[cfg(windows)]
     fn read_wsabuf_ptr(&self) -> *const WSABUF;
-    
+
     #[cfg(windows)]
     fn read_wsabuf_len(&self) -> usize;
 }
