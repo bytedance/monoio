@@ -3,15 +3,11 @@ use std::{
     error::Error,
     fmt::{self, Debug},
     future::Future,
-    io,
     rc::Rc,
 };
 
 use super::CancelHandle;
-use crate::{
-    buf::{IoBuf, IoBufMut, IoVecBuf, IoVecBufMut},
-    io::{AsyncReadRent, AsyncWriteRent, CancelableAsyncReadRent, CancelableAsyncWriteRent},
-};
+use crate::io::{AsyncReadRent, AsyncWriteRent, CancelableAsyncReadRent, CancelableAsyncWriteRent};
 
 /// Owned Read Half Part
 #[derive(Debug)]
@@ -22,12 +18,7 @@ pub struct OwnedReadHalf<T>(pub Rc<UnsafeCell<T>>);
 pub struct OwnedWriteHalf<T>(pub Rc<UnsafeCell<T>>)
 where
     T: AsyncWriteRent;
-/// Borrowed Write Half Part
-#[derive(Debug)]
-pub struct WriteHalf<'cx, T>(pub &'cx T);
-/// Borrowed Read Half Part
-#[derive(Debug)]
-pub struct ReadHalf<'cx, T>(pub &'cx T);
+
 /// This is a dummy unsafe trait to inform monoio,
 /// the object with has this `Split` trait can be safely split
 /// to read/write object in both form of `Owned` or `Borrowed`.
@@ -47,208 +38,21 @@ pub trait Splitable {
     /// Owned Write Split
     type OwnedWrite;
 
-    /// Borrowed Read Split
-    type Read<'cx>
-    where
-        Self: 'cx;
-    /// Borrowed Write Split
-    type Write<'cx>
-    where
-        Self: 'cx;
-
     /// Split into owned parts
     fn into_split(self) -> (Self::OwnedRead, Self::OwnedWrite);
-
-    /// Split into borrowed parts
-    fn split(&mut self) -> (Self::Read<'_>, Self::Write<'_>);
-}
-
-impl<'t, Inner> AsyncReadRent for ReadHalf<'t, Inner>
-where
-    Inner: AsyncReadRent,
-{
-    type ReadFuture<'a, B> = impl Future<Output = crate::BufResult<usize, B>> + 'a where
-        't: 'a, B: IoBufMut + 'a, Inner: 'a;
-    type ReadvFuture<'a, B> = impl Future<Output = crate::BufResult<usize, B>> + 'a where
-        't: 'a, B: IoVecBufMut + 'a, Inner: 'a;
-
-    #[inline]
-    fn read<T: IoBufMut>(&mut self, buf: T) -> Self::ReadFuture<'_, T>
-    where
-        T: IoBufMut,
-    {
-        // Submit the read operation
-        #[allow(cast_ref_to_mut)]
-        let raw_stream = unsafe { &mut *(self.0 as *const Inner as *mut Inner) };
-        raw_stream.read(buf)
-    }
-
-    #[inline]
-    fn readv<T: IoVecBufMut>(&mut self, buf: T) -> Self::ReadvFuture<'_, T> {
-        // Submit the read operation
-        #[allow(cast_ref_to_mut)]
-        let raw_stream = unsafe { &mut *(self.0 as *const Inner as *mut Inner) };
-        raw_stream.readv(buf)
-    }
-}
-
-impl<'t, Inner> CancelableAsyncReadRent for ReadHalf<'t, Inner>
-where
-    Inner: CancelableAsyncReadRent,
-{
-    type CancelableReadFuture<'a, B> = impl Future<Output = crate::BufResult<usize, B>> + 'a where
-        't: 'a, B: IoBufMut + 'a, Inner: 'a;
-    type CancelableReadvFuture<'a, B> = impl Future<Output = crate::BufResult<usize, B>> + 'a where
-        't: 'a, B: IoVecBufMut + 'a, Inner: 'a;
-
-    #[inline]
-    fn cancelable_read<T: IoBufMut>(
-        &mut self,
-        buf: T,
-        c: CancelHandle,
-    ) -> Self::CancelableReadFuture<'_, T>
-    where
-        T: IoBufMut,
-    {
-        // Submit the read operation
-        #[allow(cast_ref_to_mut)]
-        let raw_stream = unsafe { &mut *(self.0 as *const Inner as *mut Inner) };
-        raw_stream.cancelable_read(buf, c)
-    }
-
-    #[inline]
-    fn cancelable_readv<T: IoVecBufMut>(
-        &mut self,
-        buf: T,
-        c: CancelHandle,
-    ) -> Self::CancelableReadvFuture<'_, T> {
-        // Submit the read operation
-        #[allow(cast_ref_to_mut)]
-        let raw_stream = unsafe { &mut *(self.0 as *const Inner as *mut Inner) };
-        raw_stream.cancelable_readv(buf, c)
-    }
-}
-
-impl<'t, Inner> AsyncWriteRent for WriteHalf<'t, Inner>
-where
-    Inner: AsyncWriteRent,
-{
-    type WriteFuture<'a, B> = impl Future<Output = crate::BufResult<usize, B>> + 'a where
-        't: 'a, B: IoBuf + 'a, Inner: 'a;
-    type WritevFuture<'a, B> = impl Future<Output = crate::BufResult<usize, B>> + 'a where
-        't: 'a, B: IoVecBuf + 'a, Inner: 'a;
-    type FlushFuture<'a> = impl Future<Output = io::Result<()>> + 'a where
-        't: 'a, Inner: 'a;
-    type ShutdownFuture<'a> = impl Future<Output = io::Result<()>> + 'a where
-        't: 'a, Inner: 'a;
-
-    #[inline]
-    fn write<T: IoBuf>(&mut self, buf: T) -> Self::WriteFuture<'_, T>
-    where
-        T: IoBuf,
-    {
-        // Submit the write operation
-        #[allow(cast_ref_to_mut)]
-        let raw_stream = unsafe { &mut *(self.0 as *const Inner as *mut Inner) };
-        raw_stream.write(buf)
-    }
-
-    #[inline]
-    fn writev<T: IoVecBuf>(&mut self, buf_vec: T) -> Self::WritevFuture<'_, T> {
-        #[allow(cast_ref_to_mut)]
-        let raw_stream = unsafe { &mut *(self.0 as *const Inner as *mut Inner) };
-        raw_stream.writev(buf_vec)
-    }
-
-    #[inline]
-    fn flush(&mut self) -> Self::FlushFuture<'_> {
-        #[allow(cast_ref_to_mut)]
-        let raw_stream = unsafe { &mut *(self.0 as *const Inner as *mut Inner) };
-        raw_stream.flush()
-    }
-
-    #[inline]
-    fn shutdown(&mut self) -> Self::ShutdownFuture<'_> {
-        #[allow(cast_ref_to_mut)]
-        let raw_stream = unsafe { &mut *(self.0 as *const Inner as *mut Inner) };
-        raw_stream.shutdown()
-    }
-}
-
-impl<'t, Inner> CancelableAsyncWriteRent for WriteHalf<'t, Inner>
-where
-    Inner: CancelableAsyncWriteRent,
-{
-    type CancelableWriteFuture<'a, B> = impl Future<Output = crate::BufResult<usize, B>> + 'a where
-        't: 'a, B: IoBuf + 'a, Inner: 'a;
-    type CancelableWritevFuture<'a, B> = impl Future<Output = crate::BufResult<usize, B>> + 'a where
-        't: 'a, B: IoVecBuf + 'a, Inner: 'a;
-    type CancelableFlushFuture<'a> = impl Future<Output = io::Result<()>> + 'a where
-        't: 'a, Inner: 'a;
-    type CancelableShutdownFuture<'a> = impl Future<Output = io::Result<()>> + 'a where
-        't: 'a, Inner: 'a;
-
-    #[inline]
-    fn cancelable_write<T: IoBuf>(
-        &mut self,
-        buf: T,
-        c: CancelHandle,
-    ) -> Self::CancelableWriteFuture<'_, T>
-    where
-        T: IoBuf,
-    {
-        // Submit the write operation
-        #[allow(cast_ref_to_mut)]
-        let raw_stream = unsafe { &mut *(self.0 as *const Inner as *mut Inner) };
-        raw_stream.cancelable_write(buf, c)
-    }
-
-    #[inline]
-    fn cancelable_writev<T: IoVecBuf>(
-        &mut self,
-        buf_vec: T,
-        c: CancelHandle,
-    ) -> Self::CancelableWritevFuture<'_, T> {
-        #[allow(cast_ref_to_mut)]
-        let raw_stream = unsafe { &mut *(self.0 as *const Inner as *mut Inner) };
-        raw_stream.cancelable_writev(buf_vec, c)
-    }
-
-    #[inline]
-    fn cancelable_flush(&mut self, c: CancelHandle) -> Self::CancelableFlushFuture<'_> {
-        #[allow(cast_ref_to_mut)]
-        let raw_stream = unsafe { &mut *(self.0 as *const Inner as *mut Inner) };
-        raw_stream.cancelable_flush(c)
-    }
-
-    #[inline]
-    fn cancelable_shutdown(&mut self, c: CancelHandle) -> Self::CancelableShutdownFuture<'_> {
-        #[allow(cast_ref_to_mut)]
-        let raw_stream = unsafe { &mut *(self.0 as *const Inner as *mut Inner) };
-        raw_stream.cancelable_shutdown(c)
-    }
 }
 
 impl<T> Splitable for T
 where
-    T: Split + AsyncReadRent + AsyncWriteRent,
+    T: Split + AsyncWriteRent,
 {
-    type Read<'cx> = ReadHalf<'cx, T> where Self: 'cx;
-
-    type Write<'cx> = WriteHalf<'cx, T> where Self: 'cx;
-
     type OwnedRead = OwnedReadHalf<T>;
-
     type OwnedWrite = OwnedWriteHalf<T>;
 
+    #[inline]
     fn into_split(self) -> (Self::OwnedRead, Self::OwnedWrite) {
         let shared = Rc::new(UnsafeCell::new(self));
         (OwnedReadHalf(shared.clone()), OwnedWriteHalf(shared))
-    }
-
-    #[inline]
-    fn split(&mut self) -> (Self::Read<'_>, Self::Write<'_>) {
-        (ReadHalf(&*self), WriteHalf(&*self))
     }
 }
 

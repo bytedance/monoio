@@ -113,7 +113,7 @@ impl IoVecMeta {
                         return;
                     }
                     std::cmp::Ordering::Greater => {
-                        unsafe { iovec.iov_base.add(amt) };
+                        let _ = unsafe { iovec.iov_base.add(amt) };
                         iovec.iov_len -= amt;
                         self.offset = offset;
                         return;

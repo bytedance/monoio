@@ -11,10 +11,10 @@ use monoio::{
 /// the connection.
 #[monoio::test_all(entries = 1024)]
 async fn split() -> std::io::Result<()> {
-    let (mut a, mut b) = UnixStream::pair()?;
+    let (a, b) = UnixStream::pair()?;
 
-    let (mut a_read, mut a_write) = a.split();
-    let (mut b_read, mut b_write) = b.split();
+    let (mut a_read, mut a_write) = a.into_split();
+    let (mut b_read, mut b_write) = b.into_split();
 
     let (a_response, b_response) = futures::future::try_join(
         send_recv_all(&mut a_read, &mut a_write, b"A"),

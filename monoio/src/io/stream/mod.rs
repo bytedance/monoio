@@ -4,7 +4,7 @@ mod iter;
 mod stream_ext;
 
 pub use iter::{iter, Iter};
-pub use stream_ext::StreamExt;
+pub use stream_ext::{ForEachFut, StreamExt};
 
 /// A stream of values produced asynchronously in pure async/await.
 #[must_use = "streams do nothing unless polled"]
