@@ -8,16 +8,9 @@
 //! submit task will always be executed on the same thread.
 
 #![warn(missing_docs, unreachable_pub)]
-#![allow(stable_features)]
-#![feature(generic_associated_types)]
 #![feature(type_alias_impl_trait)]
 #![feature(impl_trait_in_assoc_type)]
-#![feature(box_into_inner)]
-#![feature(new_uninit)]
 #![feature(io_error_more)]
-#![feature(stmt_expr_attributes)]
-#![feature(unboxed_closures)]
-#![feature(once_cell)]
 #![feature(lazy_cell)]
 
 #[macro_use]

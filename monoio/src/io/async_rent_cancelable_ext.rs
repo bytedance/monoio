@@ -31,7 +31,8 @@ macro_rules! reader_be_impl {
                     )
                     .await;
                 res?;
-                Ok(<$n_ty>::from_be_bytes(Box::into_inner(buf)))
+                use crate::utils::box_into_inner::IntoInner;
+                Ok(<$n_ty>::from_be_bytes(Box::consume(buf)))
             }
         }
     };
@@ -50,7 +51,8 @@ macro_rules! reader_le_impl {
                     )
                     .await;
                 res?;
-                Ok(<$n_ty>::from_le_bytes(Box::into_inner(buf)))
+                use crate::utils::box_into_inner::IntoInner;
+                Ok(<$n_ty>::from_le_bytes(Box::consume(buf)))
             }
         }
     };
