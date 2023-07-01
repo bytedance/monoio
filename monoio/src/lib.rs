@@ -1,12 +1,4 @@
-//! Monoio is a pure io_uring based rust runtime. Part of the design is borrowed
-//! from tokio and tokio-uring. However, unlike tokio-uring which use uring over
-//! epoll, monoio is not based on another runtime, which makes it more
-//! efficient. Also, monoio is designed as thread-per-core model. Users don't
-//! need to worry about Send and Sync of tasks and can use thread local storage.
-//! For example, if user wants to do collect and submit tasks, he can use thread
-//! local storage to avoid synchronization structures like Mutex; also, the
-//! submit task will always be executed on the same thread.
-
+#![doc = include_str!("../../README.md")]
 #![warn(missing_docs, unreachable_pub)]
 #![feature(type_alias_impl_trait)]
 #![feature(impl_trait_in_assoc_type)]
