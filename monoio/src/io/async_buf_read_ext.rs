@@ -55,7 +55,6 @@ where
 
 /// AsyncBufReadExt
 pub trait AsyncBufReadExt {
-
     /// The future of read until Result<usize>
     type ReadUntilFuture<'a>: Future<Output = Result<usize>>
     where
