@@ -19,6 +19,7 @@
 #![feature(unboxed_closures)]
 #![feature(once_cell)]
 #![feature(lazy_cell)]
+#![feature(slice_internals)]
 
 #[macro_use]
 pub mod macros;

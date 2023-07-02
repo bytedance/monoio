@@ -1,6 +1,7 @@
 //! IO traits
 
 mod async_buf_read;
+mod async_buf_read_ext;
 mod async_read_rent;
 mod async_read_rent_ext;
 mod async_rent_cancelable;
@@ -16,6 +17,7 @@ pub mod as_fd;
 pub mod splice;
 
 pub use async_buf_read::AsyncBufRead;
+pub use async_buf_read_ext::AsyncBufReadExt;
 pub use async_read_rent::{AsyncReadRent, AsyncReadRentAt};
 pub use async_read_rent_ext::AsyncReadRentExt;
 pub use async_rent_cancelable::{CancelableAsyncReadRent, CancelableAsyncWriteRent};
