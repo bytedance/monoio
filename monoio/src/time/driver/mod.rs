@@ -7,7 +7,7 @@
 //! Time driver
 
 mod entry;
-pub(self) use self::entry::{EntryList, TimerEntry, TimerHandle, TimerShared};
+use self::entry::{EntryList, TimerEntry, TimerHandle, TimerShared};
 
 mod handle;
 pub(crate) use self::handle::Handle;
@@ -93,7 +93,7 @@ pub struct TimeDriver<D: 'static> {
 
 /// A structure which handles conversion from Instants to u64 timestamps.
 #[derive(Debug, Clone)]
-pub(self) struct ClockTime {
+struct ClockTime {
     clock: super::clock::Clock,
     start_time: Instant,
 }

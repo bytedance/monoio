@@ -503,7 +503,7 @@ impl tokio::io::AsyncWrite for TcpStream {
         buf: &[u8],
     ) -> std::task::Poll<Result<usize, io::Error>> {
         unsafe {
-            let raw_buf = crate::buf::RawBuf::new(buf.as_ptr() as *const u8, buf.len());
+            let raw_buf = crate::buf::RawBuf::new(buf.as_ptr(), buf.len());
             let mut send = Op::send_raw(&self.fd, raw_buf);
             let ret = ready!(crate::driver::op::PollLegacy::poll_legacy(&mut send, cx));
 
