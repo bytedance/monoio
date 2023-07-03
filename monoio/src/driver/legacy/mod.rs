@@ -15,6 +15,7 @@ use super::{
 };
 use crate::utils::slab::Slab;
 
+#[cfg(windows)]
 pub(super) mod iocp;
 pub(crate) mod ready;
 mod scheduled_io;

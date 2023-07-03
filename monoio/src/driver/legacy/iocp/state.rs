@@ -1,19 +1,20 @@
-use std::os::windows::prelude::RawSocket;
-use std::sync::{Arc, Mutex};
-use std::{marker::PhantomPinned, pin::Pin};
-
-use windows_sys::Win32::Foundation::{
-    ERROR_INVALID_HANDLE, ERROR_IO_PENDING, HANDLE, STATUS_CANCELLED,
+use std::{
+    marker::PhantomPinned,
+    os::windows::prelude::RawSocket,
+    pin::Pin,
+    sync::{Arc, Mutex},
 };
-use windows_sys::Win32::Networking::WinSock::{
-    WSAGetLastError, WSAIoctl, SIO_BASE_HANDLE, SIO_BSP_HANDLE, SIO_BSP_HANDLE_POLL,
-    SIO_BSP_HANDLE_SELECT, SOCKET_ERROR,
+
+use windows_sys::Win32::{
+    Foundation::{ERROR_INVALID_HANDLE, ERROR_IO_PENDING, HANDLE, STATUS_CANCELLED},
+    Networking::WinSock::{
+        WSAGetLastError, WSAIoctl, SIO_BASE_HANDLE, SIO_BSP_HANDLE, SIO_BSP_HANDLE_POLL,
+        SIO_BSP_HANDLE_SELECT, SOCKET_ERROR,
+    },
+    System::WindowsProgramming::IO_STATUS_BLOCK,
 };
-use windows_sys::Win32::System::WindowsProgramming::IO_STATUS_BLOCK;
 
-use super::{from_overlapped, into_overlapped, Afd, AfdPollInfo, Event};
-
-use super::afd;
+use super::{afd, from_overlapped, into_overlapped, Afd, AfdPollInfo, Event};
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum SockPollStatus {
@@ -85,15 +86,15 @@ impl SockState {
 
         if let SockPollStatus::Pending = self.poll_status {
             if (self.user_evts & afd::KNOWN_EVENTS & !self.pending_evts) == 0 {
-                /* All the events the user is interested in are already being monitored by
-                 * the pending poll operation. It might spuriously complete because of an
-                 * event that we're no longer interested in; when that happens we'll submit
-                 * a new poll operation with the updated event mask. */
+                // All the events the user is interested in are already being monitored by
+                // the pending poll operation. It might spuriously complete because of an
+                // event that we're no longer interested in; when that happens we'll submit
+                // a new poll operation with the updated event mask.
             } else {
-                /* A poll operation is already pending, but it's not monitoring for all the
-                 * events that the user is interested in. Therefore, cancel the pending
-                 * poll operation; when we receive it's completion package, a new poll
-                 * operation will be submitted with the correct event mask. */
+                // A poll operation is already pending, but it's not monitoring for all the
+                // events that the user is interested in. Therefore, cancel the pending
+                // poll operation; when we receive it's completion package, a new poll
+                // operation will be submitted with the correct event mask.
                 if let Err(e) = self.cancel() {
                     self.error = e.raw_os_error();
                     return Err(e);
@@ -101,10 +102,10 @@ impl SockState {
                 return Ok(());
             }
         } else if let SockPollStatus::Cancelled = self.poll_status {
-            /* The poll operation has already been cancelled, we're still waiting for
-             * it to return. For now, there's nothing that needs to be done. */
+            // The poll operation has already been cancelled, we're still waiting for
+            // it to return. For now, there's nothing that needs to be done.
         } else if let SockPollStatus::Idle = self.poll_status {
-            /* No poll operation is pending; start one. */
+            // No poll operation is pending; start one.
             self.poll_info.exclusive = 0;
             self.poll_info.number_of_handles = 1;
             self.poll_info.timeout = i64::MAX;
@@ -122,13 +123,13 @@ impl SockState {
             if let Err(e) = result {
                 let code = e.raw_os_error().unwrap();
                 if code == ERROR_IO_PENDING as i32 {
-                    /* Overlapped poll operation in progress; this is expected. */
+                    // Overlapped poll operation in progress; this is expected.
                 } else {
                     // Since the operation failed it means the kernel won't be
                     // using the memory any more.
                     drop(from_overlapped(overlapped_ptr as *mut _));
                     if code == ERROR_INVALID_HANDLE as i32 {
-                        /* Socket closed; it'll be dropped. */
+                        // Socket closed; it'll be dropped.
                         self.mark_delete();
                         return Ok(());
                     } else {
@@ -152,19 +153,20 @@ impl SockState {
         self.pending_evts = 0;
 
         let mut afd_events = 0;
-        // We use the status info in IO_STATUS_BLOCK to determine the socket poll status. It is unsafe to use a pointer of IO_STATUS_BLOCK.
+        // We use the status info in IO_STATUS_BLOCK to determine the socket poll status. It is
+        // unsafe to use a pointer of IO_STATUS_BLOCK.
         unsafe {
             if self.delete_pending {
                 return None;
             } else if self.iosb.Anonymous.Status == STATUS_CANCELLED {
-                /* The poll request was cancelled by CancelIoEx. */
+                // The poll request was cancelled by CancelIoEx.
             } else if self.iosb.Anonymous.Status < 0 {
-                /* The overlapped request itself failed in an unexpected way. */
+                // The overlapped request itself failed in an unexpected way.
                 afd_events = afd::POLL_CONNECT_FAIL;
             } else if self.poll_info.number_of_handles < 1 {
-                /* This poll operation succeeded but didn't report any socket events. */
+                // This poll operation succeeded but didn't report any socket events.
             } else if self.poll_info.handles[0].events & afd::POLL_LOCAL_CLOSE != 0 {
-                /* The poll operation reported that the socket was closed. */
+                // The poll operation reported that the socket was closed.
                 self.mark_delete();
                 return None;
             } else {
@@ -197,7 +199,8 @@ impl SockState {
     }
 
     pub fn set_event(&mut self, ev: Event) -> bool {
-        /* afd::POLL_CONNECT_FAIL and afd::POLL_ABORT are always reported, even when not requested by the caller. */
+        // afd::POLL_CONNECT_FAIL and afd::POLL_ABORT are always reported, even when not requested
+        // by the caller.
         let events = ev.flags | afd::POLL_CONNECT_FAIL | afd::POLL_ABORT;
 
         self.user_evts = events;

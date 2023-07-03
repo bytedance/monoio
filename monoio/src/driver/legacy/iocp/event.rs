@@ -1,6 +1,7 @@
-use super::afd;
 use mio::Token;
 use windows_sys::Win32::System::IO::OVERLAPPED_ENTRY;
+
+use super::afd;
 
 #[derive(Clone)]
 pub struct Event {
@@ -47,23 +48,23 @@ impl Event {
     pub fn is_readable(&self) -> bool {
         self.flags & READABLE_FLAGS != 0
     }
-    
+
     pub fn is_writable(&self) -> bool {
         self.flags & WRITABLE_FLAGS != 0
     }
-    
+
     pub fn is_error(&self) -> bool {
         self.flags & ERROR_FLAGS != 0
     }
-    
+
     pub fn is_read_closed(&self) -> bool {
         self.flags & READ_CLOSED_FLAGS != 0
     }
-    
+
     pub fn is_write_closed(&self) -> bool {
         self.flags & WRITE_CLOSED_FLAGS != 0
     }
-    
+
     pub fn is_priority(&self) -> bool {
         self.flags & afd::POLL_RECEIVE_EXPEDITED != 0
     }

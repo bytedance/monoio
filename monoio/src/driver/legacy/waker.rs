@@ -18,7 +18,7 @@ impl EventWaker {
             awake: std::sync::atomic::AtomicBool::new(true),
         }
     }
-    
+
     #[cfg(windows)]
     pub(crate) fn new(waker: super::iocp::Waker) -> Self {
         Self {

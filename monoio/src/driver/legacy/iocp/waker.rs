@@ -1,6 +1,6 @@
-use super::{Event, CompletionPort, Poller};
-use std::io;
-use std::sync::Arc;
+use std::{io, sync::Arc};
+
+use super::{CompletionPort, Event, Poller};
 
 #[derive(Debug)]
 pub struct Waker {

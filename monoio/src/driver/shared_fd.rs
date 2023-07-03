@@ -1,7 +1,7 @@
 #[cfg(unix)]
 use std::os::unix::io::{AsRawFd, FromRawFd, RawFd};
 #[cfg(windows)]
-use std::os::windows::io::{AsRawSocket, RawSocket, OwnedSocket, FromRawSocket};
+use std::os::windows::io::{AsRawSocket, FromRawSocket, OwnedSocket, RawSocket};
 use std::{cell::UnsafeCell, io, rc::Rc};
 
 #[cfg(windows)]
@@ -263,9 +263,7 @@ impl SharedFd {
                                     // deregister it from driver(Poll and slab) and close fd
                                     if let Some(idx) = idx {
                                         let _ = super::legacy::LegacyDriver::deregister(
-                                            inner,
-                                            *idx,
-                                            &mut fd,
+                                            inner, *idx, &mut fd,
                                         );
                                     }
                                 }
@@ -407,9 +405,7 @@ impl Drop for Inner {
                                 // deregister it from driver(Poll and slab) and close fd
                                 if let Some(idx) = idx {
                                     let _ = super::legacy::LegacyDriver::deregister(
-                                        inner,
-                                        *idx,
-                                        &mut fd,
+                                        inner, *idx, &mut fd,
                                     );
                                 }
                             }

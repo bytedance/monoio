@@ -1,10 +1,14 @@
-use std::os::windows::prelude::{AsRawHandle, FromRawHandle, IntoRawHandle, RawHandle};
-use std::time::Duration;
+use std::{
+    os::windows::prelude::{AsRawHandle, FromRawHandle, IntoRawHandle, RawHandle},
+    time::Duration,
+};
 
-use windows_sys::Win32::Foundation::{CloseHandle, HANDLE, INVALID_HANDLE_VALUE};
-use windows_sys::Win32::System::IO::{
-    CreateIoCompletionPort, GetQueuedCompletionStatusEx, PostQueuedCompletionStatus,
-    OVERLAPPED_ENTRY,
+use windows_sys::Win32::{
+    Foundation::{CloseHandle, HANDLE, INVALID_HANDLE_VALUE},
+    System::IO::{
+        CreateIoCompletionPort, GetQueuedCompletionStatusEx, PostQueuedCompletionStatus,
+        OVERLAPPED_ENTRY,
+    },
 };
 
 #[derive(Debug)]
@@ -24,8 +28,7 @@ impl CompletionPort {
     }
 
     pub fn add_handle(&self, token: usize, handle: HANDLE) -> std::io::Result<()> {
-        let result =
-            unsafe { CreateIoCompletionPort(handle, self.handle, token, 0) };
+        let result = unsafe { CreateIoCompletionPort(handle, self.handle, token, 0) };
 
         if result == 0 {
             return Err(std::io::Error::last_os_error());

@@ -1,19 +1,23 @@
-use std::ffi::c_void;
-use std::fs::File;
-use std::os::windows::prelude::{AsRawHandle, FromRawHandle, RawHandle};
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::{
+    ffi::c_void,
+    fs::File,
+    os::windows::prelude::{AsRawHandle, FromRawHandle, RawHandle},
+    sync::atomic::{AtomicUsize, Ordering},
+};
 
-use windows_sys::Win32::Foundation::{
-    RtlNtStatusToDosError, HANDLE, INVALID_HANDLE_VALUE, NTSTATUS, STATUS_NOT_FOUND,
-    STATUS_PENDING, STATUS_SUCCESS, UNICODE_STRING,
-};
-use windows_sys::Win32::Storage::FileSystem::{
-    NtCreateFile, SetFileCompletionNotificationModes, FILE_OPEN, FILE_SHARE_READ, FILE_SHARE_WRITE,
-    SYNCHRONIZE,
-};
-use windows_sys::Win32::System::WindowsProgramming::{
-    NtDeviceIoControlFile, FILE_SKIP_SET_EVENT_ON_HANDLE, IO_STATUS_BLOCK, IO_STATUS_BLOCK_0,
-    OBJECT_ATTRIBUTES,
+use windows_sys::Win32::{
+    Foundation::{
+        RtlNtStatusToDosError, HANDLE, INVALID_HANDLE_VALUE, NTSTATUS, STATUS_NOT_FOUND,
+        STATUS_PENDING, STATUS_SUCCESS, UNICODE_STRING,
+    },
+    Storage::FileSystem::{
+        NtCreateFile, SetFileCompletionNotificationModes, FILE_OPEN, FILE_SHARE_READ,
+        FILE_SHARE_WRITE, SYNCHRONIZE,
+    },
+    System::WindowsProgramming::{
+        NtDeviceIoControlFile, FILE_SKIP_SET_EVENT_ON_HANDLE, IO_STATUS_BLOCK, IO_STATUS_BLOCK_0,
+        OBJECT_ATTRIBUTES,
+    },
 };
 
 use super::CompletionPort;
