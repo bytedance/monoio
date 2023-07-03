@@ -1,5 +1,6 @@
 #![doc = include_str!("../../README.md")]
 #![warn(missing_docs, unreachable_pub)]
+#![allow(stable_features)]
 #![feature(type_alias_impl_trait)]
 #![feature(impl_trait_in_assoc_type)]
 #![feature(io_error_more)]
