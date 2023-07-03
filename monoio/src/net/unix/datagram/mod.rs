@@ -14,6 +14,7 @@ use super::{
     SocketAddr,
 };
 use crate::{
+    buf::{IoBuf, IoBufMut},
     driver::{op::Op, shared_fd::SharedFd},
     net::new_socket,
 };
@@ -61,7 +62,7 @@ impl UnixDatagram {
         sockaddr: libc::sockaddr_un,
         socklen: libc::socklen_t,
     ) -> io::Result<Self> {
-        let socket = new_socket(libc::AF_UNIX, libc::SOCK_STREAM)?;
+        let socket = new_socket(libc::AF_UNIX, libc::SOCK_DGRAM)?;
         let op = Op::connect_unix(SharedFd::new(socket)?, sockaddr, socklen)?;
         let completion = op.await;
         completion.meta.result?;
@@ -118,6 +119,46 @@ impl UnixDatagram {
     pub async fn writable(&self, relaxed: bool) -> io::Result<()> {
         let op = Op::poll_write(&self.fd, relaxed).unwrap();
         op.wait().await
+    }
+
+    /// Sends data on the socket to the given address. On success, returns the
+    /// number of bytes written.
+    pub async fn send_to<T: IoBuf, P: AsRef<Path>>(
+        &self,
+        buf: T,
+        path: P,
+    ) -> crate::BufResult<usize, T> {
+        let addr = match crate::net::unix::socket_addr::socket_addr(path.as_ref()) {
+            Ok(addr) => addr,
+            Err(e) => return (Err(e), buf),
+        };
+        let op = Op::send_msg_unix(
+            self.fd.clone(),
+            buf,
+            Some(SocketAddr::from_parts(addr.0, addr.1)),
+        )
+        .unwrap();
+        op.wait().await
+    }
+
+    /// Receives a single datagram message on the socket. On success, returns the number
+    /// of bytes read and the origin.
+    pub async fn recv_from<T: IoBufMut>(&self, buf: T) -> crate::BufResult<(usize, SocketAddr), T> {
+        let op = Op::recv_msg_unix(self.fd.clone(), buf).unwrap();
+        op.wait().await
+    }
+
+    /// Sends data on the socket to the remote address to which it is connected.
+    pub async fn send<T: IoBuf>(&self, buf: T) -> crate::BufResult<usize, T> {
+        let op = Op::send_msg_unix(self.fd.clone(), buf, None).unwrap();
+        op.wait().await
+    }
+
+    /// Receives a single datagram message on the socket from the remote address to
+    /// which it is connected. On success, returns the number of bytes read.
+    pub async fn recv<T: IoBufMut>(&self, buf: T) -> crate::BufResult<usize, T> {
+        let op = Op::recv(self.fd.clone(), buf).unwrap();
+        op.read().await
     }
 }
 

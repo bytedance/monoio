@@ -12,7 +12,7 @@ pub(crate) struct RawTask {
 
 impl Clone for RawTask {
     fn clone(&self) -> Self {
-        RawTask { ptr: self.ptr }
+        *self
     }
 }
 
