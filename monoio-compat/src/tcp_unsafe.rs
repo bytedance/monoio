@@ -108,7 +108,7 @@ impl tokio::io::AsyncWrite for TcpStreamCompat {
         buf: &[u8],
     ) -> std::task::Poll<Result<usize, std::io::Error>> {
         let this = self.get_mut();
-        let (ptr, len) = (buf.as_ptr() as *const u8, buf.len());
+        let (ptr, len) = (buf.as_ptr(), buf.len());
 
         // Set or check write_dst
         // Note: the check can not prevent memory crash when user misuse it.

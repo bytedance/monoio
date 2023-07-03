@@ -30,13 +30,12 @@
 ///
 /// The complete lifecycle of a `select!` expression is as follows:
 ///
-/// 1. Evaluate all provided `<precondition>` expressions. If the precondition
-///    returns `false`, disable the branch for the remainder of the current call
-///    to `select!`. Re-entering `select!` due to a loop clears the "disabled"
-///    state.
-/// 2. Aggregate the `<async expression>`s from each branch, including the
-///    disabled ones. If the branch is disabled, `<async expression>` is still
-///    evaluated, but the resulting future is not polled.
+/// 1. Evaluate all provided `<precondition>` expressions. If the precondition returns `false`,
+///    disable the branch for the remainder of the current call to `select!`. Re-entering `select!`
+///    due to a loop clears the "disabled" state.
+/// 2. Aggregate the `<async expression>`s from each branch, including the disabled ones. If the
+///    branch is disabled, `<async expression>` is still evaluated, but the resulting future is not
+///    polled.
 /// 3. Concurrently await on the results for all remaining `<async
 /// expression>`s. 4. Once an `<async expression>` returns a value, attempt to
 /// apply the value    to the provided `<pattern>`, if the pattern matches,

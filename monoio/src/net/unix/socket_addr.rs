@@ -64,7 +64,24 @@ impl SocketAddr {
         Ok(SocketAddr::from_parts(sockaddr, socklen))
     }
 
-    pub(crate) fn from_parts(sockaddr: libc::sockaddr_un, socklen: libc::socklen_t) -> SocketAddr {
+    pub(crate) fn from_parts(
+        sockaddr: libc::sockaddr_un,
+        mut socklen: libc::socklen_t,
+    ) -> SocketAddr {
+        fn sun_path_offset(addr: &libc::sockaddr_un) -> usize {
+            let base: usize = (addr as *const libc::sockaddr_un).cast::<()>() as usize;
+            let path: usize = (&addr.sun_path as *const libc::c_char).cast::<()>() as usize;
+            path - base
+        }
+
+        if socklen == 0 {
+            // When there is a datagram from unnamed unix socket
+            // linux returns zero bytes of address
+            socklen = sun_path_offset(&sockaddr) as libc::socklen_t; // i.e., zero-length address
+        } else if sockaddr.sun_family != libc::AF_UNIX as libc::sa_family_t {
+            panic!("file descriptor did not correspond to a Unix socket");
+        }
+
         SocketAddr { sockaddr, socklen }
     }
 
@@ -77,6 +94,7 @@ impl SocketAddr {
     /// Documentation reflected in [`SocketAddr`]
     ///
     /// [`SocketAddr`]: std::os::unix::net::SocketAddr
+    #[cfg(target_os = "linux")]
     #[inline]
     pub fn is_unnamed(&self) -> bool {
         matches!(self.address(), AddressKind::Unnamed)
@@ -87,6 +105,7 @@ impl SocketAddr {
     /// Documentation reflected in [`SocketAddr`]
     ///
     /// [`SocketAddr`]: std::os::unix::net::SocketAddr
+    #[cfg(target_os = "linux")]
     #[inline]
     pub fn as_pathname(&self) -> Option<&Path> {
         if let AddressKind::Pathname(path) = self.address() {
@@ -100,6 +119,7 @@ impl SocketAddr {
     /// without the leading null byte.
     // Link to std::os::unix::net::SocketAddr pending
     // https://github.com/rust-lang/rust/issues/85410.
+    #[cfg(target_os = "linux")]
     #[inline]
     pub fn as_abstract_namespace(&self) -> Option<&[u8]> {
         if let AddressKind::Abstract(path) = self.address() {
@@ -107,6 +127,16 @@ impl SocketAddr {
         } else {
             None
         }
+    }
+
+    #[inline]
+    pub(crate) fn as_ptr(&self) -> *const libc::sockaddr_un {
+        &self.sockaddr as *const _
+    }
+
+    #[inline]
+    pub(crate) fn len(&self) -> libc::socklen_t {
+        self.socklen
     }
 }
 

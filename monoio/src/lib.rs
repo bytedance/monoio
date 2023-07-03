@@ -4,6 +4,7 @@
 #![feature(impl_trait_in_assoc_type)]
 #![feature(io_error_more)]
 #![feature(lazy_cell)]
+#![feature(slice_internals)]
 
 #[macro_use]
 pub mod macros;
