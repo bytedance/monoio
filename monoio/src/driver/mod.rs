@@ -5,7 +5,7 @@ pub(crate) mod shared_fd;
 #[cfg(feature = "sync")]
 pub(crate) mod thread;
 
-#[cfg(all(unix, feature = "legacy"))]
+#[cfg(feature = "legacy")]
 mod legacy;
 #[cfg(all(target_os = "linux", feature = "iouring"))]
 mod uring;
@@ -18,7 +18,7 @@ use std::{
     time::Duration,
 };
 
-#[cfg(all(unix, feature = "legacy"))]
+#[cfg(feature = "legacy")]
 pub use self::legacy::LegacyDriver;
 // #[cfg(windows)]
 // pub mod op {
@@ -28,7 +28,7 @@ pub use self::legacy::LegacyDriver;
 //     }
 //     pub trait OpAble {}
 // }
-#[cfg(all(unix, feature = "legacy"))]
+#[cfg(feature = "legacy")]
 use self::legacy::LegacyInner;
 use self::op::{CompletionMeta, Op, OpAble};
 #[cfg(all(target_os = "linux", feature = "iouring"))]
@@ -91,7 +91,7 @@ scoped_thread_local!(pub(crate) static CURRENT: Inner);
 pub(crate) enum Inner {
     #[cfg(all(target_os = "linux", feature = "iouring"))]
     Uring(std::rc::Rc<std::cell::UnsafeCell<UringInner>>),
-    #[cfg(all(unix, feature = "legacy"))]
+    #[cfg(feature = "legacy")]
     Legacy(std::rc::Rc<std::cell::UnsafeCell<LegacyInner>>),
 }
 
@@ -102,7 +102,7 @@ impl Inner {
             _ => unimplemented!(),
             #[cfg(all(target_os = "linux", feature = "iouring"))]
             Inner::Uring(this) => UringInner::submit_with_data(this, data),
-            #[cfg(all(unix, feature = "legacy"))]
+            #[cfg(feature = "legacy")]
             Inner::Legacy(this) => LegacyInner::submit_with_data(this, data),
             #[cfg(all(
                 not(feature = "legacy"),
@@ -126,7 +126,7 @@ impl Inner {
             _ => unimplemented!(),
             #[cfg(all(target_os = "linux", feature = "iouring"))]
             Inner::Uring(this) => UringInner::poll_op(this, index, cx),
-            #[cfg(all(unix, feature = "legacy"))]
+            #[cfg(feature = "legacy")]
             Inner::Legacy(this) => LegacyInner::poll_op::<T>(this, data, cx),
             #[cfg(all(
                 not(feature = "legacy"),
@@ -145,7 +145,7 @@ impl Inner {
             _ => unimplemented!(),
             #[cfg(all(target_os = "linux", feature = "iouring"))]
             Inner::Uring(this) => UringInner::drop_op(this, index, data),
-            #[cfg(all(unix, feature = "legacy"))]
+            #[cfg(feature = "legacy")]
             Inner::Legacy(_) => {}
             #[cfg(all(
                 not(feature = "legacy"),
@@ -164,7 +164,7 @@ impl Inner {
             _ => unimplemented!(),
             #[cfg(all(target_os = "linux", feature = "iouring"))]
             Inner::Uring(this) => UringInner::cancel_op(this, op_canceller.index),
-            #[cfg(all(unix, feature = "legacy"))]
+            #[cfg(feature = "legacy")]
             Inner::Legacy(this) => {
                 if let Some(direction) = op_canceller.direction {
                     LegacyInner::cancel_op(this, op_canceller.index, direction)
@@ -203,7 +203,7 @@ impl Inner {
 pub(crate) enum UnparkHandle {
     #[cfg(all(target_os = "linux", feature = "iouring"))]
     Uring(self::uring::UnparkHandle),
-    #[cfg(all(unix, feature = "legacy"))]
+    #[cfg(feature = "legacy")]
     Legacy(self::legacy::UnparkHandle),
 }
 
@@ -213,7 +213,7 @@ impl unpark::Unpark for UnparkHandle {
         match self {
             #[cfg(all(target_os = "linux", feature = "iouring"))]
             UnparkHandle::Uring(inner) => inner.unpark(),
-            #[cfg(all(unix, feature = "legacy"))]
+            #[cfg(feature = "legacy")]
             UnparkHandle::Legacy(inner) => inner.unpark(),
             #[cfg(all(
                 not(feature = "legacy"),
@@ -247,7 +247,7 @@ impl UnparkHandle {
         CURRENT.with(|inner| match inner {
             #[cfg(all(target_os = "linux", feature = "iouring"))]
             Inner::Uring(this) => UringInner::unpark(this).into(),
-            #[cfg(all(unix, feature = "legacy"))]
+            #[cfg(feature = "legacy")]
             Inner::Legacy(this) => LegacyInner::unpark(this).into(),
         })
     }

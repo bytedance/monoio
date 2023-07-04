@@ -1,9 +1,11 @@
 #[cfg(unix)]
 use std::os::unix::io::{AsRawFd, FromRawFd, RawFd};
 #[cfg(windows)]
-use std::os::windows::io::{AsRawHandle, FromRawHandle, RawHandle};
+use std::os::windows::io::{AsRawSocket, FromRawSocket, OwnedSocket, RawSocket};
 use std::{cell::UnsafeCell, io, rc::Rc};
 
+#[cfg(windows)]
+use super::legacy::iocp::SocketState;
 use super::CURRENT;
 
 // Tracks in-flight operations on a file descriptor. Ensures all in-flight
@@ -19,7 +21,7 @@ struct Inner {
     fd: RawFd,
 
     #[cfg(windows)]
-    fd: RawHandle,
+    fd: SocketState,
 
     // Waker to notify when the close operation completes.
     state: UnsafeCell<State>,
@@ -61,9 +63,9 @@ impl AsRawFd for SharedFd {
 }
 
 #[cfg(windows)]
-impl AsRawHandle for SharedFd {
-    fn as_raw_handle(&self) -> RawHandle {
-        self.raw_handle()
+impl AsRawSocket for SharedFd {
+    fn as_raw_socket(&self) -> RawSocket {
+        self.raw_socket()
     }
 }
 
@@ -126,8 +128,28 @@ impl SharedFd {
     }
 
     #[cfg(windows)]
-    pub(crate) fn new(fd: RawHandle) -> io::Result<SharedFd> {
-        unimplemented!()
+    pub(crate) fn new(fd: RawSocket) -> io::Result<SharedFd> {
+        const RW_INTERESTS: mio::Interest = mio::Interest::READABLE.add(mio::Interest::WRITABLE);
+
+        let mut fd = SocketState::new(fd);
+
+        let state = {
+            let reg = CURRENT.with(|inner| match inner {
+                super::Inner::Legacy(inner) => {
+                    super::legacy::LegacyDriver::register(inner, &mut fd, RW_INTERESTS)
+                }
+            });
+
+            State::Legacy(Some(reg?))
+        };
+
+        #[allow(unreachable_code)]
+        Ok(SharedFd {
+            inner: Rc::new(Inner {
+                fd,
+                state: UnsafeCell::new(state),
+            }),
+        })
     }
 
     #[cfg(unix)]
@@ -157,8 +179,17 @@ impl SharedFd {
 
     #[cfg(windows)]
     #[allow(unreachable_code, unused)]
-    pub(crate) fn new_without_register(fd: RawHandle) -> io::Result<SharedFd> {
-        unimplemented!()
+    pub(crate) fn new_without_register(fd: RawSocket) -> SharedFd {
+        let state = CURRENT.with(|inner| match inner {
+            super::Inner::Legacy(_) => State::Legacy(None),
+        });
+
+        SharedFd {
+            inner: Rc::new(Inner {
+                fd: SocketState::new(fd),
+                state: UnsafeCell::new(state),
+            }),
+        }
     }
 
     #[cfg(unix)]
@@ -168,9 +199,9 @@ impl SharedFd {
     }
 
     #[cfg(windows)]
-    /// Returns the RawHandle
-    pub(crate) fn raw_handle(&self) -> RawHandle {
-        self.inner.fd
+    /// Returns the RawSocket
+    pub(crate) fn raw_socket(&self) -> RawSocket {
+        self.inner.fd.socket
     }
 
     #[cfg(unix)]
@@ -217,19 +248,42 @@ impl SharedFd {
     #[cfg(windows)]
     /// Try unwrap Rc, then deregister if registered and return rawfd.
     /// Note: this action will consume self and return rawfd without closing it.
-    pub(crate) fn try_unwrap(self) -> Result<RawHandle, Self> {
-        unimplemented!()
+    pub(crate) fn try_unwrap(self) -> Result<RawSocket, Self> {
+        let fd = self.inner.fd;
+        match Rc::try_unwrap(self.inner) {
+            Ok(_inner) => {
+                let state = unsafe { &*_inner.state.get() };
+
+                #[allow(irrefutable_let_patterns)]
+                if let State::Legacy(idx) = state {
+                    if CURRENT.is_set() {
+                        CURRENT.with(|inner| {
+                            match inner {
+                                super::Inner::Legacy(inner) => {
+                                    // deregister it from driver(Poll and slab) and close fd
+                                    if let Some(idx) = idx {
+                                        let _ = super::legacy::LegacyDriver::deregister(
+                                            inner, *idx, &mut fd,
+                                        );
+                                    }
+                                }
+                            }
+                        })
+                    }
+                }
+                Ok(fd.socket)
+            }
+            Err(inner) => Err(Self { inner }),
+        }
     }
 
     #[allow(unused)]
     pub(crate) fn registered_index(&self) -> Option<usize> {
         let state = unsafe { &*self.inner.state.get() };
         match state {
-            #[cfg(windows)]
-            _ => unimplemented!(),
             #[cfg(all(target_os = "linux", feature = "iouring"))]
             State::Uring(_) => None,
-            #[cfg(all(unix, feature = "legacy"))]
+            #[cfg(feature = "legacy")]
             State::Legacy(s) => *s,
             #[cfg(all(
                 not(feature = "legacy"),
@@ -325,7 +379,7 @@ impl Drop for Inner {
                     let _ = unsafe { std::fs::File::from_raw_fd(fd) };
                 };
             }
-            #[cfg(all(unix, feature = "legacy"))]
+            #[cfg(feature = "legacy")]
             State::Legacy(idx) => {
                 if CURRENT.is_set() {
                     CURRENT.with(|inner| {
@@ -346,12 +400,23 @@ impl Drop for Inner {
                                     );
                                 }
                             }
+                            #[cfg(windows)]
+                            super::Inner::Legacy(inner) => {
+                                // deregister it from driver(Poll and slab) and close fd
+                                if let Some(idx) = idx {
+                                    let _ = super::legacy::LegacyDriver::deregister(
+                                        inner, *idx, &mut fd,
+                                    );
+                                }
+                            }
                         }
                     })
                 }
+                #[cfg(all(unix, feature = "legacy"))]
                 let _ = unsafe { std::fs::File::from_raw_fd(fd) };
+                #[cfg(windows)]
+                let _ = unsafe { OwnedSocket::from_raw_socket(fd.socket) };
             }
-            // TODO: windows
             _ => {}
         }
     }
