@@ -28,7 +28,8 @@ macro_rules! reader_be_impl {
                     .read_exact(std::boxed::Box::new([0; std::mem::size_of::<$n_ty>()]))
                     .await;
                 res?;
-                Ok(<$n_ty>::from_be_bytes(Box::into_inner(buf)))
+                use crate::utils::box_into_inner::IntoInner;
+                Ok(<$n_ty>::from_be_bytes(Box::consume(buf)))
             }
         }
     };
@@ -44,7 +45,8 @@ macro_rules! reader_le_impl {
                     .read_exact(std::boxed::Box::new([0; std::mem::size_of::<$n_ty>()]))
                     .await;
                 res?;
-                Ok(<$n_ty>::from_le_bytes(Box::into_inner(buf)))
+                use crate::utils::box_into_inner::IntoInner;
+                Ok(<$n_ty>::from_le_bytes(Box::consume(buf)))
             }
         }
     };

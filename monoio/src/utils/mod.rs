@@ -4,6 +4,7 @@ pub(crate) mod linked_list;
 pub(crate) mod slab;
 pub(crate) mod thread_id;
 pub(crate) mod uring_detect;
+pub(crate) mod box_into_inner;
 
 mod rand;
 pub use rand::thread_rng_n;
