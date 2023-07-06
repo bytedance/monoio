@@ -102,7 +102,7 @@ impl Buildable for LegacyDriver {
             let context = crate::runtime::Context::new(blocking_handle);
             #[cfg(not(feature = "sync"))]
             let context = crate::runtime::Context::new();
-            Ok(Runtime { driver, context })
+            Ok(Runtime::new(context, driver))
         })
     }
 }
@@ -123,7 +123,7 @@ impl Buildable for IoUringDriver {
             let context = crate::runtime::Context::new(blocking_handle);
             #[cfg(not(feature = "sync"))]
             let context = crate::runtime::Context::new();
-            Ok(Runtime { driver, context })
+            Ok(Runtime::new(context, driver))
         })
     }
 }

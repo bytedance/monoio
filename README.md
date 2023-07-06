@@ -36,7 +36,7 @@ Also, if you want to use io_uring, you must make sure your kernel supports it([5
 
 Here is a basic example of how to use Monoio.
 
-```rust
+```rust,no_run
 /// A echo example.
 ///
 /// Run the example and `nc 127.0.0.1 50002` in another shell.
@@ -63,7 +63,7 @@ async fn main() {
     }
 }
 
-async fn echo(stream: TcpStream) -> std::io::Result<()> {
+async fn echo(mut stream: TcpStream) -> std::io::Result<()> {
     let mut buf: Vec<u8> = Vec::with_capacity(8 * 1024);
     let mut res;
     loop {
