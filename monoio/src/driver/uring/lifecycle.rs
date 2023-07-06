@@ -76,7 +76,8 @@ impl<'a> Ref<'a, Lifecycle> {
                 if let Some(data) = data.take() {
                     *ref_mut = Lifecycle::Ignored(Box::new(data));
                 } else {
-                    *ref_mut = Lifecycle::Ignored(Box::new(())); // () is a ZST, so it does not allocate
+                    *ref_mut = Lifecycle::Ignored(Box::new(())); // () is a ZST, so it does not
+                                                                 // allocate
                 };
                 return false;
             }

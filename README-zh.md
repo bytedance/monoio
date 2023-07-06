@@ -39,7 +39,7 @@ Monoio 就是这样一个 Runtime：它并不像 Tokio 那样通过公平调度�
 
 这是一个非常简单的例子，基于 Monoio 实现一个简单的 echo 服务。运行起来之后你可以通过 `nc 127.0.0.1 50002` 来连接它。
 
-```rust
+```rust,no_run
 /// A echo example.
 ///
 /// Run the example and `nc 127.0.0.1 50002` in another shell.
@@ -66,7 +66,7 @@ async fn main() {
     }
 }
 
-async fn echo(stream: TcpStream) -> std::io::Result<()> {
+async fn echo(mut stream: TcpStream) -> std::io::Result<()> {
     let mut buf: Vec<u8> = Vec::with_capacity(8 * 1024);
     let mut res;
     loop {

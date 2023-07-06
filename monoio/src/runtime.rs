@@ -32,6 +32,9 @@ thread_local! {
 scoped_thread_local!(pub(crate) static CURRENT: Context);
 
 pub(crate) struct Context {
+    /// Owned task set and local run queue
+    pub(crate) tasks: TaskQueue,
+
     /// Thread id(not the kernel thread id but a generated unique number)
     pub(crate) thread_id: usize,
 
@@ -45,8 +48,6 @@ pub(crate) struct Context {
     pub(crate) waker_sender_cache:
         std::cell::RefCell<fxhash::FxHashMap<usize, flume::Sender<std::task::Waker>>>,
 
-    /// Owned task set and local run queue
-    pub(crate) tasks: TaskQueue,
     /// Time Handle
     pub(crate) time_handle: Option<TimeHandle>,
 
@@ -95,10 +96,7 @@ impl Context {
             let w = v.clone();
             self.unpark_cache.borrow_mut().insert(id, w);
             v.unpark();
-            return;
         }
-
-        panic!("thread to unpark has not been registered");
     }
 
     #[allow(unused)]
@@ -114,20 +112,21 @@ impl Context {
             // Write back to local cache
             let _ = s.send(w);
             self.waker_sender_cache.borrow_mut().insert(id, s);
-            return;
         }
-
-        panic!("sender has not been registered");
     }
 }
 
 /// Monoio runtime
 pub struct Runtime<D> {
-    pub(crate) driver: D,
     pub(crate) context: Context,
+    pub(crate) driver: D,
 }
 
 impl<D> Runtime<D> {
+    pub(crate) fn new(context: Context, driver: D) -> Self {
+        Self { context, driver }
+    }
+
     /// Block on
     pub fn block_on<F>(&mut self, future: F) -> F::Output
     where

@@ -8,7 +8,7 @@ license = "MIT/Apache-2.0"
 name = "monoio"
 readme = "../README.md"
 repository = "https://github.com/bytedance/monoio"
-version = "0.1.5"
+version = "0.1.6"
 
 # common dependencies
 [dependencies]
@@ -35,7 +35,7 @@ tracing = { version = "0.1", default-features = false, features = [
 ctrlc = { version = "3", optional = true }
 
 # windows dependencies(will be added when windows support finished)
-[dependencies.windows-sys]
+[target.'cfg(windows)'.dependencies.windows-sys]
 features = ["Win32_Foundation", "Win32_Networking_WinSock"]
 version = "0.48.0"
 
