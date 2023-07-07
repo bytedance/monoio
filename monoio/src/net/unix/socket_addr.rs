@@ -214,8 +214,24 @@ pub(crate) fn pair<T>(flags: libc::c_int) -> io::Result<(T, T)>
 where
     T: FromRawFd,
 {
-    #[cfg(not(any(target_os = "ios", target_os = "macos")))]
+    #[cfg(any(
+        target_os = "android",
+        target_os = "dragonfly",
+        target_os = "freebsd",
+        target_os = "illumos",
+        target_os = "netbsd",
+        target_os = "openbsd"
+    ))]
     let flags = flags | libc::SOCK_NONBLOCK | libc::SOCK_CLOEXEC;
+
+    #[cfg(target_os = "linux")]
+    let flags = {
+        if crate::driver::op::is_legacy() {
+            flags | libc::SOCK_CLOEXEC | libc::SOCK_NONBLOCK
+        } else {
+            flags | libc::SOCK_CLOEXEC
+        }
+    };
 
     let mut fds = [-1; 2];
     crate::syscall!(socketpair(libc::AF_UNIX, flags, 0, fds.as_mut_ptr()))?;

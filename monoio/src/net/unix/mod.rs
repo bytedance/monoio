@@ -9,9 +9,13 @@ mod split;
 mod stream;
 mod ucred;
 
+#[cfg(target_os = "linux")]
+mod seq_packet;
 pub use datagram::UnixDatagram;
 pub use listener::UnixListener;
 pub use pipe::{new_pipe, Pipe};
+#[cfg(target_os = "linux")]
+pub use seq_packet::{UnixSeqpacket, UnixSeqpacketListener};
 pub use socket_addr::SocketAddr;
 pub use split::{UnixOwnedReadHalf, UnixOwnedWriteHalf};
 pub use stream::UnixStream;
