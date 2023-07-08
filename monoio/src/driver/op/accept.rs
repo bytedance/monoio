@@ -5,32 +5,48 @@ use std::{
 
 #[cfg(all(target_os = "linux", feature = "iouring"))]
 use io_uring::{opcode, types};
-#[cfg(all(unix, feature = "legacy"))]
+#[cfg(windows)]
 use {
-    crate::{driver::legacy::ready::Direction, syscall_u32},
-    std::os::unix::prelude::AsRawFd,
+    crate::syscall,
+    std::os::windows::prelude::AsRawSocket,
+    windows_sys::Win32::Networking::WinSock::{
+        accept, socklen_t, INVALID_SOCKET, SOCKADDR_STORAGE,
+    },
 };
+#[cfg(all(unix, feature = "legacy"))]
+use {crate::syscall_u32, std::os::unix::prelude::AsRawFd};
 
 use super::{super::shared_fd::SharedFd, Op, OpAble};
+#[cfg(feature = "legacy")]
+use crate::driver::legacy::ready::Direction;
 
 /// Accept
 pub(crate) struct Accept {
-    #[allow(unused)]
     pub(crate) fd: SharedFd,
     #[cfg(unix)]
     pub(crate) addr: Box<(MaybeUninit<libc::sockaddr_storage>, libc::socklen_t)>,
+    #[cfg(windows)]
+    pub(crate) addr: Box<(MaybeUninit<SOCKADDR_STORAGE>, socklen_t)>,
 }
 
 impl Op<Accept> {
-    #[cfg(unix)]
     /// Accept a connection
     pub(crate) fn accept(fd: &SharedFd) -> io::Result<Self> {
+        #[cfg(unix)]
+        let addr = Box::new((
+            MaybeUninit::uninit(),
+            size_of::<libc::sockaddr_storage>() as libc::socklen_t,
+        ));
+
+        #[cfg(windows)]
+        let addr = Box::new((
+            MaybeUninit::uninit(),
+            size_of::<SOCKADDR_STORAGE>() as socklen_t,
+        ));
+
         Op::submit_with(Accept {
             fd: fd.clone(),
-            addr: Box::new((
-                MaybeUninit::uninit(),
-                size_of::<libc::sockaddr_storage>() as libc::socklen_t,
-            )),
+            addr,
         })
     }
 }
@@ -46,9 +62,18 @@ impl OpAble for Accept {
         .build()
     }
 
-    #[cfg(all(unix, feature = "legacy"))]
+    #[cfg(feature = "legacy")]
     fn legacy_interest(&self) -> Option<(Direction, usize)> {
         self.fd.registered_index().map(|idx| (Direction::Read, idx))
+    }
+
+    #[cfg(windows)]
+    fn legacy_call(&mut self) -> io::Result<u32> {
+        let fd = self.fd.as_raw_socket();
+        let addr = self.addr.0.as_mut_ptr() as *mut _;
+        let len = &mut self.addr.1;
+
+        syscall!(accept(fd, addr, len), PartialEq::eq, INVALID_SOCKET)
     }
 
     #[cfg(all(unix, feature = "legacy"))]
