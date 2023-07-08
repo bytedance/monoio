@@ -11,7 +11,7 @@ use crate::driver::legacy::ready::Direction;
 #[cfg(windows)]
 use crate::syscall;
 #[cfg(all(unix, feature = "legacy"))]
-use crate::{driver::legacy::ready::Direction, syscall_u32};
+use crate::syscall_u32;
 
 pub(crate) struct Fsync {
     #[allow(unused)]
