@@ -2,10 +2,16 @@ use std::io;
 
 #[cfg(all(target_os = "linux", feature = "iouring"))]
 use io_uring::{opcode, types};
+#[cfg(windows)]
+use windows_sys::Win32::Storage::FileSystem::FlushFileBuffers;
 
 use super::{super::shared_fd::SharedFd, Op, OpAble};
+#[cfg(feature = "legacy")]
+use crate::driver::legacy::ready::Direction;
+#[cfg(windows)]
+use crate::syscall;
 #[cfg(all(unix, feature = "legacy"))]
-use crate::{driver::legacy::ready::Direction, syscall_u32};
+use crate::syscall_u32;
 
 pub(crate) struct Fsync {
     #[allow(unused)]
@@ -42,9 +48,18 @@ impl OpAble for Fsync {
         opc.build()
     }
 
-    #[cfg(all(unix, feature = "legacy"))]
+    #[cfg(feature = "legacy")]
     fn legacy_interest(&self) -> Option<(Direction, usize)> {
         None
+    }
+
+    #[cfg(all(windows, feature = "legacy"))]
+    fn legacy_call(&mut self) -> io::Result<u32> {
+        syscall!(
+            FlushFileBuffers(self.handle.as_raw_handle()),
+            PartialEq::eq,
+            0
+        )
     }
 
     #[cfg(all(unix, not(target_os = "linux"), feature = "legacy"))]

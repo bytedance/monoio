@@ -38,8 +38,13 @@ macro_rules! syscall {
 #[cfg(windows)]
 #[macro_export]
 macro_rules! syscall {
-    ($fn: ident ( $($arg: expr),* $(,)* ) ) => {{
-        unimplemented!()
+    ($fn: ident ( $($arg: expr),* $(,)* ), $err_test: path, $err_value: expr) => {{
+        let res = unsafe { $fn($($arg, )*) };
+        if $err_test(&res, &$err_value) {
+            Err(io::Error::last_os_error())
+        } else {
+            Ok(res)
+        }
     }};
 }
 
