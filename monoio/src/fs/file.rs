@@ -59,7 +59,6 @@ pub struct File {
 }
 
 impl File {
-    #[cfg(unix)]
     /// Attempts to open a file in read-only mode.
     ///
     /// See the [`OpenOptions::open`] method for more details.
@@ -87,7 +86,6 @@ impl File {
         OpenOptions::new().read(true).open(path).await
     }
 
-    #[cfg(unix)]
     /// Opens a file in write-only mode.
     ///
     /// This function will create a file if it does not exist,

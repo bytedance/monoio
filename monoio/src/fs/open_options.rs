@@ -1,4 +1,17 @@
-use std::{io, os::unix::prelude::OpenOptionsExt, path::Path};
+#[cfg(unix)]
+use std::os::unix::prelude::OpenOptionsExt;
+use std::{io, path::Path};
+
+#[cfg(windows)]
+use windows_sys::Win32::{
+    Foundation::{ERROR_INVALID_PARAMETER, GENERIC_READ, GENERIC_WRITE},
+    Security::SECURITY_ATTRIBUTES,
+    Storage::FileSystem::{
+        CREATE_ALWAYS, CREATE_NEW, FILE_FLAG_OPEN_REPARSE_POINT, FILE_GENERIC_WRITE,
+        FILE_SHARE_DELETE, FILE_SHARE_READ, FILE_SHARE_WRITE, FILE_WRITE_DATA, OPEN_ALWAYS,
+        OPEN_EXISTING, TRUNCATE_EXISTING,
+    },
+};
 
 use crate::{
     driver::{op::Op, shared_fd::SharedFd},
@@ -61,6 +74,18 @@ pub struct OpenOptions {
     pub(crate) mode: libc::mode_t,
     #[cfg(unix)]
     pub(crate) custom_flags: libc::c_int,
+    #[cfg(windows)]
+    pub(crate) custom_flags: u32,
+    #[cfg(windows)]
+    pub(crate) access_mode: Option<u32>,
+    #[cfg(windows)]
+    pub(crate) attributes: u32,
+    #[cfg(windows)]
+    pub(crate) share_mode: u32,
+    #[cfg(windows)]
+    pub(crate) security_qos_flags: u32,
+    #[cfg(windows)]
+    pub(crate) security_attributes: *mut SECURITY_ATTRIBUTES,
 }
 
 impl OpenOptions {
@@ -93,6 +118,18 @@ impl OpenOptions {
             mode: 0o666,
             #[cfg(unix)]
             custom_flags: 0,
+            #[cfg(windows)]
+            custom_flags: 0,
+            #[cfg(windows)]
+            access_mode: None,
+            #[cfg(windows)]
+            share_mode: FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+            #[cfg(windows)]
+            attributes: 0,
+            #[cfg(windows)]
+            security_qos_flags: 0,
+            #[cfg(windows)]
+            security_attributes: std::ptr::null_mut(),
         }
     }
 
@@ -264,7 +301,6 @@ impl OpenOptions {
         self
     }
 
-    #[cfg(unix)]
     /// Opens a file at `path` with the options specified by `self`.
     ///
     /// # Errors
@@ -320,6 +356,7 @@ impl OpenOptions {
         )))
     }
 
+    #[cfg(unix)]
     pub(crate) fn access_mode(&self) -> io::Result<libc::c_int> {
         match (self.read, self.write, self.append) {
             (true, false, false) => Ok(libc::O_RDONLY),
@@ -331,6 +368,22 @@ impl OpenOptions {
         }
     }
 
+    #[cfg(windows)]
+    pub(crate) fn access_mode(&self) -> io::Result<u32> {
+        match (self.read, self.write, self.append, self.access_mode) {
+            (.., Some(mode)) => Ok(mode),
+            (true, false, false, None) => Ok(GENERIC_READ),
+            (false, true, false, None) => Ok(GENERIC_WRITE),
+            (true, true, false, None) => Ok(GENERIC_READ | GENERIC_WRITE),
+            (false, _, true, None) => Ok(FILE_GENERIC_WRITE & !FILE_WRITE_DATA),
+            (true, _, true, None) => Ok(GENERIC_READ | (FILE_GENERIC_WRITE & !FILE_WRITE_DATA)),
+            (false, false, false, None) => {
+                Err(io::Error::from_raw_os_error(ERROR_INVALID_PARAMETER))
+            }
+        }
+    }
+
+    #[cfg(unix)]
     pub(crate) fn creation_mode(&self) -> io::Result<libc::c_int> {
         match (self.write, self.append) {
             (true, false) => {}
@@ -353,6 +406,43 @@ impl OpenOptions {
             (true, true, false) => libc::O_CREAT | libc::O_TRUNC,
             (_, _, true) => libc::O_CREAT | libc::O_EXCL,
         })
+    }
+
+    #[cfg(windows)]
+    pub(crate) fn creation_mode(&self) -> io::Result<u32> {
+        match (self.write, self.append) {
+            (true, false) => {}
+            (false, false) => {
+                if self.truncate || self.create || self.create_new {
+                    return Err(io::Error::from_raw_os_error(ERROR_INVALID_PARAMETER));
+                }
+            }
+            (_, true) => {
+                if self.truncate && !self.create_new {
+                    return Err(io::Error::from_raw_os_error(ERROR_INVALID_PARAMETER));
+                }
+            }
+        }
+
+        Ok(match (self.create, self.truncate, self.create_new) {
+            (false, false, false) => OPEN_EXISTING,
+            (true, false, false) => OPEN_ALWAYS,
+            (false, true, false) => TRUNCATE_EXISTING,
+            (true, true, false) => CREATE_ALWAYS,
+            (_, _, true) => CREATE_NEW,
+        })
+    }
+
+    #[cfg(windows)]
+    pub(crate) fn get_flags_and_attributes(&self) -> u32 {
+        self.custom_flags
+            | self.attributes
+            | self.security_qos_flags
+            | if self.create_new {
+                FILE_FLAG_OPEN_REPARSE_POINT
+            } else {
+                0
+            }
     }
 }
 
