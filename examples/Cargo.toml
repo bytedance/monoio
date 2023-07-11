@@ -17,7 +17,6 @@ monoio = { path = "../monoio", default-features = false, features = [
     "legacy",
     "macros",
     "utils",
-    "enter-args",
 ] }
 
 # Enable tracing and tracing-subscriber for print out runtime debug
