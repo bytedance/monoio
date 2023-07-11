@@ -9,7 +9,16 @@ version = "0.0.0"
 # [dependencies] instead. In additional, if you want to know how runtime
 # works, you can enable "debug" feature.
 [dev-dependencies]
-monoio = {path = "../monoio", default-features = false, features = ["async-cancel", "sync", "bytes", "iouring", "legacy", "macros", "utils"]}
+monoio = { path = "../monoio", default-features = false, features = [
+    "async-cancel",
+    "sync",
+    "bytes",
+    "iouring",
+    "legacy",
+    "macros",
+    "utils",
+    "enter-args",
+] }
 
 # Enable tracing and tracing-subscriber for print out runtime debug
 # tracing information. Add these only when you enable "debug" feature.
@@ -17,17 +26,17 @@ monoio = {path = "../monoio", default-features = false, features = ["async-cance
 # tracing-subscriber = "0.3"
 
 # For hyper examples
-hyper = {version = "0.14", features = ["http1", "client", "server", "stream"]}
+hyper = { version = "0.14", features = ["http1", "client", "server", "stream"] }
 
 # For h2 examples
-bytes = {version = "1"}
-h2 = {version = "0.3"}
-http = {version = "0.2"}
+bytes = { version = "1" }
+h2 = { version = "0.3" }
+http = { version = "0.2" }
 
 # For hyper and h2 examples
-monoio-compat = {path = "../monoio-compat"}
+monoio-compat = { path = "../monoio-compat" }
 
-tokio = {version = "1", default-features = false, features = ["io-util"]}
+tokio = { version = "1", default-features = false, features = ["io-util"] }
 tower-service = "0.3"
 
 futures = "0.3"

@@ -10,7 +10,7 @@ use std::{
     time::Duration,
 };
 
-use io_uring::{cqueue, opcode, types::Timespec, IoUring};
+use io_uring::{cqueue, types::Timespec, IoUring};
 use lifecycle::Lifecycle;
 
 use super::{
@@ -28,6 +28,7 @@ pub(crate) use waker::UnparkHandle;
 
 #[allow(unused)]
 pub(crate) const CANCEL_USERDATA: u64 = u64::MAX;
+#[cfg(not(feature = "enter-args"))]
 pub(crate) const TIMEOUT_USERDATA: u64 = u64::MAX - 1;
 #[allow(unused)]
 pub(crate) const EVENTFD_USERDATA: u64 = u64::MAX - 2;
@@ -160,7 +161,7 @@ impl IoUringDriver {
 
     #[cfg(feature = "sync")]
     fn install_eventfd(&self, inner: &mut UringInner, fd: RawFd) {
-        let entry = opcode::Read::new(io_uring::types::Fd(fd), self.eventfd_read_dst, 8)
+        let entry = io_uring::opcode::Read::new(io_uring::types::Fd(fd), self.eventfd_read_dst, 8)
             .build()
             .user_data(EVENTFD_USERDATA);
 
@@ -169,12 +170,13 @@ impl IoUringDriver {
         inner.eventfd_installed = true;
     }
 
+    #[cfg(not(feature = "enter-args"))]
     fn install_timeout(&self, inner: &mut UringInner, duration: Duration) {
         let timespec = timespec(duration);
         unsafe {
             std::ptr::replace(self.timespec, timespec);
         }
-        let entry = opcode::Timeout::new(self.timespec as *const Timespec)
+        let entry = io_uring::opcode::Timeout::new(self.timespec as *const Timespec)
             .build()
             .user_data(TIMEOUT_USERDATA);
 
@@ -233,11 +235,30 @@ impl IoUringDriver {
                 self.install_eventfd(inner, inner.shared_waker.as_raw_fd());
             }
             if let Some(duration) = timeout {
-                self.install_timeout(inner, duration);
-            }
+                // Submit and Wait with timeout in an TimeoutOp way.
+                // Better compatibility(5.4+).
+                #[cfg(not(feature = "enter-args"))]
+                {
+                    self.install_timeout(inner, duration);
+                    inner.uring.submit_and_wait(1)?;
+                }
 
-            // Submit and Wait
-            inner.uring.submit_and_wait(1)?;
+                // Submit and Wait with enter args.
+                // Better performance(5.11+).
+                #[cfg(feature = "enter-args")]
+                {
+                    let timespec = timespec(duration);
+                    let args = io_uring::types::SubmitArgs::new().timespec(&timespec);
+                    if let Err(e) = inner.uring.submitter().submit_with_args(1, &args) {
+                        if e.raw_os_error() != Some(libc::ETIME) {
+                            return Err(e);
+                        }
+                    }
+                }
+            } else {
+                // Submit and Wait without timeout
+                inner.uring.submit_and_wait(1)?;
+            }
         } else {
             // Submit only
             inner.uring.submit()?;
