@@ -63,28 +63,21 @@ impl<T: IoBuf> OpAble for Write<T> {
         let fd = self.fd.as_raw_fd();
         let seek_offset = libc::off_t::try_from(self.offset)
             .map_err(|_| io::Error::new(io::ErrorKind::Other, "offset too big"))?;
-        let neg_seek_offset = seek_offset
-            .checked_neg()
-            .ok_or_else(|| io::Error::new(io::ErrorKind::Other, "offset too big"))?;
-        if self.offset != 0 {
-            syscall_u32!(lseek(fd, seek_offset, libc::SEEK_CUR))?;
-            syscall_u32!(write(
-                fd,
-                self.buf.read_ptr() as _,
-                self.buf.bytes_init().min(u32::MAX as usize)
-            ))
-            .map_err(|e| {
-                // seek back if read fail...
-                let _ = syscall_u32!(lseek(fd, neg_seek_offset, libc::SEEK_CUR));
-                e
-            })
-        } else {
-            syscall_u32!(write(
-                fd,
-                self.buf.read_ptr() as _,
-                self.buf.bytes_init().min(u32::MAX as usize)
-            ))
-        }
+        #[cfg(not(target_os = "macos"))]
+        return syscall_u32!(pwrite64(
+            fd,
+            self.buf.read_ptr() as _,
+            self.buf.bytes_init(),
+            seek_offset
+        ));
+
+        #[cfg(target_os = "macos")]
+        return syscall_u32!(pwrite(
+            fd,
+            self.buf.read_ptr() as _,
+            self.buf.bytes_init(),
+            seek_offset
+        ));
     }
 }
 

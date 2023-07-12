@@ -74,30 +74,23 @@ impl<T: IoBufMut> OpAble for Read<T> {
     #[cfg(all(unix, feature = "legacy"))]
     fn legacy_call(&mut self) -> io::Result<u32> {
         let fd = self.fd.as_raw_fd();
-        if self.offset != 0 {
-            let seek_offset = libc::off_t::try_from(self.offset)
-                .map_err(|_| io::Error::new(io::ErrorKind::Other, "offset too big"))?;
-            let neg_seek_offset = seek_offset
-                .checked_neg()
-                .ok_or_else(|| io::Error::new(io::ErrorKind::Other, "offset too big"))?;
-            syscall_u32!(lseek(fd, seek_offset, libc::SEEK_CUR))?;
-            syscall_u32!(read(
-                fd,
-                self.buf.write_ptr() as _,
-                self.buf.bytes_total().min(u32::MAX as usize)
-            ))
-            .map_err(|e| {
-                // seek back if read fail...
-                let _ = syscall_u32!(lseek(fd, neg_seek_offset, libc::SEEK_CUR));
-                e
-            })
-        } else {
-            syscall_u32!(read(
-                fd,
-                self.buf.write_ptr() as _,
-                self.buf.bytes_total().min(u32::MAX as usize)
-            ))
-        }
+        let seek_offset = libc::off_t::try_from(self.offset)
+            .map_err(|_| io::Error::new(io::ErrorKind::Other, "offset too big"))?;
+        #[cfg(not(target_os = "macos"))]
+        return syscall_u32!(pread64(
+            fd,
+            self.buf.write_ptr() as _,
+            self.buf.bytes_total(),
+            seek_offset
+        ));
+
+        #[cfg(target_os = "macos")]
+        return syscall_u32!(pread(
+            fd,
+            self.buf.write_ptr() as _,
+            self.buf.bytes_total(),
+            seek_offset
+        ));
     }
 }
 
