@@ -65,9 +65,6 @@ impl Configuration {
         }
 
         let threads = parse_int(threads, span, "threads")? as u32;
-        if threads == 0 {
-            return Err(syn::Error::new(span, "`threads` may not be 0."));
-        }
         self.threads = Some((threads, span));
         Ok(())
     }
@@ -306,13 +303,21 @@ fn parse_knobs(mut input: syn::ItemFn, is_test: bool, config: FinalConfig) -> To
         // Check covered when building config.
         debug_assert!(matches!(input.sig.output, syn::ReturnType::Default));
 
-        let threads = config.threads.unwrap() - 1;
+        let threads = config.threads.unwrap();
+        let threads_expr = if threads == 0 {
+            // auto detected parallism
+            quote!(::std::thread::available_parallelism()
+                .map(|n| n.get())
+                .unwrap_or(1))
+        } else {
+            quote!(#threads)
+        };
         input.block = syn::parse2(quote_spanned! {last_stmt_end_span=>
             {
                 let body = async #body;
 
                 #[allow(clippy::needless_collect)]
-                let threads: Vec<_> = (0 .. #threads)
+                let threads: Vec<_> = (1 .. #threads_expr)
                     .map(|_| {
                         ::std::thread::spawn(|| {
                             #rt.build()

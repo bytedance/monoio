@@ -12,7 +12,7 @@ version = "0.1.6"
 
 # common dependencies
 [dependencies]
-monoio-macros = { version = "0.0.3", path = "../monoio-macros", optional = true }
+monoio-macros = { version = "0.1.0", path = "../monoio-macros", optional = true }
 
 auto-const-array = "0.2"
 fxhash = "0.2"
