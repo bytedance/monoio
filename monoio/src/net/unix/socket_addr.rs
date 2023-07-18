@@ -38,7 +38,9 @@ impl SocketAddr {
         let len = self.socklen as usize - offset;
         let path = unsafe { &*(&self.sockaddr.sun_path as *const [libc::c_char] as *const [u8]) };
 
-        if len == 0 {
+        // macOS seems to return a len of 16 and a zeroed sun_path for unnamed addresses
+        if len == 0 || (cfg!(not(any(target_os = "linux", target_os = "android"))) && path[0] == 0)
+        {
             AddressKind::Unnamed
         } else if self.sockaddr.sun_path[0] == 0 {
             AddressKind::Abstract(&path[1..len])
@@ -94,7 +96,6 @@ impl SocketAddr {
     /// Documentation reflected in [`SocketAddr`]
     ///
     /// [`SocketAddr`]: std::os::unix::net::SocketAddr
-    #[cfg(target_os = "linux")]
     #[inline]
     pub fn is_unnamed(&self) -> bool {
         matches!(self.address(), AddressKind::Unnamed)
@@ -105,7 +106,6 @@ impl SocketAddr {
     /// Documentation reflected in [`SocketAddr`]
     ///
     /// [`SocketAddr`]: std::os::unix::net::SocketAddr
-    #[cfg(target_os = "linux")]
     #[inline]
     pub fn as_pathname(&self) -> Option<&Path> {
         if let AddressKind::Pathname(path) = self.address() {
@@ -119,7 +119,6 @@ impl SocketAddr {
     /// without the leading null byte.
     // Link to std::os::unix::net::SocketAddr pending
     // https://github.com/rust-lang/rust/issues/85410.
-    #[cfg(target_os = "linux")]
     #[inline]
     pub fn as_abstract_namespace(&self) -> Option<&[u8]> {
         if let AddressKind::Abstract(path) = self.address() {

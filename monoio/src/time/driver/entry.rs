@@ -501,6 +501,7 @@ impl TimerEntry {
         }
     }
 
+    #[allow(clippy::needless_pass_by_ref_mut)]
     pub(crate) fn poll_elapsed(
         mut self: Pin<&mut Self>,
         cx: &mut Context<'_>,

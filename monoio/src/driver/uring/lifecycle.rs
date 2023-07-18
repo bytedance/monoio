@@ -46,6 +46,7 @@ impl<'a> Ref<'a, Lifecycle> {
         }
     }
 
+    #[allow(clippy::needless_pass_by_ref_mut)]
     pub(crate) fn poll_op(mut self, cx: &mut Context<'_>) -> Poll<CompletionMeta> {
         let ref_mut = &mut *self;
         match ref_mut {

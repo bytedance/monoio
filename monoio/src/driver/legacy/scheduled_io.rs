@@ -48,6 +48,7 @@ impl ScheduledIo {
         self.readiness = self.readiness - ready;
     }
 
+    #[allow(clippy::needless_pass_by_ref_mut)]
     pub(crate) fn poll_readiness(
         &mut self,
         cx: &mut Context<'_>,
