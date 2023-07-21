@@ -96,7 +96,7 @@ impl UnixListener {
             return Err(operation_canceled());
         }
         let op = Op::accept(&self.fd)?;
-        let _guard = c.assocate_op(op.op_canceller());
+        let _guard = c.associate_op(op.op_canceller());
 
         // Await the completion of the event
         let completion = op.await;

@@ -43,7 +43,7 @@ pub(crate) fn new_socket(
     #[cfg(unix)]
     let socket = crate::syscall!(socket(domain, socket_type, 0));
 
-    // Mimick `libstd` and set `SO_NOSIGPIPE` on apple systems.
+    // Mimic `libstd` and set `SO_NOSIGPIPE` on apple systems.
     #[cfg(target_vendor = "apple")]
     let socket = socket.and_then(|socket| {
         crate::syscall!(setsockopt(

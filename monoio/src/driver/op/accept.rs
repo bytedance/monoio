@@ -81,7 +81,7 @@ impl OpAble for Accept {
         let fd = self.fd.as_raw_fd();
         let addr = self.addr.0.as_mut_ptr() as *mut _;
         let len = &mut self.addr.1;
-        // Here I use copied some code from mio because I don't want the convertion.
+        // Here I use copied some code from mio because I don't want the conversion.
 
         // On platforms that support it we can use `accept4(2)` to set `NONBLOCK`
         // and `CLOEXEC` in the call to accept the connection.

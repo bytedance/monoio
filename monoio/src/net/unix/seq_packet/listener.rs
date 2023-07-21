@@ -17,7 +17,7 @@ use crate::{
 
 const DEFAULT_BACKLOG: libc::c_int = 128;
 
-/// Listner for UnixSeqpacket
+/// Listener for UnixSeqpacket
 pub struct UnixSeqpacketListener {
     fd: SharedFd,
 }

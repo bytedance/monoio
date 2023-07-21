@@ -210,7 +210,7 @@ impl UdpSocket {
         }
 
         let op = Op::recv_msg(self.fd.clone(), buf).unwrap();
-        let _guard = c.assocate_op(op.op_canceller());
+        let _guard = c.associate_op(op.op_canceller());
         op.wait().await
     }
 
@@ -227,7 +227,7 @@ impl UdpSocket {
         }
 
         let op = Op::send_msg(self.fd.clone(), buf, Some(socket_addr)).unwrap();
-        let _guard = c.assocate_op(op.op_canceller());
+        let _guard = c.associate_op(op.op_canceller());
         op.wait().await
     }
 
@@ -242,7 +242,7 @@ impl UdpSocket {
         }
 
         let op = Op::send_msg(self.fd.clone(), buf, None).unwrap();
-        let _guard = c.assocate_op(op.op_canceller());
+        let _guard = c.associate_op(op.op_canceller());
         op.wait().await
     }
 
@@ -258,7 +258,7 @@ impl UdpSocket {
         }
 
         let op = Op::recv(self.fd.clone(), buf).unwrap();
-        let _guard = c.assocate_op(op.op_canceller());
+        let _guard = c.associate_op(op.op_canceller());
         op.read().await
     }
 }

@@ -10,13 +10,13 @@ pub struct CancelHandle {
 }
 
 /// Canceller is a user-hold struct to cancel io operations.
-/// A canceller can assocate with multiple io operations.
+/// A canceller can associate with multiple io operations.
 #[derive(Default)]
 pub struct Canceller {
     shared: Rc<RefCell<Shared>>,
 }
 
-pub(crate) struct AssocateGuard {
+pub(crate) struct AssociateGuard {
     op_canceller: OpCanceller,
     shared: Rc<RefCell<Shared>>,
 }
@@ -67,19 +67,19 @@ impl CancelHandle {
         self.shared.borrow().canceled
     }
 
-    pub(crate) fn assocate_op(self, op_canceller: OpCanceller) -> AssocateGuard {
+    pub(crate) fn associate_op(self, op_canceller: OpCanceller) -> AssociateGuard {
         {
             let mut shared = self.shared.borrow_mut();
             shared.slot_ref.insert(op_canceller.clone());
         }
-        AssocateGuard {
+        AssociateGuard {
             op_canceller,
             shared: self.shared,
         }
     }
 }
 
-impl Drop for AssocateGuard {
+impl Drop for AssociateGuard {
     fn drop(&mut self) {
         let mut shared = self.shared.borrow_mut();
         shared.slot_ref.remove(&self.op_canceller);

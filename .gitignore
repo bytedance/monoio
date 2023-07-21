@@ -4,3 +4,6 @@ coredump*
 *.profraw
 /lcov.info
 /coverage
+
+# visual studio code files
+.vscode
