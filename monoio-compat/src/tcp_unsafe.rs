@@ -54,7 +54,7 @@ impl TcpStreamCompat {
     ///
     /// # Safety
     /// User must ensure that the data slice pointer and length is always
-    /// valid and the same among diffrent calls before Poll::Ready returns.
+    /// valid and the same among different calls before Poll::Ready returns.
     pub unsafe fn new(stream: TcpStream) -> Self {
         Self {
             stream,

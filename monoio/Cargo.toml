@@ -71,7 +71,7 @@ debug = ["tracing"]
 legacy = ["mio"]
 # iouring support
 iouring = []
-# tokio-compatiable(only have effect when legacy is enabled and iouring is not)
+# tokio-compatible(only have effect when legacy is enabled and iouring is not)
 tokio-compat = ["tokio"]
 # signal enables setting ctrl_c handler
 signal = ["ctrlc", "sync"]

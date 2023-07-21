@@ -25,7 +25,7 @@ pub enum JoinError {
 }
 
 /// BlockingTask is contrusted by monoio, ThreadPool impl
-/// will exeucte it with `.run()`.
+/// will execute it with `.run()`.
 pub struct BlockingTask {
     task: Option<crate::task::Task<NoopScheduler>>,
     blocking_vtable: &'static BlockingTaskVtable,
@@ -118,7 +118,7 @@ where
     join
 }
 
-/// DefaultThreadPool is a simple wrapped `threadpool::ThreadPool` that implememt
+/// DefaultThreadPool is a simple wrapped `threadpool::ThreadPool` that implement
 /// `monoio::blocking::ThreadPool`. You may use this implementation, or you can use your own thread
 /// pool implementation.
 #[derive(Clone)]

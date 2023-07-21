@@ -234,7 +234,7 @@ impl CancelableAsyncWriteRent for UnixStream {
             }
 
             let op = Op::send(fd, buf).unwrap();
-            let _guard = c.assocate_op(op.op_canceller());
+            let _guard = c.associate_op(op.op_canceller());
             op.write().await
         }
     }
@@ -252,7 +252,7 @@ impl CancelableAsyncWriteRent for UnixStream {
             }
 
             let op = Op::writev(&fd, buf_vec).unwrap();
-            let _guard = c.assocate_op(op.op_canceller());
+            let _guard = c.associate_op(op.op_canceller());
             op.write().await
         }
     }
@@ -316,7 +316,7 @@ impl CancelableAsyncReadRent for UnixStream {
             }
 
             let op = Op::recv(fd, buf).unwrap();
-            let _guard = c.assocate_op(op.op_canceller());
+            let _guard = c.associate_op(op.op_canceller());
             op.read().await
         }
     }
@@ -334,7 +334,7 @@ impl CancelableAsyncReadRent for UnixStream {
             }
 
             let op = Op::readv(fd, buf).unwrap();
-            let _guard = c.assocate_op(op.op_canceller());
+            let _guard = c.associate_op(op.op_canceller());
             op.read().await
         }
     }

@@ -16,7 +16,7 @@ where
     W: AsyncWriteRent + ?Sized,
 {
     let mut buf: Vec<u8> = Vec::with_capacity(BUF_SIZE);
-    let mut transfered: u64 = 0;
+    let mut transferred: u64 = 0;
 
     'r: loop {
         let (read_res, mut buf_read) = reader.read(buf).await;
@@ -60,7 +60,7 @@ where
                 }
                 Ok(n) => {
                     // go read data
-                    transfered += n as u64;
+                    transferred += n as u64;
                     buf = buf_;
                     break;
                 }
@@ -68,7 +68,7 @@ where
         }
     }
 
-    Ok(transfered)
+    Ok(transferred)
 }
 
 /// Copy with splice.
@@ -83,17 +83,17 @@ pub async fn zero_copy<SRC: crate::io::as_fd::AsReadFd, DST: crate::io::as_fd::A
     };
 
     let (mut pr, mut pw) = new_pipe()?;
-    let mut transfered: u64 = 0;
+    let mut transferred: u64 = 0;
     loop {
         let mut to_write = reader.splice_to_pipe(&mut pw, BUF_SIZE as u32).await?;
         if to_write == 0 {
             break;
         }
-        transfered += to_write as u64;
+        transferred += to_write as u64;
         while to_write > 0 {
             let written = writer.splice_from_pipe(&mut pr, to_write).await?;
             to_write -= written;
         }
     }
-    Ok(transfered)
+    Ok(transferred)
 }

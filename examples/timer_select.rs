@@ -27,7 +27,7 @@ async fn main() {
         }
     }
 
-    // A very improtant thing is if you use select to do timeout io,
+    // A very important thing is if you use select to do timeout io,
     // you must cancel it manually.
     // In epoll, dropping a read future has no side effect since we
     // only wait for io ready, after waiting aborted, no syscall
