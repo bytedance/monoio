@@ -32,7 +32,7 @@ To force using nightly, create a file named `rust-toolchain` and write `nightly`
 
 Also, if you want to use io_uring, you must make sure your kernel supports it([5.6+](docs/en/platform-support.md)). And, memlock is [configured as a proper number](docs/en/memlock.md). If your kernel version does not meet the requirements, you can try to use the legacy driver to start, currently supports Linux and macOS([ref here](/docs/en/use-legacy-driver.md)).
 
-🚧Experimental windows support is on the way, if you want to use windows you must make sure your windows supports it([Windows Build 22000](https://docs.microsoft.com/en-us/windows/win32/api/ioringapi/ns-ioringapi-ioring_capabilities)).
+🚧Experimental windows support is on the way.
 
 Here is a basic example of how to use Monoio.
 
