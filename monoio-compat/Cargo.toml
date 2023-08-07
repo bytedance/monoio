@@ -8,7 +8,7 @@ license = "MIT/Apache-2.0"
 name = "monoio-compat"
 readme = "README.md"
 repository = "https://github.com/bytedance/monoio"
-version = "0.1.1"
+version = "0.1.2"
 
 [dependencies]
 monoio = {version = "0.1.0", path = "../monoio", default-features = false}
