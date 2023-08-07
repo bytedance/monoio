@@ -1,4 +1,4 @@
-use std::io;
+use std::{cell::UnsafeCell, io};
 
 use monoio::{
     buf::IoBufMut,
@@ -12,7 +12,7 @@ use crate::{box_future::MaybeArmedBoxFuture, buf::Buf};
 /// The Wrapper will impl tokio AsyncRead and AsyncWrite.
 /// Mainly used for compatible.
 pub struct StreamWrapper<T> {
-    stream: T,
+    stream: UnsafeCell<T>,
     read_buf: Option<Buf>,
     write_buf: Option<Buf>,
 
@@ -27,7 +27,7 @@ unsafe impl<T: Split> Split for StreamWrapper<T> {}
 impl<T> StreamWrapper<T> {
     /// Consume self and get inner T.
     pub fn into_inner(self) -> T {
-        self.stream
+        self.stream.into_inner()
     }
 
     /// Creates a new `TcpStreamCompat` from a monoio `TcpStream` or `UnixStream`.
@@ -36,7 +36,7 @@ impl<T> StreamWrapper<T> {
         let w_buf = Buf::new(write_buffer);
 
         Self {
-            stream,
+            stream: UnsafeCell::new(stream),
             read_buf: Some(r_buf),
             write_buf: Some(w_buf),
             read_fut: Default::default(),
@@ -79,8 +79,7 @@ impl<T: AsyncReadRent + Unpin + 'static> tokio::io::AsyncRead for StreamWrapper<
                 // there is no data in buffer. we will construct the future
                 let buf = unsafe { this.read_buf.take().unwrap_unchecked() };
                 // we must leak the stream
-                #[allow(cast_ref_to_mut)]
-                let stream = unsafe { &mut *(&this.stream as *const T as *mut T) };
+                let stream = unsafe { &mut *this.stream.get() };
                 this.read_fut.arm_future(AsyncReadRent::read(stream, buf));
             }
 
@@ -145,8 +144,7 @@ impl<T: AsyncWriteRent + Unpin + 'static> tokio::io::AsyncWrite for StreamWrappe
         unsafe { owned_buf.set_init(len) };
 
         // we must leak the stream
-        #[allow(cast_ref_to_mut)]
-        let stream = unsafe { &mut *(&this.stream as *const T as *mut T) };
+        let stream = unsafe { &mut *this.stream.get() };
         this.write_fut
             .arm_future(AsyncWriteRentExt::write_all(stream, owned_buf));
         match this.write_fut.poll(cx) {
@@ -184,8 +182,7 @@ impl<T: AsyncWriteRent + Unpin + 'static> tokio::io::AsyncWrite for StreamWrappe
         }
 
         if !this.flush_fut.armed() {
-            #[allow(cast_ref_to_mut)]
-            let stream = unsafe { &mut *(&this.stream as *const T as *mut T) };
+            let stream = unsafe { &mut *this.stream.get() };
             this.flush_fut.arm_future(stream.flush());
         }
         this.flush_fut.poll(cx)
@@ -211,8 +208,7 @@ impl<T: AsyncWriteRent + Unpin + 'static> tokio::io::AsyncWrite for StreamWrappe
         }
 
         if !this.shutdown_fut.armed() {
-            #[allow(cast_ref_to_mut)]
-            let stream = unsafe { &mut *(&this.stream as *const T as *mut T) };
+            let stream = unsafe { &mut *this.stream.get() };
             this.shutdown_fut.arm_future(stream.shutdown());
         }
         this.shutdown_fut.poll(cx)

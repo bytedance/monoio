@@ -21,7 +21,7 @@ where
     'r: loop {
         let (read_res, mut buf_read) = reader.read(buf).await;
         match read_res {
-            Ok(n) if n == 0 => {
+            Ok(0) => {
                 // read closed
                 break;
             }
@@ -42,7 +42,7 @@ where
         'w: loop {
             let (write_res, buf_) = writer.write_all(buf_read).await;
             match write_res {
-                Ok(n) if n == 0 => {
+                Ok(0) => {
                     // write closed
                     return Err(io::Error::new(
                         io::ErrorKind::WriteZero,
