@@ -7,33 +7,38 @@ use std::{
 
 use super::raw::RawTask;
 
-/// JoinHandle
+/// JoinHandle can be used to wait task finished.
+/// Note if you drop it directly, task will not be terminated.
 pub struct JoinHandle<T> {
-    raw: Option<RawTask>,
+    raw: RawTask,
     _p: PhantomData<T>,
 }
+
+unsafe impl<T: Send> Send for JoinHandle<T> {}
+unsafe impl<T: Send> Sync for JoinHandle<T> {}
 
 impl<T> JoinHandle<T> {
     pub(super) fn new(raw: RawTask) -> JoinHandle<T> {
         JoinHandle {
-            raw: Some(raw),
+            raw,
             _p: PhantomData,
         }
     }
+
+    /// Checks if the task associated with this `JoinHandle` has finished.
+    pub fn is_finished(&self) -> bool {
+        let state = self.raw.header().state.load();
+        state.is_complete()
+    }
 }
+
+impl<T> Unpin for JoinHandle<T> {}
 
 impl<T> Future for JoinHandle<T> {
     type Output = T;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let mut ret = Poll::Pending;
-
-        // Raw should always be set. If it is not, this is due to polling after
-        // completion
-        let raw = self
-            .raw
-            .as_ref()
-            .expect("polling after `JoinHandle` already completed");
 
         // Try to read the task output. If the task is not yet complete, the
         // waker is stored and is notified once the task does complete.
@@ -47,7 +52,8 @@ impl<T> Future for JoinHandle<T> {
         //
         // The type of `T` must match the task's output type.
         unsafe {
-            raw.try_read_output(&mut ret as *mut _ as *mut (), cx.waker());
+            self.raw
+                .try_read_output(&mut ret as *mut _ as *mut (), cx.waker());
         }
         ret
     }
@@ -55,12 +61,10 @@ impl<T> Future for JoinHandle<T> {
 
 impl<T> Drop for JoinHandle<T> {
     fn drop(&mut self) {
-        if let Some(raw) = self.raw.take() {
-            if raw.header().state.drop_join_handle_fast().is_ok() {
-                return;
-            }
-
-            raw.drop_join_handle_slow();
+        if self.raw.header().state.drop_join_handle_fast().is_ok() {
+            return;
         }
+
+        self.raw.drop_join_handle_slow();
     }
 }
