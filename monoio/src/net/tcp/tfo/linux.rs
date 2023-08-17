@@ -1,8 +1,7 @@
-use std::{cell::RefCell, io, os::fd::AsRawFd};
+use std::{cell::Cell, io, os::fd::AsRawFd};
 
-thread_local! {
-    pub(crate) static TFO_CONNECT_AVAILABLE: RefCell<bool> = RefCell::new(true);
-}
+#[thread_local]
+pub(crate) static TFO_CONNECT_AVAILABLE: Cell<bool> = Cell::new(true);
 
 /// Call before listen.
 pub(crate) fn set_tcp_fastopen<S: AsRawFd>(fd: &S, fast_open: i32) -> io::Result<()> {
@@ -32,13 +31,13 @@ pub(crate) fn set_tcp_fastopen_connect<S: AsRawFd>(fd: &S) -> io::Result<()> {
 }
 
 pub(crate) fn try_set_tcp_fastopen_connect<S: AsRawFd>(fd: &S) {
-    if !TFO_CONNECT_AVAILABLE.with(|f| *f.borrow()) {
+    if !TFO_CONNECT_AVAILABLE.get() {
         return;
     }
     match set_tcp_fastopen_connect(fd) {
         Ok(_) => (),
         Err(e) if e.raw_os_error() == Some(libc::ENOPROTOOPT) => {
-            TFO_CONNECT_AVAILABLE.with(|f| *f.borrow_mut() = false);
+            TFO_CONNECT_AVAILABLE.set(false);
         }
         Err(_e) => {
             #[cfg(all(debug_assertions, feature = "debug"))]

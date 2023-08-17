@@ -27,18 +27,15 @@ pub(crate) fn dummy_waker() -> Waker {
     unsafe { Waker::from_raw(raw_waker()) }
 }
 
-thread_local! {
-    pub(crate) static SHOULD_POLL: Cell<bool> = Cell::new(true);
-}
+#[thread_local]
+static SHOULD_POLL: Cell<bool> = Cell::new(true);
 
 #[inline]
 pub(crate) fn should_poll() -> bool {
-    SHOULD_POLL.with(|b| b.replace(false))
+    SHOULD_POLL.replace(false)
 }
 
 #[inline]
 pub(crate) fn set_poll() {
-    SHOULD_POLL.with(|b| {
-        b.set(true);
-    })
+    SHOULD_POLL.set(true);
 }
