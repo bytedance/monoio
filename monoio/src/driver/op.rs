@@ -161,14 +161,16 @@ impl<T> Drop for Op<T> {
     }
 }
 
+/// Check if current driver is legacy.
 #[allow(unused)]
 #[cfg(not(target_os = "linux"))]
-pub(crate) fn is_legacy() -> bool {
+pub fn is_legacy() -> bool {
     true
 }
 
+/// Check if current driver is legacy.
 #[cfg(target_os = "linux")]
-pub(crate) fn is_legacy() -> bool {
+pub fn is_legacy() -> bool {
     super::CURRENT.with(|inner| inner.is_legacy())
 }
 

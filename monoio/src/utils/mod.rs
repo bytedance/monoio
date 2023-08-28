@@ -10,6 +10,8 @@ mod rand;
 pub use rand::thread_rng_n;
 pub use uring_detect::detect_uring;
 
+pub use crate::driver::op::is_legacy;
+
 #[cfg(feature = "signal")]
 mod ctrlc;
 #[cfg(feature = "signal")]
