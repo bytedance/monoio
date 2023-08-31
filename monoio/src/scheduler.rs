@@ -27,6 +27,15 @@ impl Default for TaskQueue {
     }
 }
 
+impl Drop for TaskQueue {
+    fn drop(&mut self) {
+        unsafe {
+            let queue = &mut *self.queue.get();
+            while let Some(_task) = queue.pop_front() {}
+        }
+    }
+}
+
 impl TaskQueue {
     pub(crate) fn new() -> Self {
         const DEFAULT_TASK_QUEUE_SIZE: usize = 4096;
