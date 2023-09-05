@@ -1,6 +1,7 @@
 /// Monoio Driver.
 // #[cfg(unix)]
 pub(crate) mod op;
+pub(crate) mod oppool;
 pub(crate) mod shared_fd;
 #[cfg(feature = "sync")]
 pub(crate) mod thread;
@@ -9,6 +10,8 @@ pub(crate) mod thread;
 mod legacy;
 #[cfg(all(target_os = "linux", feature = "iouring"))]
 mod uring;
+#[cfg(all(target_os = "linux", feature = "iouring-fixed"))]
+mod uring_fixed;
 
 mod util;
 
@@ -35,6 +38,8 @@ use self::op::{CompletionMeta, Op, OpAble};
 pub use self::uring::IoUringDriver;
 #[cfg(all(target_os = "linux", feature = "iouring"))]
 use self::uring::UringInner;
+#[cfg(all(target_os = "linux", feature = "iouring-fixed"))]
+use self::uring_fixed::UringFixedInner;
 
 /// Unpark a runtime of another thread.
 pub(crate) mod unpark {
@@ -91,6 +96,8 @@ scoped_thread_local!(pub(crate) static CURRENT: Inner);
 pub(crate) enum Inner {
     #[cfg(all(target_os = "linux", feature = "iouring"))]
     Uring(std::rc::Rc<std::cell::UnsafeCell<UringInner>>),
+    #[cfg(all(target_os = "linux", feature = "iouring"))]
+    UringFixed(std::rc::Rc<std::cell::UnsafeCell<UringFixedInner>>),
     #[cfg(feature = "legacy")]
     Legacy(std::rc::Rc<std::cell::UnsafeCell<LegacyInner>>),
 }
@@ -102,8 +109,32 @@ impl Inner {
             _ => unimplemented!(),
             #[cfg(all(target_os = "linux", feature = "iouring"))]
             Inner::Uring(this) => UringInner::submit_with_data(this, data),
+            #[cfg(all(target_os = "linux", feature = "iouring-fixed"))]
+            Inner::UringFixed(this) => {
+                panic!("uring fixed supports maybe_submit instead of submit")
+            }
             #[cfg(feature = "legacy")]
             Inner::Legacy(this) => LegacyInner::submit_with_data(this, data),
+            #[cfg(all(
+                not(feature = "legacy"),
+                not(all(target_os = "linux", feature = "iouring"))
+            ))]
+            _ => {
+                util::feature_panic();
+            }
+        }
+    }
+
+    fn maybe_submit_with<T: OpAble>(&self, data: T) -> Option<io::Result<Op<T>>> {
+        match self {
+            #[cfg(windows)]
+            _ => unimplemented!(),
+            #[cfg(all(target_os = "linux", feature = "iouring"))]
+            _ => unimplemented!(),
+            #[cfg(all(target_os = "linux", feature = "iouring-fixed"))]
+            Inner::UringFixed(this) => UringInnerFixed::maybe_submit_with_data(this, data),
+            #[cfg(feature = "legacy")]
+            _ => unimplemented!(),
             #[cfg(all(
                 not(feature = "legacy"),
                 not(all(target_os = "linux", feature = "iouring"))
@@ -180,7 +211,12 @@ impl Inner {
         }
     }
 
-    #[cfg(all(target_os = "linux", feature = "iouring", feature = "legacy"))]
+    #[cfg(all(
+        target_os = "linux",
+        feature = "iouring",
+        feature = "ioring-fixed",
+        feature = "legacy"
+    ))]
     fn is_legacy(&self) -> bool {
         matches!(self, Inner::Legacy(..))
     }
@@ -190,6 +226,14 @@ impl Inner {
         false
     }
 
+    #[cfg(all(
+        target_os = "linux",
+        feature = "iouring-fixed",
+        not(feature = "legacy")
+    ))]
+    fn is_legacy(&self) -> bool {
+        false
+    }
     #[allow(unused)]
     #[cfg(not(all(target_os = "linux", feature = "iouring")))]
     fn is_legacy(&self) -> bool {
@@ -203,6 +247,8 @@ impl Inner {
 pub(crate) enum UnparkHandle {
     #[cfg(all(target_os = "linux", feature = "iouring"))]
     Uring(self::uring::UnparkHandle),
+    #[cfg(all(target_os = "linux", feature = "iouring-fixed"))]
+    UringFixed(self::uring::UnparkHandle),
     #[cfg(feature = "legacy")]
     Legacy(self::legacy::UnparkHandle),
 }
@@ -213,6 +259,8 @@ impl unpark::Unpark for UnparkHandle {
         match self {
             #[cfg(all(target_os = "linux", feature = "iouring"))]
             UnparkHandle::Uring(inner) => inner.unpark(),
+            #[cfg(all(target_os = "linux", feature = "iouring-fixed"))]
+            UnparkHandle::UringFixed(inner) => inner.unpark(),
             #[cfg(feature = "legacy")]
             UnparkHandle::Legacy(inner) => inner.unpark(),
             #[cfg(all(
@@ -233,6 +281,13 @@ impl From<self::uring::UnparkHandle> for UnparkHandle {
     }
 }
 
+#[cfg(all(feature = "sync", target_os = "linux", feature = "iouring-fixed"))]
+impl From<self::uring::UnparkHandle> for UnparkHandle {
+    fn from(inner: self::uring::UnparkHandle) -> Self {
+        Self::Uring(inner)
+    }
+}
+
 #[cfg(all(feature = "sync", feature = "legacy"))]
 impl From<self::legacy::UnparkHandle> for UnparkHandle {
     fn from(inner: self::legacy::UnparkHandle) -> Self {
@@ -246,6 +301,8 @@ impl UnparkHandle {
     pub(crate) fn current() -> Self {
         CURRENT.with(|inner| match inner {
             #[cfg(all(target_os = "linux", feature = "iouring"))]
+            Inner::Uring(this) => UringInner::unpark(this).into(),
+            #[cfg(all(target_os = "linux", feature = "iouring-fixed"))]
             Inner::Uring(this) => UringInner::unpark(this).into(),
             #[cfg(feature = "legacy")]
             Inner::Legacy(this) => LegacyInner::unpark(this).into(),
