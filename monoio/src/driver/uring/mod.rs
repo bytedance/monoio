@@ -317,15 +317,13 @@ impl UringInner {
         let cq = self.uring.completion();
 
         for cqe in cq {
-            if cqe.user_data() >= MIN_REVERSED_USERDATA {
+            let index = cqe.user_data();
+            match index {
                 #[cfg(feature = "sync")]
-                if cqe.user_data() == EVENTFD_USERDATA {
-                    self.eventfd_installed = false;
-                }
-                continue;
+                EVENTFD_USERDATA => self.eventfd_installed = false,
+                _ if index >= MIN_REVERSED_USERDATA => (),
+                _ => self.ops.complete(index as _, resultify(&cqe), cqe.flags()),
             }
-            let index = cqe.user_data() as _;
-            self.ops.complete(index, resultify(&cqe), cqe.flags());
         }
     }
 
