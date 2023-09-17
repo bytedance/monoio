@@ -314,8 +314,7 @@ impl Driver for IoUringDriver {
 
 impl UringInner {
     fn tick(&mut self) {
-        let mut cq = self.uring.completion();
-        cq.sync();
+        let cq = self.uring.completion();
 
         for cqe in cq {
             if cqe.user_data() >= MIN_REVERSED_USERDATA {
