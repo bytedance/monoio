@@ -332,19 +332,14 @@ impl UringInner {
     fn submit(&mut self) -> io::Result<()> {
         loop {
             match self.uring.submit() {
-                Ok(_) => {
-                    self.uring.submission().sync();
-                    return Ok(());
-                }
                 Err(ref e)
                     if e.kind() == io::ErrorKind::Other
                         || e.kind() == io::ErrorKind::ResourceBusy =>
                 {
                     self.tick();
                 }
-                Err(e) => {
-                    return Err(e);
-                }
+                Ok(_) => return Ok(()),
+                Err(e) => return Err(e),
             }
         }
     }
