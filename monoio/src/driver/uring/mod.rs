@@ -338,8 +338,7 @@ impl UringInner {
                 {
                     self.tick();
                 }
-                Ok(_) => return Ok(()),
-                Err(e) => return Err(e),
+                e => return e.map(|_| ()),
             }
         }
     }
