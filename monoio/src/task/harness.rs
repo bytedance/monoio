@@ -162,6 +162,10 @@ where
         trace!("MONOIO DEBUG[Harness]:: wake_by_val");
         let owner_id = self.header().owner_id;
         if is_remote_task(owner_id) {
+            if self.header().state.transition_to_notified_without_submit() {
+                self.drop_reference();
+                return;
+            }
             // send to target thread
             trace!("MONOIO DEBUG[Harness]:: wake_by_val with another thread id");
             #[cfg(feature = "sync")]
@@ -195,7 +199,6 @@ where
         }
 
         use super::state::TransitionToNotified;
-
         match self.header().state.transition_to_notified() {
             TransitionToNotified::Submit => {
                 // # Ref Count: self -> task
@@ -215,6 +218,10 @@ where
         trace!("MONOIO DEBUG[Harness]:: wake_by_ref");
         let owner_id = self.header().owner_id;
         if is_remote_task(owner_id) {
+            if self.header().state.transition_to_notified_without_submit() {
+                return;
+            }
+
             // send to target thread
             trace!("MONOIO DEBUG[Harness]:: wake_by_ref with another thread id");
             #[cfg(feature = "sync")]
@@ -249,7 +256,6 @@ where
         }
 
         use super::state::TransitionToNotified;
-
         match self.header().state.transition_to_notified() {
             TransitionToNotified::Submit => {
                 // # Ref Count: +1 -> task
