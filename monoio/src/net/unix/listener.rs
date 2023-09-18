@@ -1,6 +1,7 @@
 use std::{
     future::Future,
     io,
+    mem::{ManuallyDrop, MaybeUninit},
     os::unix::prelude::{AsRawFd, FromRawFd, IntoRawFd, RawFd},
     path::Path,
 };
@@ -161,6 +162,27 @@ impl std::fmt::Debug for UnixListener {
         f.debug_struct("UnixListener")
             .field("fd", &self.fd)
             .finish()
+    }
+}
+
+impl IntoRawFd for UnixListener {
+    #[inline]
+    fn into_raw_fd(self) -> RawFd {
+        let mut this = ManuallyDrop::new(self);
+        #[allow(invalid_value)]
+        #[allow(clippy::uninit_assumed_init)]
+        let (mut fd, mut sys_listener) = unsafe {
+            (
+                MaybeUninit::uninit().assume_init(),
+                MaybeUninit::uninit().assume_init(),
+            )
+        };
+        std::mem::swap(&mut this.fd, &mut fd);
+        std::mem::swap(&mut this.sys_listener, &mut sys_listener);
+        sys_listener.take().unwrap().into_raw_fd();
+
+        fd.try_unwrap()
+            .expect("unexpected multiple reference to rawfd")
     }
 }
 

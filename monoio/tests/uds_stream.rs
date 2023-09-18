@@ -16,8 +16,18 @@ async fn accept_read_write() -> std::io::Result<()> {
 
     let accept = listener.accept();
     let connect = UnixStream::connect(&sock_path);
-    let ((mut server, _), mut client) = try_join(accept, connect).await?;
+    let ((mut server, _), client) = try_join(accept, connect).await?;
 
+    // testing into_raw_fd and from_raw_fd
+    #[cfg(unix)]
+    use std::os::fd::{FromRawFd, IntoRawFd};
+    #[cfg(unix)]
+    let fd = client.into_raw_fd();
+    #[cfg(unix)]
+    let client =
+        UnixStream::from_std(unsafe { std::os::unix::net::UnixStream::from_raw_fd(fd) }).unwrap();
+
+    let mut client = client;
     let write_len = client.write_all(b"hello").await.0?;
     assert_eq!(write_len, 5);
     drop(client);
