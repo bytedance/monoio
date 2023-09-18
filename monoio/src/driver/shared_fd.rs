@@ -208,11 +208,20 @@ impl SharedFd {
     /// Try unwrap Rc, then deregister if registered and return rawfd.
     /// Note: this action will consume self and return rawfd without closing it.
     pub(crate) fn try_unwrap(self) -> Result<RawFd, Self> {
+        use std::mem::{ManuallyDrop, MaybeUninit};
+
         let fd = self.inner.fd;
         match Rc::try_unwrap(self.inner) {
-            Ok(_inner) => {
+            Ok(inner) => {
+                // Only drop Inner's state, skip its drop impl.
+                let mut inner_skip_drop = ManuallyDrop::new(inner);
+                #[allow(invalid_value)]
+                #[allow(clippy::uninit_assumed_init)]
+                let mut state = unsafe { MaybeUninit::uninit().assume_init() };
+                std::mem::swap(&mut inner_skip_drop.state, &mut state);
+
                 #[cfg(all(unix, feature = "legacy"))]
-                let state = unsafe { &*_inner.state.get() };
+                let state = unsafe { &*state.get() };
 
                 #[cfg(all(unix, feature = "legacy"))]
                 #[allow(irrefutable_let_patterns)]
