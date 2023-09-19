@@ -87,26 +87,27 @@ impl State {
     /// Attempt to transition the lifecycle to `Running`. This sets the
     /// notified bit to false so notifications during the poll can be detected.
     pub(super) fn transition_to_running(&self) {
-        let mut snapshot = self.load();
-        debug_assert!(snapshot.is_notified());
-        debug_assert!(snapshot.is_idle());
-        snapshot.set_running();
-        snapshot.unset_notified();
-        self.store(snapshot);
+        self.fetch_update_action(|mut curr| {
+            debug_assert!(curr.is_notified());
+            debug_assert!(curr.is_idle());
+            curr.set_running();
+            curr.unset_notified();
+            ((), Some(curr))
+        });
     }
 
     /// Transitions the task from `Running` -> `Idle`.
     pub(super) fn transition_to_idle(&self) -> TransitionToIdle {
-        let mut snapshot = self.load();
-        debug_assert!(snapshot.is_running());
-        snapshot.unset_running();
-        let action = if snapshot.is_notified() {
-            TransitionToIdle::OkNotified
-        } else {
-            TransitionToIdle::Ok
-        };
-        self.store(snapshot);
-        action
+        self.fetch_update_action(|mut curr| {
+            debug_assert!(curr.is_running());
+            curr.unset_running();
+            let action = if curr.is_notified() {
+                TransitionToIdle::OkNotified
+            } else {
+                TransitionToIdle::Ok
+            };
+            (action, Some(curr))
+        })
     }
 
     /// Transitions the task from `Running` -> `Complete`.
@@ -120,20 +121,36 @@ impl State {
         Snapshot(prev.0 ^ DELTA)
     }
 
+    /// Try transitions the state to `NOTIFIED`, but if it cannot do it without submitting, it will
+    /// return false. In another word, if it returns true, it means we have marked the task notified
+    /// and do not have to do anything.
+    pub(crate) fn transition_to_notified_without_submit(&self) -> bool {
+        self.fetch_update_action(|mut curr| {
+            if curr.is_running() {
+                curr.set_notified();
+                (true, Some(curr))
+            } else if curr.is_complete() || curr.is_notified() {
+                (true, Some(curr))
+            } else {
+                (false, Some(curr))
+            }
+        })
+    }
+
     /// Transitions the state to `NOTIFIED`.
     pub(super) fn transition_to_notified(&self) -> TransitionToNotified {
-        let mut snapshot = self.load();
-        let action = if snapshot.is_running() {
-            snapshot.set_notified();
-            TransitionToNotified::DoNothing
-        } else if snapshot.is_complete() || snapshot.is_notified() {
-            TransitionToNotified::DoNothing
-        } else {
-            snapshot.set_notified();
-            TransitionToNotified::Submit
-        };
-        self.store(snapshot);
-        action
+        self.fetch_update_action(|mut curr| {
+            let action = if curr.is_running() {
+                curr.set_notified();
+                TransitionToNotified::DoNothing
+            } else if curr.is_complete() || curr.is_notified() {
+                TransitionToNotified::DoNothing
+            } else {
+                curr.set_notified();
+                TransitionToNotified::Submit
+            };
+            (action, Some(curr))
+        })
     }
 
     /// Optimistically tries to swap the state assuming the join handle is
@@ -234,6 +251,28 @@ impl State {
             self
         );
         prev.ref_count() == 1
+    }
+
+    fn fetch_update_action<F, T>(&self, mut f: F) -> T
+    where
+        F: FnMut(Snapshot) -> (T, Option<Snapshot>),
+    {
+        let mut curr = self.load();
+
+        loop {
+            let (output, next) = f(curr);
+            let next = match next {
+                Some(next) => next,
+                None => return output,
+            };
+
+            let res = self.0.compare_exchange(curr.0, next.0, AcqRel, Acquire);
+
+            match res {
+                Ok(_) => return output,
+                Err(actual) => curr = Snapshot(actual),
+            }
+        }
     }
 
     fn fetch_update<F>(&self, mut f: F) -> Result<Snapshot, Snapshot>
