@@ -314,38 +314,29 @@ impl Driver for IoUringDriver {
 
 impl UringInner {
     fn tick(&mut self) {
-        let mut cq = self.uring.completion();
-        cq.sync();
+        let cq = self.uring.completion();
 
         for cqe in cq {
-            if cqe.user_data() >= MIN_REVERSED_USERDATA {
+            let index = cqe.user_data();
+            match index {
                 #[cfg(feature = "sync")]
-                if cqe.user_data() == EVENTFD_USERDATA {
-                    self.eventfd_installed = false;
-                }
-                continue;
+                EVENTFD_USERDATA => self.eventfd_installed = false,
+                _ if index >= MIN_REVERSED_USERDATA => (),
+                _ => self.ops.complete(index as _, resultify(&cqe), cqe.flags()),
             }
-            let index = cqe.user_data() as _;
-            self.ops.complete(index, resultify(&cqe), cqe.flags());
         }
     }
 
     fn submit(&mut self) -> io::Result<()> {
         loop {
             match self.uring.submit() {
-                Ok(_) => {
-                    self.uring.submission().sync();
-                    return Ok(());
-                }
                 Err(ref e)
                     if e.kind() == io::ErrorKind::Other
                         || e.kind() == io::ErrorKind::ResourceBusy =>
                 {
                     self.tick();
                 }
-                Err(e) => {
-                    return Err(e);
-                }
+                e => return e.map(|_| ()),
             }
         }
     }
