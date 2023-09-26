@@ -155,7 +155,11 @@ impl<T: IoBuf> Op<SendMsg<T>> {
 impl<T: IoBuf> OpAble for SendMsg<T> {
     #[cfg(all(target_os = "linux", feature = "iouring"))]
     fn uring_op(&mut self) -> io_uring::squeue::Entry {
-        opcode::SendMsg::new(types::Fd(self.fd.raw_fd()), &mut self.info.2 as *mut _).build()
+        #[allow(deprecated)]
+        const FLAGS: u32 = libc::MSG_NOSIGNAL as u32;
+        opcode::SendMsg::new(types::Fd(self.fd.raw_fd()), &mut self.info.2 as *mut _)
+            .flags(FLAGS)
+            .build()
     }
 
     #[cfg(all(unix, feature = "legacy"))]
@@ -167,8 +171,13 @@ impl<T: IoBuf> OpAble for SendMsg<T> {
 
     #[cfg(all(unix, feature = "legacy"))]
     fn legacy_call(&mut self) -> io::Result<u32> {
+        #[cfg(target_os = "linux")]
+        #[allow(deprecated)]
+        const FLAGS: libc::c_int = libc::MSG_NOSIGNAL as libc::c_int;
+        #[cfg(not(target_os = "linux"))]
+        const FLAGS: libc::c_int = 0;
         let fd = self.fd.as_raw_fd();
-        syscall_u32!(sendmsg(fd, &mut self.info.2 as *mut _, 0))
+        syscall_u32!(sendmsg(fd, &mut self.info.2 as *mut _, FLAGS))
     }
 }
 
@@ -226,7 +235,11 @@ impl<T: IoBuf> Op<SendMsgUnix<T>> {
 impl<T: IoBuf> OpAble for SendMsgUnix<T> {
     #[cfg(all(target_os = "linux", feature = "iouring"))]
     fn uring_op(&mut self) -> io_uring::squeue::Entry {
-        opcode::SendMsg::new(types::Fd(self.fd.raw_fd()), &mut self.info.2 as *mut _).build()
+        #[allow(deprecated)]
+        const FLAGS: u32 = libc::MSG_NOSIGNAL as u32;
+        opcode::SendMsg::new(types::Fd(self.fd.raw_fd()), &mut self.info.2 as *mut _)
+            .flags(FLAGS)
+            .build()
     }
 
     #[cfg(all(unix, feature = "legacy"))]
@@ -238,7 +251,12 @@ impl<T: IoBuf> OpAble for SendMsgUnix<T> {
 
     #[cfg(all(unix, feature = "legacy"))]
     fn legacy_call(&mut self) -> io::Result<u32> {
+        #[cfg(target_os = "linux")]
+        #[allow(deprecated)]
+        const FLAGS: libc::c_int = libc::MSG_NOSIGNAL as libc::c_int;
+        #[cfg(not(target_os = "linux"))]
+        const FLAGS: libc::c_int = 0;
         let fd = self.fd.as_raw_fd();
-        syscall_u32!(sendmsg(fd, &mut self.info.2 as *mut _, 0))
+        syscall_u32!(sendmsg(fd, &mut self.info.2 as *mut _, FLAGS))
     }
 }
