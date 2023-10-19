@@ -260,7 +260,7 @@ impl RuntimeBuilder<TimeDriver<FusionDriver>> {
 
     /// Build the runtime.
     #[cfg(all(target_os = "linux", feature = "iouring", not(feature = "legacy")))]
-    pub fn build(&self) -> io::Result<crate::FusionRuntime<TimeDriver<IoUringDriver>>> {
+    pub fn build(self) -> io::Result<crate::FusionRuntime<TimeDriver<IoUringDriver>>> {
         let builder = RuntimeBuilder::<TimeDriver<IoUringDriver>> {
             entries: self.entries,
             urb: self.urb,
