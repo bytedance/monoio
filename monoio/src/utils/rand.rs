@@ -64,7 +64,7 @@ pub fn thread_rng_n(n: u32) -> u32 {
 
 use std::{
     collections::hash_map::RandomState,
-    hash::{BuildHasher, Hash, Hasher},
+    hash::BuildHasher,
     sync::atomic::{AtomicU32, Ordering::Relaxed},
 };
 
@@ -72,14 +72,7 @@ static COUNTER: AtomicU32 = AtomicU32::new(1);
 
 fn seed() -> u64 {
     let rand_state = RandomState::new();
-
-    let mut hasher = rand_state.build_hasher();
-
-    // Hash some unique-ish data to generate some new state
-    COUNTER.fetch_add(1, Relaxed).hash(&mut hasher);
-
-    // Get the seed
-    hasher.finish()
+    rand_state.hash_one(COUNTER.fetch_add(1, Relaxed))
 }
 
 #[cfg(test)]

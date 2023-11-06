@@ -18,6 +18,7 @@ use crate::{
         CancelableAsyncWriteRent, Split,
     },
     net::new_socket,
+    BufResult,
 };
 
 /// UnixStream
@@ -172,33 +173,26 @@ impl std::fmt::Debug for UnixStream {
 }
 
 impl AsyncWriteRent for UnixStream {
-    type WriteFuture<'a, B> = impl Future<Output = crate::BufResult<usize, B>> where
-        B: IoBuf + 'a;
-    type WritevFuture<'a, B> = impl Future<Output = crate::BufResult<usize, B>> where
-        B: IoVecBuf + 'a;
-    type FlushFuture<'a> = impl Future<Output = io::Result<()>>;
-    type ShutdownFuture<'a> = impl Future<Output = io::Result<()>>;
-
     #[inline]
-    fn write<T: IoBuf>(&mut self, buf: T) -> Self::WriteFuture<'_, T> {
+    fn write<T: IoBuf>(&mut self, buf: T) -> impl Future<Output = BufResult<usize, T>> {
         // Submit the write operation
         let op = Op::send(self.fd.clone(), buf).unwrap();
         op.write()
     }
 
     #[inline]
-    fn writev<T: IoVecBuf>(&mut self, buf_vec: T) -> Self::WritevFuture<'_, T> {
+    fn writev<T: IoVecBuf>(&mut self, buf_vec: T) -> impl Future<Output = BufResult<usize, T>> {
         let op = Op::writev(&self.fd, buf_vec).unwrap();
         op.write()
     }
 
     #[inline]
-    fn flush(&mut self) -> Self::FlushFuture<'_> {
+    async fn flush(&mut self) -> std::io::Result<()> {
         // Unix stream does not need flush.
-        async move { Ok(()) }
+        Ok(())
     }
 
-    fn shutdown(&mut self) -> Self::ShutdownFuture<'_> {
+    fn shutdown(&mut self) -> impl Future<Output = std::io::Result<()>> {
         // We could use shutdown op here, which requires kernel 5.11+.
         // However, for simplicity, we just close the socket using direct syscall.
         let fd = self.as_raw_fd();
@@ -212,83 +206,67 @@ impl AsyncWriteRent for UnixStream {
 }
 
 impl CancelableAsyncWriteRent for UnixStream {
-    type CancelableWriteFuture<'a, B> = impl Future<Output = crate::BufResult<usize, B>> where
-        B: IoBuf + 'a;
-    type CancelableWritevFuture<'a, B> = impl Future<Output = crate::BufResult<usize, B>> where
-        B: IoVecBuf + 'a;
-    type CancelableFlushFuture<'a> = impl Future<Output = io::Result<()>>;
-    type CancelableShutdownFuture<'a> = impl Future<Output = io::Result<()>>;
-
     #[inline]
-    fn cancelable_write<T: IoBuf>(
+    async fn cancelable_write<T: IoBuf>(
         &mut self,
         buf: T,
         c: CancelHandle,
-    ) -> Self::CancelableWriteFuture<'_, T> {
+    ) -> crate::BufResult<usize, T> {
         let fd = self.fd.clone();
-        async move {
-            if c.canceled() {
-                return (Err(operation_canceled()), buf);
-            }
 
-            let op = Op::send(fd, buf).unwrap();
-            let _guard = c.associate_op(op.op_canceller());
-            op.write().await
+        if c.canceled() {
+            return (Err(operation_canceled()), buf);
         }
+
+        let op = Op::send(fd, buf).unwrap();
+        let _guard = c.associate_op(op.op_canceller());
+        op.write().await
     }
 
     #[inline]
-    fn cancelable_writev<T: IoVecBuf>(
+    async fn cancelable_writev<T: IoVecBuf>(
         &mut self,
         buf_vec: T,
         c: CancelHandle,
-    ) -> Self::CancelableWritevFuture<'_, T> {
+    ) -> crate::BufResult<usize, T> {
         let fd = self.fd.clone();
-        async move {
-            if c.canceled() {
-                return (Err(operation_canceled()), buf_vec);
-            }
 
-            let op = Op::writev(&fd, buf_vec).unwrap();
-            let _guard = c.associate_op(op.op_canceller());
-            op.write().await
+        if c.canceled() {
+            return (Err(operation_canceled()), buf_vec);
         }
+
+        let op = Op::writev(&fd, buf_vec).unwrap();
+        let _guard = c.associate_op(op.op_canceller());
+        op.write().await
     }
 
     #[inline]
-    fn cancelable_flush(&mut self, _c: CancelHandle) -> Self::CancelableFlushFuture<'_> {
+    async fn cancelable_flush(&mut self, _c: CancelHandle) -> io::Result<()> {
         // Unix stream does not need flush.
-        async move { Ok(()) }
+        Ok(())
     }
 
-    fn cancelable_shutdown(&mut self, _c: CancelHandle) -> Self::CancelableShutdownFuture<'_> {
+    async fn cancelable_shutdown(&mut self, _c: CancelHandle) -> io::Result<()> {
         // We could use shutdown op here, which requires kernel 5.11+.
         // However, for simplicity, we just close the socket using direct syscall.
         let fd = self.as_raw_fd();
-        async move {
-            match unsafe { libc::shutdown(fd, libc::SHUT_WR) } {
-                -1 => Err(io::Error::last_os_error()),
-                _ => Ok(()),
-            }
+        match unsafe { libc::shutdown(fd, libc::SHUT_WR) } {
+            -1 => Err(io::Error::last_os_error()),
+            _ => Ok(()),
         }
     }
 }
 
 impl AsyncReadRent for UnixStream {
-    type ReadFuture<'a, B> = impl std::future::Future<Output = crate::BufResult<usize, B>> where
-        B: IoBufMut + 'a;
-    type ReadvFuture<'a, B> = impl std::future::Future<Output = crate::BufResult<usize, B>> where
-        B: IoVecBufMut + 'a;
-
     #[inline]
-    fn read<T: IoBufMut>(&mut self, buf: T) -> Self::ReadFuture<'_, T> {
+    fn read<T: IoBufMut>(&mut self, buf: T) -> impl Future<Output = BufResult<usize, T>> {
         // Submit the read operation
         let op = Op::recv(self.fd.clone(), buf).unwrap();
         op.read()
     }
 
     #[inline]
-    fn readv<T: IoVecBufMut>(&mut self, buf: T) -> Self::ReadvFuture<'_, T> {
+    fn readv<T: IoVecBufMut>(&mut self, buf: T) -> impl Future<Output = BufResult<usize, T>> {
         // Submit the read operation
         let op = Op::readv(self.fd.clone(), buf).unwrap();
         op.read()
@@ -296,45 +274,38 @@ impl AsyncReadRent for UnixStream {
 }
 
 impl CancelableAsyncReadRent for UnixStream {
-    type CancelableReadFuture<'a, B> = impl std::future::Future<Output = crate::BufResult<usize, B>> where
-        B: IoBufMut + 'a;
-    type CancelableReadvFuture<'a, B> = impl std::future::Future<Output = crate::BufResult<usize, B>> where
-        B: IoVecBufMut + 'a;
-
     #[inline]
-    fn cancelable_read<T: IoBufMut>(
+    async fn cancelable_read<T: IoBufMut>(
         &mut self,
         buf: T,
         c: CancelHandle,
-    ) -> Self::CancelableReadFuture<'_, T> {
+    ) -> crate::BufResult<usize, T> {
         let fd = self.fd.clone();
-        async move {
-            if c.canceled() {
-                return (Err(operation_canceled()), buf);
-            }
 
-            let op = Op::recv(fd, buf).unwrap();
-            let _guard = c.associate_op(op.op_canceller());
-            op.read().await
+        if c.canceled() {
+            return (Err(operation_canceled()), buf);
         }
+
+        let op = Op::recv(fd, buf).unwrap();
+        let _guard = c.associate_op(op.op_canceller());
+        op.read().await
     }
 
     #[inline]
-    fn cancelable_readv<T: IoVecBufMut>(
+    async fn cancelable_readv<T: IoVecBufMut>(
         &mut self,
         buf: T,
         c: CancelHandle,
-    ) -> Self::CancelableReadvFuture<'_, T> {
+    ) -> crate::BufResult<usize, T> {
         let fd = self.fd.clone();
-        async move {
-            if c.canceled() {
-                return (Err(operation_canceled()), buf);
-            }
 
-            let op = Op::readv(fd, buf).unwrap();
-            let _guard = c.associate_op(op.op_canceller());
-            op.read().await
+        if c.canceled() {
+            return (Err(operation_canceled()), buf);
         }
+
+        let op = Op::readv(fd, buf).unwrap();
+        let _guard = c.associate_op(op.op_canceller());
+        op.read().await
     }
 }
 

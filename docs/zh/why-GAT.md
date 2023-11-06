@@ -1,6 +1,7 @@
 ---
 title: 为什么使用 GAT
 date: 2021-11-24 20:00:00
+updated: 2023-11-06 16:49:00
 author: ihciah
 ---
 
@@ -42,3 +43,17 @@ trait AsyncReadRent {
 ```
 
 这是银弹吗？不是。唯一的问题在于，如果使用了 GAT 这一套模式，就要总是使用它。如果你在 `poll` 形式和 GAT 形式之间反复横跳，那你会十分痛苦。基于 `poll` 形式接口自行维护状态，确实可以实现 Future（最简单的实现如 `poll_fn`）；但反过来就很难受了：你很难存储一个带生命周期的 Future。虽然使用一些 unsafe 的 hack 可以做(也有 cost)这件事，但是仍旧，限制很多且并不推荐这么做。`monoio-compat` 基于 GAT 的 future 实现了 Tokio 的 `AsyncRead` 和 `AsyncWrite`，如果你非要试一试，可以参考它。
+
+## async_fn_in_trait
+Rust 已经稳定了 `async_fn_in_trait`，结合 `return_position_impl_trait_in_trait` 可以替代这里的 GAT（相关 [issue](https://github.com/rust-lang/rust/issues/91611)）。
+
+现在我们可以更简单地定义并实现 trait：
+```rust
+trait AsyncReadRent {
+    fn read<T: IoBufMut>(&mut self, buf: T) -> impl Future<Output = BufResult<usize, T>>;
+}
+
+impl AsyncReadRent for Demo {
+    async fn read<T: IoBufMut>(&mut self, buf: T) -> BufResult<usize, T> { ... }
+}
+```

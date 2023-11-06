@@ -3,8 +3,10 @@
 mod iter;
 mod stream_ext;
 
+use std::future::Future;
+
 pub use iter::{iter, Iter};
-pub use stream_ext::{ForEachFut, StreamExt};
+pub use stream_ext::StreamExt;
 
 /// A stream of values produced asynchronously in pure async/await.
 #[must_use = "streams do nothing unless polled"]
@@ -12,15 +14,10 @@ pub trait Stream {
     /// Values yielded by the stream.
     type Item;
 
-    /// Future representing the next value of the stream.
-    type NextFuture<'a>: std::future::Future<Output = Option<Self::Item>>
-    where
-        Self: 'a;
-
     /// Attempt to pull out the next value of this stream, registering the
     /// current task for wakeup if the value is not yet available, and returning
     /// `None` if the stream is exhausted.
-    fn next(&mut self) -> Self::NextFuture<'_>;
+    fn next(&mut self) -> impl Future<Output = Option<Self::Item>>;
 
     /// Returns the bounds on the remaining length of the stream.
     ///
@@ -58,11 +55,7 @@ pub trait Stream {
 impl<S: ?Sized + Stream> Stream for &mut S {
     type Item = S::Item;
 
-    type NextFuture<'a> = S::NextFuture<'a>
-    where
-        Self: 'a;
-
-    fn next(&mut self) -> Self::NextFuture<'_> {
+    fn next(&mut self) -> impl Future<Output = Option<Self::Item>> {
         (**self).next()
     }
 }

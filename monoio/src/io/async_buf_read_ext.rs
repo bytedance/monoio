@@ -55,11 +55,6 @@ where
 
 /// AsyncBufReadExt
 pub trait AsyncBufReadExt {
-    /// The future of read until Result<usize>
-    type ReadUntilFuture<'a>: Future<Output = Result<usize>>
-    where
-        Self: 'a;
-
     /// This function will read bytes from the underlying stream until the delimiter or EOF is
     /// found. Once found, all bytes up to, and including, the delimiter (if found) will be appended
     /// to buf.
@@ -69,12 +64,11 @@ pub trait AsyncBufReadExt {
     /// # Errors
     /// This function will ignore all instances of ErrorKind::Interrupted and will otherwise return
     /// any errors returned by fill_buf.
-    fn read_until<'a>(&'a mut self, byte: u8, buf: &'a mut Vec<u8>) -> Self::ReadUntilFuture<'a>;
-
-    /// The future of read line Result<usize>
-    type ReadLineFuture<'a>: Future<Output = Result<usize>>
-    where
-        Self: 'a;
+    fn read_until<'a>(
+        &'a mut self,
+        byte: u8,
+        buf: &'a mut Vec<u8>,
+    ) -> impl Future<Output = Result<usize>>;
 
     /// This function will read bytes from the underlying stream until the newline delimiter (the
     /// 0xA byte) or EOF is found. Once found, all bytes up to, and including, the delimiter (if
@@ -88,41 +82,39 @@ pub trait AsyncBufReadExt {
     /// This function has the same error semantics as read_until and will also return an error if
     /// the read bytes are not valid UTF-8. If an I/O error is encountered then buf may contain some
     /// bytes already read in the event that all data read so far was valid UTF-8.
-    fn read_line<'a>(&'a mut self, buf: &'a mut String) -> Self::ReadLineFuture<'a>;
+    fn read_line<'a>(&'a mut self, buf: &'a mut String) -> impl Future<Output = Result<usize>>;
 }
 
 impl<A> AsyncBufReadExt for A
 where
     A: AsyncBufRead + ?Sized,
 {
-    type ReadUntilFuture<'a> = impl Future<Output = Result<usize>> + 'a where Self: 'a;
-
-    fn read_until<'a>(&'a mut self, byte: u8, buf: &'a mut Vec<u8>) -> Self::ReadUntilFuture<'a> {
+    fn read_until<'a>(
+        &'a mut self,
+        byte: u8,
+        buf: &'a mut Vec<u8>,
+    ) -> impl Future<Output = Result<usize>> {
         read_until(self, byte, buf)
     }
 
-    type ReadLineFuture<'a> = impl Future<Output = Result<usize>> + 'a where Self: 'a;
+    async fn read_line<'a>(&'a mut self, buf: &'a mut String) -> Result<usize> {
+        unsafe {
+            let mut g = Guard {
+                len: buf.len(),
+                buf: buf.as_mut_vec(),
+            };
 
-    fn read_line<'a>(&'a mut self, buf: &'a mut String) -> Self::ReadLineFuture<'a> {
-        async {
-            unsafe {
-                let mut g = Guard {
-                    len: buf.len(),
-                    buf: buf.as_mut_vec(),
-                };
-
-                let ret = read_until(self, b'\n', g.buf).await;
-                if from_utf8(&g.buf[g.len..]).is_err() {
-                    ret.and_then(|_| {
-                        Err(Error::new(
-                            ErrorKind::InvalidData,
-                            "stream did not contain valid UTF-8",
-                        ))
-                    })
-                } else {
-                    g.len = g.buf.len();
-                    ret
-                }
+            let ret = read_until(self, b'\n', g.buf).await;
+            if from_utf8(&g.buf[g.len..]).is_err() {
+                ret.and_then(|_| {
+                    Err(Error::new(
+                        ErrorKind::InvalidData,
+                        "stream did not contain valid UTF-8",
+                    ))
+                })
+            } else {
+                g.len = g.buf.len();
+                ret
             }
         }
     }

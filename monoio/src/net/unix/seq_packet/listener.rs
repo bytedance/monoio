@@ -1,5 +1,4 @@
 use std::{
-    future::Future,
     io,
     os::fd::{AsRawFd, RawFd},
     path::Path,
@@ -83,10 +82,8 @@ impl std::fmt::Debug for UnixSeqpacketListener {
 impl Stream for UnixSeqpacketListener {
     type Item = io::Result<(UnixSeqpacket, SocketAddr)>;
 
-    type NextFuture<'a> = impl Future<Output = Option<Self::Item>> + 'a;
-
     #[inline]
-    fn next(&mut self) -> Self::NextFuture<'_> {
-        async move { Some(self.accept().await) }
+    async fn next(&mut self) -> Option<Self::Item> {
+        Some(self.accept().await)
     }
 }

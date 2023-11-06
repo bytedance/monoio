@@ -7,7 +7,10 @@ use std::{
 };
 
 use super::CancelHandle;
-use crate::io::{AsyncReadRent, AsyncWriteRent, CancelableAsyncReadRent, CancelableAsyncWriteRent};
+use crate::{
+    io::{AsyncReadRent, AsyncWriteRent, CancelableAsyncReadRent, CancelableAsyncWriteRent},
+    BufResult,
+};
 
 /// Owned Read Half Part
 #[derive(Debug)]
@@ -60,24 +63,20 @@ impl<Inner> AsyncReadRent for OwnedReadHalf<Inner>
 where
     Inner: AsyncReadRent,
 {
-    type ReadFuture<'a, T> = impl std::future::Future<Output = crate::BufResult<usize, T>> + 'a
-    where
-        Self: 'a,
-        T: crate::buf::IoBufMut + 'a;
-
-    type ReadvFuture<'a, T> = impl std::future::Future<Output = crate::BufResult<usize, T>> + 'a
-    where
-        Self: 'a,
-        T: crate::buf::IoVecBufMut + 'a;
-
     #[inline]
-    fn read<T: crate::buf::IoBufMut>(&mut self, buf: T) -> Self::ReadFuture<'_, T> {
+    fn read<T: crate::buf::IoBufMut>(
+        &mut self,
+        buf: T,
+    ) -> impl Future<Output = BufResult<usize, T>> {
         let stream = unsafe { &mut *self.0.get() };
         stream.read(buf)
     }
 
     #[inline]
-    fn readv<T: crate::buf::IoVecBufMut>(&mut self, buf: T) -> Self::ReadvFuture<'_, T> {
+    fn readv<T: crate::buf::IoVecBufMut>(
+        &mut self,
+        buf: T,
+    ) -> impl Future<Output = BufResult<usize, T>> {
         let stream = unsafe { &mut *self.0.get() };
         stream.readv(buf)
     }
@@ -87,22 +86,12 @@ impl<Inner> CancelableAsyncReadRent for OwnedReadHalf<Inner>
 where
     Inner: CancelableAsyncReadRent,
 {
-    type CancelableReadFuture<'a, T> = impl std::future::Future<Output = crate::BufResult<usize, T>> + 'a
-    where
-        Self: 'a,
-        T: crate::buf::IoBufMut + 'a;
-
-    type CancelableReadvFuture<'a, T> = impl std::future::Future<Output = crate::BufResult<usize, T>> + 'a
-    where
-        Self: 'a,
-        T: crate::buf::IoVecBufMut + 'a;
-
     #[inline]
     fn cancelable_read<T: crate::buf::IoBufMut>(
         &mut self,
         buf: T,
         c: CancelHandle,
-    ) -> Self::CancelableReadFuture<'_, T> {
+    ) -> impl Future<Output = crate::BufResult<usize, T>> {
         let stream = unsafe { &mut *self.0.get() };
         stream.cancelable_read(buf, c)
     }
@@ -112,7 +101,7 @@ where
         &mut self,
         buf: T,
         c: CancelHandle,
-    ) -> Self::CancelableReadvFuture<'_, T> {
+    ) -> impl Future<Output = crate::BufResult<usize, T>> {
         let stream = unsafe { &mut *self.0.get() };
         stream.cancelable_readv(buf, c)
     }
@@ -122,44 +111,29 @@ impl<Inner> AsyncWriteRent for OwnedWriteHalf<Inner>
 where
     Inner: AsyncWriteRent,
 {
-    type WriteFuture<'a, T> = impl Future<Output = crate::BufResult<usize, T>> + 'a
-    where
-        Self: 'a,
-        T: crate::buf::IoBuf + 'a;
-
-    type WritevFuture<'a, T> = impl Future<Output = crate::BufResult<usize, T>> + 'a
-    where
-        Self: 'a,
-        T: crate::buf::IoVecBuf + 'a;
-
-    type FlushFuture<'a> = impl Future<Output = std::io::Result<()>> + 'a
-    where
-        Self: 'a;
-
-    type ShutdownFuture<'a> = impl Future<Output = std::io::Result<()>> + 'a
-    where
-        Self: 'a;
-
     #[inline]
-    fn write<T: crate::buf::IoBuf>(&mut self, buf: T) -> Self::WriteFuture<'_, T> {
+    fn write<T: crate::buf::IoBuf>(&mut self, buf: T) -> impl Future<Output = BufResult<usize, T>> {
         let stream = unsafe { &mut *self.0.get() };
         stream.write(buf)
     }
 
     #[inline]
-    fn writev<T: crate::buf::IoVecBuf>(&mut self, buf_vec: T) -> Self::WritevFuture<'_, T> {
+    fn writev<T: crate::buf::IoVecBuf>(
+        &mut self,
+        buf_vec: T,
+    ) -> impl Future<Output = BufResult<usize, T>> {
         let stream = unsafe { &mut *self.0.get() };
         stream.writev(buf_vec)
     }
 
     #[inline]
-    fn flush(&mut self) -> Self::FlushFuture<'_> {
+    fn flush(&mut self) -> impl Future<Output = std::io::Result<()>> {
         let stream = unsafe { &mut *self.0.get() };
         stream.flush()
     }
 
     #[inline]
-    fn shutdown(&mut self) -> Self::ShutdownFuture<'_> {
+    fn shutdown(&mut self) -> impl Future<Output = std::io::Result<()>> {
         let stream = unsafe { &mut *self.0.get() };
         stream.shutdown()
     }
@@ -169,30 +143,12 @@ impl<Inner> CancelableAsyncWriteRent for OwnedWriteHalf<Inner>
 where
     Inner: CancelableAsyncWriteRent,
 {
-    type CancelableWriteFuture<'a, T> = impl Future<Output = crate::BufResult<usize, T>> + 'a
-    where
-        Self: 'a,
-        T: crate::buf::IoBuf + 'a;
-
-    type CancelableWritevFuture<'a, T> = impl Future<Output = crate::BufResult<usize, T>> + 'a
-    where
-        Self: 'a,
-        T: crate::buf::IoVecBuf + 'a;
-
-    type CancelableFlushFuture<'a> = impl Future<Output = std::io::Result<()>> + 'a
-    where
-        Self: 'a;
-
-    type CancelableShutdownFuture<'a> = impl Future<Output = std::io::Result<()>> + 'a
-    where
-        Self: 'a;
-
     #[inline]
     fn cancelable_write<T: crate::buf::IoBuf>(
         &mut self,
         buf: T,
         c: CancelHandle,
-    ) -> Self::CancelableWriteFuture<'_, T> {
+    ) -> impl Future<Output = crate::BufResult<usize, T>> {
         let stream = unsafe { &mut *self.0.get() };
         stream.cancelable_write(buf, c)
     }
@@ -202,19 +158,22 @@ where
         &mut self,
         buf_vec: T,
         c: CancelHandle,
-    ) -> Self::CancelableWritevFuture<'_, T> {
+    ) -> impl Future<Output = crate::BufResult<usize, T>> {
         let stream = unsafe { &mut *self.0.get() };
         stream.cancelable_writev(buf_vec, c)
     }
 
     #[inline]
-    fn cancelable_flush(&mut self, c: CancelHandle) -> Self::CancelableFlushFuture<'_> {
+    fn cancelable_flush(&mut self, c: CancelHandle) -> impl Future<Output = std::io::Result<()>> {
         let stream = unsafe { &mut *self.0.get() };
         stream.cancelable_flush(c)
     }
 
     #[inline]
-    fn cancelable_shutdown(&mut self, c: CancelHandle) -> Self::CancelableShutdownFuture<'_> {
+    fn cancelable_shutdown(
+        &mut self,
+        c: CancelHandle,
+    ) -> impl Future<Output = std::io::Result<()>> {
         let stream = unsafe { &mut *self.0.get() };
         stream.cancelable_shutdown(c)
     }

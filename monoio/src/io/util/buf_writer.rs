@@ -3,6 +3,7 @@ use std::{future::Future, io};
 use crate::{
     buf::{IoBuf, IoBufMut, IoVecBuf, IoVecBufMut, IoVecWrapper, Slice},
     io::{AsyncBufRead, AsyncReadRent, AsyncWriteRent, AsyncWriteRentExt},
+    BufResult,
 };
 
 /// BufWriter is a struct with a buffer. BufWriter implements AsyncWriteRent,
@@ -89,108 +90,80 @@ impl<W: AsyncWriteRent> BufWriter<W> {
 }
 
 impl<W: AsyncWriteRent> AsyncWriteRent for BufWriter<W> {
-    type WriteFuture<'a, T> = impl Future<Output = crate::BufResult<usize, T>> + 'a where
-        T: IoBuf + 'a, W: 'a;
+    async fn write<T: IoBuf>(&mut self, buf: T) -> BufResult<usize, T> {
+        let owned_buf = self.buf.as_ref().unwrap();
+        let owned_len = owned_buf.len();
+        let amt = buf.bytes_init();
 
-    type WritevFuture<'a, T> = impl Future<Output = crate::BufResult<usize, T>> + 'a where
-        T: IoVecBuf + 'a, W: 'a;
-
-    type FlushFuture<'a> = impl Future<Output = io::Result<()>> + 'a where
-        W: 'a;
-
-    type ShutdownFuture<'a> = impl Future<Output = io::Result<()>> + 'a where
-        W: 'a;
-
-    fn write<T: IoBuf>(&mut self, buf: T) -> Self::WriteFuture<'_, T> {
-        async move {
-            let owned_buf = self.buf.as_ref().unwrap();
-            let owned_len = owned_buf.len();
-            let amt = buf.bytes_init();
-
-            if self.pos + amt > owned_len {
-                // Buf can not be copied directly into OwnedBuf,
-                // we must flush OwnedBuf first.
-                match self.flush_buf().await {
-                    Ok(_) => (),
-                    Err(e) => {
-                        return (Err(e), buf);
-                    }
+        if self.pos + amt > owned_len {
+            // Buf can not be copied directly into OwnedBuf,
+            // we must flush OwnedBuf first.
+            match self.flush_buf().await {
+                Ok(_) => (),
+                Err(e) => {
+                    return (Err(e), buf);
                 }
             }
+        }
 
-            // Now there are two situations here:
-            // 1. OwnedBuf has data, and self.pos + amt <= owned_len,
-            // which means the data can be copied into OwnedBuf.
-            // 2. OwnedBuf is empty. If we can copy buf into OwnedBuf,
-            // we will copy it, otherwise we will send it directly(in
-            // this situation, the OwnedBuf must be already empty).
-            if amt > owned_len {
-                self.inner.write(buf).await
-            } else {
-                unsafe {
-                    let owned_buf = self.buf.as_mut().unwrap();
-                    owned_buf
-                        .as_mut_ptr()
-                        .add(self.pos)
-                        .copy_from_nonoverlapping(buf.read_ptr(), amt);
-                }
-                self.cap += amt;
-                (Ok(amt), buf)
+        // Now there are two situations here:
+        // 1. OwnedBuf has data, and self.pos + amt <= owned_len,
+        // which means the data can be copied into OwnedBuf.
+        // 2. OwnedBuf is empty. If we can copy buf into OwnedBuf,
+        // we will copy it, otherwise we will send it directly(in
+        // this situation, the OwnedBuf must be already empty).
+        if amt > owned_len {
+            self.inner.write(buf).await
+        } else {
+            unsafe {
+                let owned_buf = self.buf.as_mut().unwrap();
+                owned_buf
+                    .as_mut_ptr()
+                    .add(self.pos)
+                    .copy_from_nonoverlapping(buf.read_ptr(), amt);
             }
+            self.cap += amt;
+            (Ok(amt), buf)
         }
     }
 
     // TODO: implement it as real io_vec
-    fn writev<T: IoVecBuf>(&mut self, buf: T) -> Self::WritevFuture<'_, T> {
-        async move {
-            let slice = match IoVecWrapper::new(buf) {
-                Ok(slice) => slice,
-                Err(buf) => return (Ok(0), buf),
-            };
+    async fn writev<T: IoVecBuf>(&mut self, buf: T) -> BufResult<usize, T> {
+        let slice = match IoVecWrapper::new(buf) {
+            Ok(slice) => slice,
+            Err(buf) => return (Ok(0), buf),
+        };
 
-            let (result, slice) = self.write(slice).await;
-            (result, slice.into_inner())
-        }
+        let (result, slice) = self.write(slice).await;
+        (result, slice.into_inner())
     }
 
-    fn flush(&mut self) -> Self::FlushFuture<'_> {
-        async move {
-            self.flush_buf().await?;
-            self.inner.flush().await
-        }
+    async fn flush(&mut self) -> std::io::Result<()> {
+        self.flush_buf().await?;
+        self.inner.flush().await
     }
 
-    fn shutdown(&mut self) -> Self::ShutdownFuture<'_> {
-        async move {
-            self.flush_buf().await?;
-            self.inner.shutdown().await
-        }
+    async fn shutdown(&mut self) -> std::io::Result<()> {
+        self.flush_buf().await?;
+        self.inner.shutdown().await
     }
 }
 
 impl<W: AsyncWriteRent + AsyncReadRent> AsyncReadRent for BufWriter<W> {
-    type ReadFuture<'a, T> = W::ReadFuture<'a, T> where
-        T: IoBufMut + 'a, W: 'a;
-
-    type ReadvFuture<'a, T> = W::ReadvFuture<'a, T> where
-        T: IoVecBufMut + 'a, W: 'a;
-
     #[inline]
-    fn read<T: IoBufMut>(&mut self, buf: T) -> Self::ReadFuture<'_, T> {
+    fn read<T: IoBufMut>(&mut self, buf: T) -> impl Future<Output = BufResult<usize, T>> {
         self.inner.read(buf)
     }
 
     #[inline]
-    fn readv<T: IoVecBufMut>(&mut self, buf: T) -> Self::ReadvFuture<'_, T> {
+    fn readv<T: IoVecBufMut>(&mut self, buf: T) -> impl Future<Output = BufResult<usize, T>> {
         self.inner.readv(buf)
     }
 }
 
 impl<W: AsyncWriteRent + AsyncBufRead> AsyncBufRead for BufWriter<W> {
-    type FillBufFuture<'a> = W::FillBufFuture<'a> where W: 'a;
-
     #[inline]
-    fn fill_buf(&mut self) -> Self::FillBufFuture<'_> {
+    fn fill_buf(&mut self) -> impl Future<Output = std::io::Result<&[u8]>> {
         self.inner.fill_buf()
     }
 
