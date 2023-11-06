@@ -4,7 +4,6 @@ use std::os::unix::prelude::{AsRawFd, FromRawFd, IntoRawFd, RawFd};
 use std::os::windows::prelude::{AsRawHandle, FromRawSocket, RawHandle};
 use std::{
     cell::UnsafeCell,
-    future::Future,
     io,
     net::{Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6, ToSocketAddrs},
 };
@@ -261,11 +260,9 @@ impl TcpListener {
 impl Stream for TcpListener {
     type Item = io::Result<(TcpStream, SocketAddr)>;
 
-    type NextFuture<'a> = impl Future<Output = Option<Self::Item>> + 'a;
-
     #[inline]
-    fn next(&mut self) -> Self::NextFuture<'_> {
-        async move { Some(self.accept().await) }
+    async fn next(&mut self) -> Option<Self::Item> {
+        Some(self.accept().await)
     }
 }
 

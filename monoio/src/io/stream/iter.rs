@@ -1,5 +1,3 @@
-use std::future::Future;
-
 use super::{assert_stream, Stream};
 
 /// Stream for the [`iter`] function.
@@ -26,11 +24,8 @@ where
 {
     type Item = I::Item;
 
-    type NextFuture<'a> = impl Future<Output = Option<Self::Item>> + 'a where
-        I: 'a;
-
-    fn next(&mut self) -> Self::NextFuture<'_> {
-        async move { self.iter.next() }
+    async fn next(&mut self) -> Option<Self::Item> {
+        self.iter.next()
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {

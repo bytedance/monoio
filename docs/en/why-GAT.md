@@ -1,6 +1,7 @@
 ---
 title: Why GAT
 date: 2021-11-24 20:00:00
+updated: 2023-11-06 16:49:00
 author: ihciah
 ---
 
@@ -39,3 +40,17 @@ trait AsyncReadRent {
 ```
 
 The only problem here is, if you use GAT style, you should always use it. Providing `poll` style based on GAT is not easy. As an example, `monoio-compat` implement tokio `AsyncRead` and `AsyncWrite` based on GAT style future with some unsafe hack(and also with a `Box` cost).
+
+## async_fn_in_trait
+`async_fn_in_trait` and `return_position_impl_trait_in_trait` is stable now in rust and can be used to replace GAT usage here(related [issue](https://github.com/rust-lang/rust/issues/91611)).
+
+Now we can define and impl async trait easier：
+```rust
+trait AsyncReadRent {
+    fn read<T: IoBufMut>(&mut self, buf: T) -> impl Future<Output = BufResult<usize, T>>;
+}
+
+impl AsyncReadRent for Demo {
+    async fn read<T: IoBufMut>(&mut self, buf: T) -> BufResult<usize, T> { ... }
+}
+```

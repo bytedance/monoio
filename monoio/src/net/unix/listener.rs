@@ -1,5 +1,4 @@
 use std::{
-    future::Future,
     io,
     mem::{ManuallyDrop, MaybeUninit},
     os::unix::prelude::{AsRawFd, FromRawFd, IntoRawFd, RawFd},
@@ -149,11 +148,9 @@ impl UnixListener {
 impl Stream for UnixListener {
     type Item = io::Result<(UnixStream, SocketAddr)>;
 
-    type NextFuture<'a> = impl Future<Output = Option<Self::Item>> + 'a;
-
     #[inline]
-    fn next(&mut self) -> Self::NextFuture<'_> {
-        async move { Some(self.accept().await) }
+    async fn next(&mut self) -> Option<Self::Item> {
+        Some(self.accept().await)
     }
 }
 

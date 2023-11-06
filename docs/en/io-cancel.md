@@ -1,6 +1,7 @@
 ---
 title: Cancel IO
 date: 2023-02-27 15:09:00
+updated: 2023-11-06 16:49:00
 author: ihciah
 ---
 
@@ -14,28 +15,17 @@ Taking reads as an example, the following code defines a cancelable asynchronous
 ```rust
 /// CancelableAsyncReadRent: async read with an ownership of a buffer and ability to cancel io.
 pub trait CancelableAsyncReadRent: AsyncReadRent {
-    /// The future of read Result<size, buffer>
-    type CancelableReadFuture<'a, T>: Future<Output = BufResult<usize, T>>
-    where
-        Self: 'a,
-        T: IoBufMut + 'a;
-    /// The future of readv Result<size, buffer>
-    type CancelableReadvFuture<'a, T>: Future<Output = BufResult<usize, T>>
-    where
-        Self: 'a,
-        T: IoVecBufMut + 'a;
-
     fn cancelable_read<T: IoBufMut>(
         &mut self,
         buf: T,
         c: CancelHandle,
-    ) -> Self::CancelableReadFuture<'_, T>;
+    ) -> impl Future<Output = BufResult<usize, T>>;
 
     fn cancelable_readv<T: IoVecBufMut>(
         &mut self,
         buf: T,
         c: CancelHandle,
-    ) -> Self::CancelableReadvFuture<'_, T>;
+    ) -> impl Future<Output = BufResult<usize, T>>;
 }
 ```
 

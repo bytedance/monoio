@@ -8,73 +8,50 @@ use crate::{
 
 macro_rules! reader_trait {
     ($future: ident, $n_ty: ty, $f: ident) => {
-        /// Read number result
-        type $future<'a>: Future<Output = std::io::Result<$n_ty>>
-        where
-            Self: 'a;
-
         /// Read number in async way
-        fn $f(&mut self) -> Self::$future<'_>;
+        fn $f(&mut self) -> impl Future<Output = std::io::Result<$n_ty>>;
     };
 }
 
 macro_rules! reader_be_impl {
     ($future: ident, $n_ty: ty, $f: ident) => {
-        type $future<'a> = impl Future<Output = std::io::Result<$n_ty>> + 'a where A: 'a;
-
-        fn $f(&mut self) -> Self::$future<'_> {
-            async {
-                let (res, buf) = self
-                    .read_exact(std::boxed::Box::new([0; std::mem::size_of::<$n_ty>()]))
-                    .await;
-                res?;
-                use crate::utils::box_into_inner::IntoInner;
-                Ok(<$n_ty>::from_be_bytes(Box::consume(buf)))
-            }
+        async fn $f(&mut self) -> std::io::Result<$n_ty> {
+            let (res, buf) = self
+                .read_exact(std::boxed::Box::new([0; std::mem::size_of::<$n_ty>()]))
+                .await;
+            res?;
+            use crate::utils::box_into_inner::IntoInner;
+            Ok(<$n_ty>::from_be_bytes(Box::consume(buf)))
         }
     };
 }
 
 macro_rules! reader_le_impl {
     ($future: ident, $n_ty: ty, $f: ident) => {
-        type $future<'a> = impl Future<Output = std::io::Result<$n_ty>> + 'a where A: 'a;
-
-        fn $f(&mut self) -> Self::$future<'_> {
-            async {
-                let (res, buf) = self
-                    .read_exact(std::boxed::Box::new([0; std::mem::size_of::<$n_ty>()]))
-                    .await;
-                res?;
-                use crate::utils::box_into_inner::IntoInner;
-                Ok(<$n_ty>::from_le_bytes(Box::consume(buf)))
-            }
+        async fn $f(&mut self) -> std::io::Result<$n_ty> {
+            let (res, buf) = self
+                .read_exact(std::boxed::Box::new([0; std::mem::size_of::<$n_ty>()]))
+                .await;
+            res?;
+            use crate::utils::box_into_inner::IntoInner;
+            Ok(<$n_ty>::from_le_bytes(Box::consume(buf)))
         }
     };
 }
 
 /// AsyncReadRentExt
 pub trait AsyncReadRentExt {
-    /// The future of Result<size, buffer>
-    type ReadExactFuture<'a, T>: Future<Output = BufResult<usize, T>>
-    where
-        Self: 'a,
-        T: IoBufMut + 'a;
-
     /// Read until buf capacity is fulfilled
-    fn read_exact<T: 'static>(&mut self, buf: T) -> Self::ReadExactFuture<'_, T>
-    where
-        T: 'static + IoBufMut;
-
-    /// The future of Result<size, buffer>
-    type ReadVectoredExactFuture<'a, T>: Future<Output = BufResult<usize, T>>
-    where
-        Self: 'a,
-        T: IoVecBufMut + 'a;
+    fn read_exact<T: IoBufMut + 'static>(
+        &mut self,
+        buf: T,
+    ) -> impl Future<Output = BufResult<usize, T>>;
 
     /// Readv until buf capacity is fulfilled
-    fn read_vectored_exact<T: 'static>(&mut self, buf: T) -> Self::ReadVectoredExactFuture<'_, T>
-    where
-        T: 'static + IoVecBufMut;
+    fn read_vectored_exact<T: IoVecBufMut + 'static>(
+        &mut self,
+        buf: T,
+    ) -> impl Future<Output = BufResult<usize, T>>;
 
     reader_trait!(ReadU8Future, u8, read_u8);
     reader_trait!(ReadU16Future, u16, read_u16);
@@ -107,74 +84,61 @@ impl<A> AsyncReadRentExt for A
 where
     A: AsyncReadRent + ?Sized,
 {
-    type ReadExactFuture<'a, T> = impl Future<Output = BufResult<usize, T>> + 'a where A: 'a, T: IoBufMut + 'a;
-
-    fn read_exact<T>(&mut self, mut buf: T) -> Self::ReadExactFuture<'_, T>
-    where
-        T: 'static + IoBufMut,
-    {
-        async move {
-            let len = buf.bytes_total();
-            let mut read = 0;
-            while read < len {
-                let buf_slice = unsafe { SliceMut::new_unchecked(buf, read, len) };
-                let (result, buf_slice) = self.read(buf_slice).await;
-                buf = buf_slice.into_inner();
-                match result {
-                    Ok(0) => {
-                        return (
-                            Err(std::io::Error::new(
-                                std::io::ErrorKind::UnexpectedEof,
-                                "failed to fill whole buffer",
-                            )),
-                            buf,
-                        )
-                    }
-                    Ok(n) => {
-                        read += n;
-                        unsafe { buf.set_init(read) };
-                    }
-                    Err(ref e) if e.kind() == std::io::ErrorKind::Interrupted => {}
-                    Err(e) => return (Err(e), buf),
+    async fn read_exact<T: IoBufMut + 'static>(&mut self, mut buf: T) -> BufResult<usize, T> {
+        let len = buf.bytes_total();
+        let mut read = 0;
+        while read < len {
+            let buf_slice = unsafe { SliceMut::new_unchecked(buf, read, len) };
+            let (result, buf_slice) = self.read(buf_slice).await;
+            buf = buf_slice.into_inner();
+            match result {
+                Ok(0) => {
+                    return (
+                        Err(std::io::Error::new(
+                            std::io::ErrorKind::UnexpectedEof,
+                            "failed to fill whole buffer",
+                        )),
+                        buf,
+                    )
                 }
+                Ok(n) => {
+                    read += n;
+                    unsafe { buf.set_init(read) };
+                }
+                Err(ref e) if e.kind() == std::io::ErrorKind::Interrupted => {}
+                Err(e) => return (Err(e), buf),
             }
-            (Ok(read), buf)
         }
+        (Ok(read), buf)
     }
 
-    type ReadVectoredExactFuture<'a, T> = impl Future<Output = BufResult<usize, T>> + 'a where A: 'a, T: IoVecBufMut + 'a;
-
-    fn read_vectored_exact<T: 'static>(
+    async fn read_vectored_exact<T: IoVecBufMut + 'static>(
         &mut self,
         mut buf: T,
-    ) -> Self::ReadVectoredExactFuture<'_, T>
-    where
-        T: 'static + IoVecBufMut,
-    {
+    ) -> BufResult<usize, T> {
         let mut meta = crate::buf::write_vec_meta(&mut buf);
         let len = meta.len();
         let mut read = 0;
-        async move {
-            while read < len {
-                let (res, meta_) = self.readv(meta).await;
-                meta = meta_;
-                match res {
-                    Ok(0) => {
-                        return (
-                            Err(std::io::Error::new(
-                                std::io::ErrorKind::UnexpectedEof,
-                                "failed to fill whole buffer",
-                            )),
-                            buf,
-                        )
-                    }
-                    Ok(n) => read += n,
-                    Err(ref e) if e.kind() == std::io::ErrorKind::Interrupted => {}
-                    Err(e) => return (Err(e), buf),
+
+        while read < len {
+            let (res, meta_) = self.readv(meta).await;
+            meta = meta_;
+            match res {
+                Ok(0) => {
+                    return (
+                        Err(std::io::Error::new(
+                            std::io::ErrorKind::UnexpectedEof,
+                            "failed to fill whole buffer",
+                        )),
+                        buf,
+                    )
                 }
+                Ok(n) => read += n,
+                Err(ref e) if e.kind() == std::io::ErrorKind::Interrupted => {}
+                Err(e) => return (Err(e), buf),
             }
-            (Ok(read), buf)
         }
+        (Ok(read), buf)
     }
 
     reader_be_impl!(ReadU8Future, u8, read_u8);
