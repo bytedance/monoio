@@ -1,10 +1,11 @@
-use core::slice::memchr::memchr;
 use std::{
     future::Future,
     io::{Error, ErrorKind, Result},
     ops::Drop,
     str::from_utf8,
 };
+
+use memchr::memchr;
 
 use crate::io::AsyncBufRead;
 
