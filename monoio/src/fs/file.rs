@@ -1,8 +1,11 @@
-#[cfg(unix)]
-use std::os::unix::io::{AsRawFd, RawFd};
 #[cfg(windows)]
 use std::os::windows::io::{AsRawHandle, RawHandle};
-use std::{io, path::Path};
+#[cfg(unix)]
+use std::os::{
+    fd::IntoRawFd,
+    unix::io::{AsRawFd, RawFd},
+};
+use std::{fs::File as StdFile, io, path::Path};
 
 use crate::{
     buf::{IoBuf, IoBufMut},
@@ -53,6 +56,7 @@ use crate::{
 ///     Ok(())
 /// }
 /// ```
+#[derive(Debug)]
 pub struct File {
     /// Open file descriptor
     fd: SharedFd,
@@ -118,6 +122,23 @@ impl File {
 
     pub(crate) fn from_shared_fd(fd: SharedFd) -> File {
         File { fd }
+    }
+
+    /// Converts a [`std::fs::File`] to a [`monoio::fs::File`](File).
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// // This line could block. It is not recommended to do this on the monoio
+    /// // runtime.
+    /// let std_file = std::fs::File::open("foo.txt").unwrap();
+    /// let file = monoio::fs::File::from_std(std_file);
+    /// ```
+    #[cfg(unix)]
+    pub fn from_std(std: StdFile) -> io::Result<File> {
+        Ok(File {
+            fd: SharedFd::new(std.into_raw_fd())?,
+        })
     }
 
     /// Read some bytes at the specified offset from the file into the specified
