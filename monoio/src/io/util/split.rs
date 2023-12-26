@@ -210,7 +210,10 @@ where
         let write = unsafe { &mut *self.0.get() };
         // Notes:: shutdown is an async function but rust currently does not support async drop
         // this drop will only execute sync part of `shutdown` function.
-        write.shutdown();
+        #[allow(unused_must_use)]
+        {
+            write.shutdown();
+        }
     }
 }
 

@@ -3,7 +3,6 @@
 #![allow(stable_features)]
 #![feature(io_error_more)]
 #![feature(lazy_cell)]
-#![feature(slice_internals)]
 #![feature(stmt_expr_attributes)]
 #![feature(thread_local)]
 

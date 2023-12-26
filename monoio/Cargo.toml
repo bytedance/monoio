@@ -33,6 +33,7 @@ tracing = { version = "0.1", default-features = false, features = [
   "std",
 ], optional = true }
 ctrlc = { version = "3", optional = true }
+memchr = "2.6"
 
 # windows dependencies(will be added when windows support finished)
 [target.'cfg(windows)'.dependencies.windows-sys]
