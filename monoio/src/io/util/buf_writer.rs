@@ -119,7 +119,7 @@ impl<W: AsyncWriteRent> AsyncWriteRent for BufWriter<W> {
                 let owned_buf = self.buf.as_mut().unwrap();
                 owned_buf
                     .as_mut_ptr()
-                    .add(self.pos)
+                    .add(self.cap)
                     .copy_from_nonoverlapping(buf.read_ptr(), amt);
             }
             self.cap += amt;
