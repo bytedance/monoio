@@ -95,8 +95,12 @@ impl tokio::io::AsyncRead for TcpStreamCompat {
             }
         };
         this.read_dst.reset();
-        buf.advance(ret?);
-        std::task::Poll::Ready(Ok(()))
+        std::task::Poll::Ready(ret.map(|n| {
+            unsafe {
+                buf.assume_init(n);
+            }
+            buf.advance(n);
+        }))
     }
 }
 
