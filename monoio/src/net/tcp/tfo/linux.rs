@@ -1,7 +1,13 @@
 use std::{cell::Cell, io, os::fd::AsRawFd};
 
+#[cfg(feature = "unstable")]
 #[thread_local]
 pub(crate) static TFO_CONNECT_AVAILABLE: Cell<bool> = Cell::new(true);
+
+#[cfg(not(feature = "unstable"))]
+thread_local!{
+    pub(crate) static TFO_CONNECT_AVAILABLE: Cell<bool> = Cell::new(true);
+}
 
 /// Call before listen.
 pub(crate) fn set_tcp_fastopen<S: AsRawFd>(fd: &S, fast_open: i32) -> io::Result<()> {

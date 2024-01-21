@@ -330,12 +330,21 @@ impl UringInner {
     fn submit(&mut self) -> io::Result<()> {
         loop {
             match self.uring.submit() {
+                #[cfg(feature = "unstable")]
                 Err(ref e)
                     if e.kind() == io::ErrorKind::Other
                         || e.kind() == io::ErrorKind::ResourceBusy =>
                 {
                     self.tick();
                 }
+                #[cfg(not(feature = "unstable"))]
+                Err(ref e) if e.raw_os_error() == Some(libc::EAGAIN) || e.raw_os_error() == Some(libc::EBUSY) => {
+                    // This error is constructed with io::Error::last_os_error():
+                    // https://github.com/tokio-rs/io-uring/blob/01c83bbce965d4aaf93ebfaa08c3aa8b7b0f5335/src/sys/mod.rs#L32
+                    // So we can use https://doc.rust-lang.org/nightly/std/io/struct.Error.html#method.raw_os_error
+                    // to get the raw error code.
+                    self.tick();
+                },
                 e => return e.map(|_| ()),
             }
         }
