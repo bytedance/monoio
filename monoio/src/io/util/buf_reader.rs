@@ -6,12 +6,38 @@ use crate::{
     BufResult,
 };
 
+enum BufState {
+    /// This buffer is never used, in use, or used by a previously cancelled
+    /// read.
+    Unallocated(usize),
+
+    /// This buffer is available.
+    Available(Box<[u8]>),
+}
+
+impl BufState {
+    fn take(&mut self) -> Box<[u8]> {
+        let size = self.size();
+        match std::mem::replace(self, BufState::Unallocated(size)) {
+            BufState::Unallocated(len) => vec![0u8; len].into(),
+            BufState::Available(buf) => buf,
+        }
+    }
+
+    fn size(&self) -> usize {
+        match self {
+            BufState::Unallocated(len) => *len,
+            BufState::Available(buf) => buf.len(),
+        }
+    }
+}
+
 /// BufReader is a struct with a buffer. BufReader implements AsyncBufRead
 /// and AsyncReadRent, and if the inner io implements AsyncWriteRent, it
 /// will delegate the implementation.
 pub struct BufReader<R> {
     inner: R,
-    buf: Option<Box<[u8]>>,
+    buf: BufState,
     pos: usize,
     cap: usize,
 }
@@ -26,10 +52,9 @@ impl<R> BufReader<R> {
 
     /// Create BufReader with given buffer size
     pub fn with_capacity(capacity: usize, inner: R) -> Self {
-        let buffer = vec![0; capacity];
         Self {
             inner,
-            buf: Some(buffer.into_boxed_slice()),
+            buf: BufState::Unallocated(capacity),
             pos: 0,
             cap: 0,
         }
@@ -59,7 +84,10 @@ impl<R> BufReader<R> {
     /// Unlike `fill_buf`, this will not attempt to fill the buffer if it is
     /// empty.
     pub fn buffer(&self) -> &[u8] {
-        &self.buf.as_ref().expect("unable to take buffer")[self.pos..self.cap]
+        match &self.buf {
+            BufState::Unallocated(_) => &[],
+            BufState::Available(buf) => &buf[self.pos..self.cap],
+        }
     }
 
     /// Invalidates all data in the internal buffer.
@@ -75,8 +103,7 @@ impl<R: AsyncReadRent> AsyncReadRent for BufReader<R> {
         // If we don't have any buffered data and we're doing a massive read
         // (larger than our internal buffer), bypass our internal buffer
         // entirely.
-        let owned_buf = self.buf.as_ref().unwrap();
-        if self.pos == self.cap && buf.bytes_total() >= owned_buf.len() {
+        if self.pos == self.cap && buf.bytes_total() >= self.buf.size() {
             self.discard_buffer();
             return self.inner.read(buf).await;
         }
@@ -115,19 +142,19 @@ impl<R: AsyncReadRent> AsyncBufRead for BufReader<R> {
     async fn fill_buf(&mut self) -> std::io::Result<&[u8]> {
         if self.pos == self.cap {
             // there's no buffered data
-            let buf = self
-                .buf
-                .take()
-                .expect("no buffer available, generated future must be awaited");
+            let buf = self.buf.take();
             let (res, buf_) = self.inner.read(buf).await;
-            self.buf = Some(buf_);
+            self.buf = BufState::Available(buf_);
             match res {
                 Ok(n) => {
                     self.pos = 0;
                     self.cap = n;
-                    return Ok(unsafe {
-                        // We just put the buf into Option, so it must be Some.
-                        &(self.buf.as_ref().unwrap_unchecked().as_ref())[self.pos..self.cap]
+                    return Ok(match &self.buf {
+                        BufState::Available(buf) => &buf[self.pos..self.cap],
+                        BufState::Unallocated(_) => {
+                            // We just put the buf into Option, so it must be Some.
+                            unreachable!()
+                        }
                     });
                 }
                 Err(e) => {
@@ -135,11 +162,17 @@ impl<R: AsyncReadRent> AsyncBufRead for BufReader<R> {
                 }
             }
         }
-        Ok(&(self
-            .buf
-            .as_ref()
-            .expect("no buffer available, generated future must be awaited")
-            .as_ref())[self.pos..self.cap])
+        match &self.buf {
+            BufState::Available(buf) => Ok(&buf[self.pos..self.cap]),
+            BufState::Unallocated(_) => {
+                // The `Unallocated` state only happens if:
+                // - nothing is read into this `BufReader` yet (pos == 0, cap == 0), or
+                // - a previous `fill_buf` was cancelled (pos == cap)
+                // Both cases are covered by the above `if` block, so it's impossible
+                // to reach here.
+                unreachable!("buf is unallocated");
+            }
+        }
     }
 
     fn consume(&mut self, amt: usize) {
