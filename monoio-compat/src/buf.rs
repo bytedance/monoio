@@ -117,9 +117,8 @@ impl Buf {
 
     /// Return slice for copying data from Buf to user space.
     pub(crate) fn buf_to_read(&self, max: usize) -> &[u8] {
-        let ptr = self.data.as_ptr() as *const u8;
         let len = max.min(self.init - self.offset);
-        unsafe { std::slice::from_raw_parts(ptr, len) }
+        unsafe { std::slice::from_raw_parts(self.read_ptr(), len) }
     }
 
     /// Advance offset.
@@ -132,7 +131,52 @@ impl Buf {
     /// Return slice for copying data from user space to Buf.
     #[allow(clippy::mut_from_ref)]
     pub(crate) fn buf_to_write(&mut self) -> &mut [u8] {
-        let ptr = self.data.as_ptr() as *mut u8;
-        unsafe { std::slice::from_raw_parts_mut(ptr, self.capacity) }
+        unsafe { std::slice::from_raw_parts_mut(self.write_ptr(), self.bytes_total()) }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use monoio::buf::IoBufMut;
+
+    use super::Buf;
+
+    #[test]
+    fn test_buf_to_rw() {
+        let mut buf = Buf::new(20);
+        // write 0..10
+        {
+            let filled = buf.buf_to_write();
+            for i in 0..10u8 {
+                filled[i as usize] = i;
+            }
+            unsafe {
+                buf.set_init(10);
+            }
+        }
+
+        // read 0..5
+        {
+            let part = buf.buf_to_read(5);
+            for i in 0..5u8 {
+                assert_eq!(part[i as usize], i);
+            }
+            unsafe {
+                buf.advance_offset(5);
+            }
+        }
+
+        // read 5..10
+        {
+            let part = buf.buf_to_read(5);
+            for i in 5..10u8 {
+                assert_eq!(part[i as usize - 5], i);
+            }
+            unsafe {
+                buf.advance_offset(5);
+            }
+        }
+
+        assert!(buf.is_empty());
     }
 }
