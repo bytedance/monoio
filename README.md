@@ -26,9 +26,7 @@ Moreover, Monoio is designed with a thread-per-core model in mind. Users do not 
 As you may have guessed, this runtime is primarily targeted at servers, where operations are io-bound on network sockets, and therefore the use of native asynchronous I/O APIs maximizes the throughput of the server. In order for Monoio to be as efficient as possible, we've enabled some unstable Rust features, and we've designed a whole new IO abstraction, which unfortunately may cause some compatibility problems. [Our benchmarks](https://github.com/bytedance/monoio/blob/master/docs/en/benchmark.md) probe that, for our use-cases, Monoio has a better performance than other Rust runtimes.
 
 ## Quick Start
-To use monoio, you need the latest nightly rust toolchain. If you already installed it, please make sure it is the latest version.
-
-To force using nightly, create a file named `rust-toolchain` and write `nightly` in it. Also, you can use `cargo +nightly` to build or run.
+To use monoio, you need rust 1.75. If you already installed it, please make sure it is the latest version.
 
 Also, if you want to use io_uring, you must make sure your kernel supports it([5.6+](docs/en/platform-support.md)). And, memlock is [configured as a proper number](docs/en/memlock.md). If your kernel version does not meet the requirements, you can try to use the legacy driver to start, currently supports Linux and macOS([ref here](/docs/en/use-legacy-driver.md)).
 
