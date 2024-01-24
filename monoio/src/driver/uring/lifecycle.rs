@@ -17,6 +17,7 @@ pub(crate) enum Lifecycle {
 
     /// The submitter no longer has interest in the operation result. The state
     /// must be passed to the driver and held until the operation completes.
+    #[allow(dead_code)]
     Ignored(Box<dyn std::any::Any>),
 
     /// The operation has completed.
