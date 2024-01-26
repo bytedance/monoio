@@ -9,8 +9,8 @@ use windows_sys::Win32::Networking::WinSock::{
 };
 
 use super::{super::shared_fd::SharedFd, Op, OpAble};
-#[cfg(feature = "legacy")]
-use crate::driver::legacy::ready::Direction;
+#[cfg(any(feature = "legacy", feature = "poll-io"))]
+use crate::driver::ready::Direction;
 
 pub(crate) struct Connect {
     pub(crate) fd: SharedFd,
@@ -52,12 +52,13 @@ impl OpAble for Connect {
         .build()
     }
 
-    #[cfg(feature = "legacy")]
+    #[cfg(any(feature = "legacy", feature = "poll-io"))]
+    #[inline]
     fn legacy_interest(&self) -> Option<(Direction, usize)> {
         None
     }
 
-    #[cfg(feature = "legacy")]
+    #[cfg(any(feature = "legacy", feature = "poll-io"))]
     fn legacy_call(&mut self) -> io::Result<u32> {
         // For ios/macos, if tfo is enabled, we will
         // call connectx here.
@@ -145,12 +146,13 @@ impl OpAble for ConnectUnix {
         .build()
     }
 
-    #[cfg(all(unix, feature = "legacy"))]
+    #[cfg(any(feature = "legacy", feature = "poll-io"))]
+    #[inline]
     fn legacy_interest(&self) -> Option<(Direction, usize)> {
         None
     }
 
-    #[cfg(all(unix, feature = "legacy"))]
+    #[cfg(any(feature = "legacy", feature = "poll-io"))]
     fn legacy_call(&mut self) -> io::Result<u32> {
         match crate::syscall_u32!(connect(
             self.fd.raw_fd(),

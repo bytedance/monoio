@@ -29,6 +29,7 @@ struct Shared {
 
 impl Canceller {
     /// Create a new Canceller.
+    #[inline]
     pub fn new() -> Self {
         Default::default()
     }
@@ -55,6 +56,7 @@ impl Canceller {
     }
 
     /// Create a CancelHandle which can be used to pass to io operation.
+    #[inline]
     pub fn handle(&self) -> CancelHandle {
         CancelHandle {
             shared: self.shared.clone(),

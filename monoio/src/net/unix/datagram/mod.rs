@@ -63,7 +63,7 @@ impl UnixDatagram {
         socklen: libc::socklen_t,
     ) -> io::Result<Self> {
         let socket = new_socket(libc::AF_UNIX, libc::SOCK_DGRAM)?;
-        let op = Op::connect_unix(SharedFd::new(socket)?, sockaddr, socklen)?;
+        let op = Op::connect_unix(SharedFd::new::<false>(socket)?, sockaddr, socklen)?;
         let completion = op.await;
         completion.meta.result?;
 
@@ -72,7 +72,7 @@ impl UnixDatagram {
 
     /// Creates new `UnixDatagram` from a `std::os::unix::net::UnixDatagram`.
     pub fn from_std(datagram: StdUnixDatagram) -> io::Result<Self> {
-        match SharedFd::new(datagram.as_raw_fd()) {
+        match SharedFd::new::<false>(datagram.as_raw_fd()) {
             Ok(shared) => {
                 datagram.into_raw_fd();
                 Ok(Self::from_shared_fd(shared))

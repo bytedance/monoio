@@ -53,7 +53,7 @@ impl UnixListener {
         sys_listener.bind(&addr)?;
         sys_listener.listen(config.backlog)?;
 
-        let fd = SharedFd::new(sys_listener.into_raw_fd())?;
+        let fd = SharedFd::new::<false>(sys_listener.into_raw_fd())?;
 
         Ok(Self::from_shared_fd(fd))
     }
@@ -75,7 +75,7 @@ impl UnixListener {
         let fd = completion.meta.result?;
 
         // Construct stream
-        let stream = UnixStream::from_shared_fd(SharedFd::new(fd as _)?);
+        let stream = UnixStream::from_shared_fd(SharedFd::new::<false>(fd as _)?);
 
         // Construct SocketAddr
         let mut storage = unsafe { std::mem::MaybeUninit::assume_init(completion.data.addr.0) };
@@ -105,7 +105,7 @@ impl UnixListener {
         let fd = completion.meta.result?;
 
         // Construct stream
-        let stream = UnixStream::from_shared_fd(SharedFd::new(fd as _)?);
+        let stream = UnixStream::from_shared_fd(SharedFd::new::<false>(fd as _)?);
 
         // Construct SocketAddr
         let mut storage = unsafe { std::mem::MaybeUninit::assume_init(completion.data.addr.0) };
@@ -135,7 +135,7 @@ impl UnixListener {
 
     /// Creates new `UnixListener` from a `std::os::unix::net::UnixListener`.
     pub fn from_std(sys_listener: std::os::unix::net::UnixListener) -> io::Result<Self> {
-        match SharedFd::new(sys_listener.as_raw_fd()) {
+        match SharedFd::new::<false>(sys_listener.as_raw_fd()) {
             Ok(shared) => Ok(Self {
                 fd: shared,
                 sys_listener: Some(sys_listener),

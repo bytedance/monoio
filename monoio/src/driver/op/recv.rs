@@ -6,9 +6,9 @@ use std::{
 
 #[cfg(all(target_os = "linux", feature = "iouring"))]
 use io_uring::{opcode, types};
-#[cfg(all(unix, feature = "legacy"))]
+#[cfg(any(feature = "legacy", feature = "poll-io"))]
 use {
-    crate::{driver::legacy::ready::Direction, syscall_u32},
+    crate::{driver::ready::Direction, syscall_u32},
     std::os::unix::prelude::AsRawFd,
 };
 
@@ -64,12 +64,13 @@ impl<T: IoBufMut> OpAble for Recv<T> {
         .build()
     }
 
-    #[cfg(all(unix, feature = "legacy"))]
+    #[cfg(any(feature = "legacy", feature = "poll-io"))]
+    #[inline]
     fn legacy_interest(&self) -> Option<(Direction, usize)> {
         self.fd.registered_index().map(|idx| (Direction::Read, idx))
     }
 
-    #[cfg(all(unix, feature = "legacy"))]
+    #[cfg(any(feature = "legacy", feature = "poll-io"))]
     fn legacy_call(&mut self) -> io::Result<u32> {
         let fd = self.fd.as_raw_fd();
         syscall_u32!(recv(
@@ -170,12 +171,13 @@ impl<T: IoBufMut> OpAble for RecvMsg<T> {
         opcode::RecvMsg::new(types::Fd(self.fd.raw_fd()), &mut self.info.2 as *mut _).build()
     }
 
-    #[cfg(all(unix, feature = "legacy"))]
+    #[cfg(any(feature = "legacy", feature = "poll-io"))]
+    #[inline]
     fn legacy_interest(&self) -> Option<(Direction, usize)> {
         self.fd.registered_index().map(|idx| (Direction::Read, idx))
     }
 
-    #[cfg(all(unix, feature = "legacy"))]
+    #[cfg(any(feature = "legacy", feature = "poll-io"))]
     fn legacy_call(&mut self) -> io::Result<u32> {
         let fd = self.fd.as_raw_fd();
         syscall_u32!(recvmsg(fd, &mut self.info.2 as *mut _, 0))
@@ -248,12 +250,13 @@ impl<T: IoBufMut> OpAble for RecvMsgUnix<T> {
         opcode::RecvMsg::new(types::Fd(self.fd.raw_fd()), &mut self.info.2 as *mut _).build()
     }
 
-    #[cfg(all(unix, feature = "legacy"))]
+    #[cfg(any(feature = "legacy", feature = "poll-io"))]
+    #[inline]
     fn legacy_interest(&self) -> Option<(Direction, usize)> {
         self.fd.registered_index().map(|idx| (Direction::Read, idx))
     }
 
-    #[cfg(all(unix, feature = "legacy"))]
+    #[cfg(any(feature = "legacy", feature = "poll-io"))]
     fn legacy_call(&mut self) -> io::Result<u32> {
         let fd = self.fd.as_raw_fd();
         syscall_u32!(recvmsg(fd, &mut self.info.2 as *mut _, 0))

@@ -15,8 +15,12 @@ use lifecycle::Lifecycle;
 
 use super::{
     op::{CompletionMeta, Op, OpAble},
+    // ready::Ready,
+    // scheduled_io::ScheduledIo,
     util::timespec,
-    Driver, Inner, CURRENT,
+    Driver,
+    Inner,
+    CURRENT,
 };
 use crate::utils::slab::Slab;
 
@@ -31,8 +35,10 @@ pub(crate) const CANCEL_USERDATA: u64 = u64::MAX;
 pub(crate) const TIMEOUT_USERDATA: u64 = u64::MAX - 1;
 #[allow(unused)]
 pub(crate) const EVENTFD_USERDATA: u64 = u64::MAX - 2;
+#[cfg(feature = "poll-io")]
+pub(crate) const POLLER_USERDATA: u64 = u64::MAX - 3;
 
-pub(crate) const MIN_REVERSED_USERDATA: u64 = u64::MAX - 2;
+pub(crate) const MIN_REVERSED_USERDATA: u64 = u64::MAX - 3;
 
 /// Driver with uring.
 pub struct IoUringDriver {
@@ -53,6 +59,11 @@ pub struct IoUringDriver {
 pub(crate) struct UringInner {
     /// In-flight operations
     ops: Ops,
+
+    #[cfg(feature = "poll-io")]
+    poll: super::poll::Poll,
+    #[cfg(feature = "poll-io")]
+    poller_installed: bool,
 
     /// IoUring bindings
     uring: ManuallyDrop<IoUring>,
@@ -94,6 +105,10 @@ impl IoUringDriver {
         let uring = ManuallyDrop::new(urb.build(entries)?);
 
         let inner = Rc::new(UnsafeCell::new(UringInner {
+            #[cfg(feature = "poll-io")]
+            poll: super::poll::Poll::with_capacity(entries as usize)?,
+            #[cfg(feature = "poll-io")]
+            poller_installed: false,
             ops: Ops::new(),
             ext_arg: uring.params().is_feature_ext_arg(),
             uring,
@@ -124,6 +139,10 @@ impl IoUringDriver {
         let (waker_sender, waker_receiver) = flume::unbounded::<std::task::Waker>();
 
         let inner = Rc::new(UnsafeCell::new(UringInner {
+            #[cfg(feature = "poll-io")]
+            poller_installed: false,
+            #[cfg(feature = "poll-io")]
+            poll: super::poll::Poll::with_capacity(entries as usize)?,
             ops: Ops::new(),
             ext_arg: uring.params().is_feature_ext_arg(),
             uring,
@@ -172,6 +191,17 @@ impl IoUringDriver {
         let mut sq = inner.uring.submission();
         let _ = unsafe { sq.push(&entry) };
         inner.eventfd_installed = true;
+    }
+
+    #[cfg(feature = "poll-io")]
+    fn install_poller(&self, inner: &mut UringInner, fd: RawFd) {
+        let entry = opcode::PollAdd::new(io_uring::types::Fd(fd), libc::POLLIN as _)
+            .build()
+            .user_data(POLLER_USERDATA);
+
+        let mut sq = inner.uring.submission();
+        let _ = unsafe { sq.push(&entry) };
+        inner.poller_installed = true;
     }
 
     fn install_timeout(&self, inner: &mut UringInner, duration: Duration) {
@@ -225,6 +255,10 @@ impl IoUringDriver {
             if !inner.eventfd_installed {
                 space += 1;
             }
+            #[cfg(feature = "poll-io")]
+            if !inner.poller_installed {
+                space += 1;
+            }
             if timeout.is_some() {
                 space += 1;
             }
@@ -232,11 +266,19 @@ impl IoUringDriver {
                 Self::flush_space(inner, space)?;
             }
 
-            // 2. install eventfd and timeout
+            // 2.1 install poller
+            #[cfg(feature = "poll-io")]
+            if !inner.poller_installed {
+                self.install_poller(inner, inner.poll.as_raw_fd());
+            }
+
+            // 2.2 install eventfd and timeout
             #[cfg(feature = "sync")]
             if !inner.eventfd_installed {
                 self.install_eventfd(inner, inner.shared_waker.as_raw_fd());
             }
+
+            // 2.3 install timeout and submit_and_wait with timeout
             if let Some(duration) = timeout {
                 match inner.ext_arg {
                     // Submit and Wait with timeout in an TimeoutOp way.
@@ -274,9 +316,31 @@ impl IoUringDriver {
             .store(true, std::sync::atomic::Ordering::Release);
 
         // Process CQ
-        inner.tick();
+        inner.tick()?;
 
         Ok(())
+    }
+
+    #[cfg(feature = "poll-io")]
+    #[inline]
+    pub(crate) fn register_poll_io(
+        this: &Rc<UnsafeCell<UringInner>>,
+        source: &mut impl mio::event::Source,
+        interest: mio::Interest,
+    ) -> io::Result<usize> {
+        let inner = unsafe { &mut *this.get() };
+        inner.poll.register(source, interest)
+    }
+
+    #[cfg(feature = "poll-io")]
+    #[inline]
+    pub(crate) fn deregister_poll_io(
+        this: &Rc<UnsafeCell<UringInner>>,
+        source: &mut impl mio::event::Source,
+        token: usize,
+    ) -> io::Result<()> {
+        let inner = unsafe { &mut *this.get() };
+        inner.poll.deregister(source, token)
     }
 }
 
@@ -291,7 +355,7 @@ impl Driver for IoUringDriver {
     fn submit(&self) -> io::Result<()> {
         let inner = unsafe { &mut *self.inner.get() };
         inner.submit()?;
-        inner.tick();
+        inner.tick()?;
         Ok(())
     }
 
@@ -313,7 +377,7 @@ impl Driver for IoUringDriver {
 }
 
 impl UringInner {
-    fn tick(&mut self) {
+    fn tick(&mut self) -> io::Result<()> {
         let cq = self.uring.completion();
 
         for cqe in cq {
@@ -321,10 +385,16 @@ impl UringInner {
             match index {
                 #[cfg(feature = "sync")]
                 EVENTFD_USERDATA => self.eventfd_installed = false,
+                #[cfg(feature = "poll-io")]
+                POLLER_USERDATA => {
+                    self.poller_installed = false;
+                    self.poll.tick(Some(Duration::ZERO))?;
+                }
                 _ if index >= MIN_REVERSED_USERDATA => (),
                 _ => self.ops.complete(index as _, resultify(&cqe), cqe.flags()),
             }
         }
+        Ok(())
     }
 
     fn submit(&mut self) -> io::Result<()> {
@@ -332,21 +402,19 @@ impl UringInner {
             match self.uring.submit() {
                 #[cfg(feature = "unstable")]
                 Err(ref e)
-                    if e.kind() == io::ErrorKind::Other
-                        || e.kind() == io::ErrorKind::ResourceBusy =>
+                    if matches!(e.kind(), io::ErrorKind::Other | io::ErrorKind::ResourceBusy) =>
                 {
-                    self.tick();
+                    self.tick()?;
                 }
                 #[cfg(not(feature = "unstable"))]
                 Err(ref e)
-                    if e.raw_os_error() == Some(libc::EAGAIN)
-                        || e.raw_os_error() == Some(libc::EBUSY) =>
+                    if matches!(e.raw_os_error(), Some(libc::EAGAIN) | Some(libc::EBUSY)) =>
                 {
                     // This error is constructed with io::Error::last_os_error():
                     // https://github.com/tokio-rs/io-uring/blob/01c83bbce965d4aaf93ebfaa08c3aa8b7b0f5335/src/sys/mod.rs#L32
                     // So we can use https://doc.rust-lang.org/nightly/std/io/struct.Error.html#method.raw_os_error
                     // to get the raw error code.
-                    self.tick();
+                    self.tick()?;
                 }
                 e => return e.map(|_| ()),
             }
@@ -410,6 +478,31 @@ impl UringInner {
         let inner = unsafe { &mut *this.get() };
         let lifecycle = unsafe { inner.ops.slab.get(index).unwrap_unchecked() };
         lifecycle.poll_op(cx)
+    }
+
+    #[cfg(feature = "poll-io")]
+    pub(crate) fn poll_legacy_op<T: OpAble>(
+        this: &Rc<UnsafeCell<Self>>,
+        data: &mut T,
+        cx: &mut Context<'_>,
+    ) -> Poll<CompletionMeta> {
+        let inner = unsafe { &mut *this.get() };
+        let (direction, index) = match data.legacy_interest() {
+            Some(x) => x,
+            None => {
+                // if there is no index provided, it means the action does not rely on fd
+                // readiness. do syscall right now.
+                return Poll::Ready(CompletionMeta {
+                    result: OpAble::legacy_call(data),
+                    flags: 0,
+                });
+            }
+        };
+
+        // wait io ready and do syscall
+        inner
+            .poll
+            .poll_syscall(cx, index, direction, || OpAble::legacy_call(data))
     }
 
     pub(crate) fn drop_op<T: 'static>(

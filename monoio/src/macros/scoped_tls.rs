@@ -122,6 +122,7 @@ impl<T> ScopedKey<T> {
     }
 
     /// Test whether this TLS key has been `set` for the current thread.
+    #[inline]
     pub fn is_set(&'static self) -> bool {
         self.inner.with(|c| !c.get().is_null())
     }

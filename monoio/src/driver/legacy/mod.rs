@@ -8,17 +8,16 @@ use std::{
     time::Duration,
 };
 
-use self::{ready::Ready, scheduled_io::ScheduledIo};
 use super::{
     op::{CompletionMeta, Op, OpAble},
+    ready::{self, Ready},
+    scheduled_io::ScheduledIo,
     Driver, Inner, CURRENT,
 };
 use crate::utils::slab::Slab;
 
 #[cfg(windows)]
 pub(super) mod iocp;
-pub(crate) mod ready;
-mod scheduled_io;
 
 #[cfg(feature = "sync")]
 mod waker;
@@ -28,11 +27,11 @@ pub(crate) use waker::UnparkHandle;
 pub(crate) struct LegacyInner {
     pub(crate) io_dispatch: Slab<ScheduledIo>,
     #[cfg(unix)]
-    events: Option<mio::Events>,
+    events: mio::Events,
     #[cfg(unix)]
     poll: mio::Poll,
     #[cfg(windows)]
-    events: Option<iocp::Events>,
+    events: iocp::Events,
     #[cfg(windows)]
     poll: iocp::Poller,
 
@@ -87,11 +86,11 @@ impl LegacyDriver {
         let inner = LegacyInner {
             io_dispatch: Slab::new(),
             #[cfg(unix)]
-            events: Some(mio::Events::with_capacity(entries as usize)),
+            events: mio::Events::with_capacity(entries as usize),
             #[cfg(unix)]
             poll,
             #[cfg(windows)]
-            events: Some(iocp::Events::with_capacity(entries as usize)),
+            events: iocp::Events::with_capacity(entries as usize),
             #[cfg(windows)]
             poll,
             #[cfg(feature = "sync")]
@@ -149,7 +148,7 @@ impl LegacyDriver {
         }
 
         // here we borrow 2 mut self, but its safe.
-        let events = unsafe { (*self.inner.get()).events.as_mut().unwrap_unchecked() };
+        let events = unsafe { &mut (*self.inner.get()).events };
         match inner.poll.poll(events, timeout) {
             Ok(_) => {}
             Err(ref e) if e.kind() == io::ErrorKind::Interrupted => {}
@@ -213,8 +212,7 @@ impl LegacyDriver {
         interest: mio::Interest,
     ) -> io::Result<usize> {
         let inner = unsafe { &mut *this.get() };
-        let io = ScheduledIo::default();
-        let token = inner.io_dispatch.insert(io);
+        let token = inner.io_dispatch.insert(ScheduledIo::new());
 
         let registry = inner.poll.registry();
         match registry.register(source, mio::Token(token), interest) {
@@ -279,37 +277,33 @@ impl LegacyInner {
         // wait io ready and do syscall
         let mut scheduled_io = inner.io_dispatch.get(index).expect("scheduled_io lost");
         let ref_mut = scheduled_io.as_mut();
-        loop {
-            let readiness = ready!(ref_mut.poll_readiness(cx, direction));
 
-            // check if canceled
-            if readiness.is_canceled() {
-                // clear CANCELED part only
-                ref_mut.clear_readiness(readiness & Ready::CANCELED);
-                return Poll::Ready(CompletionMeta {
-                    result: Err(io::Error::from_raw_os_error(125)),
-                    flags: 0,
-                });
-            }
+        let readiness = ready!(ref_mut.poll_readiness(cx, direction));
 
-            match OpAble::legacy_call(data) {
-                Ok(n) => {
-                    return Poll::Ready(CompletionMeta {
-                        result: Ok(n),
-                        flags: 0,
-                    })
-                }
-                Err(ref e) if e.kind() == io::ErrorKind::WouldBlock => {
-                    ref_mut.clear_readiness(direction.mask());
-                    continue;
-                }
-                Err(e) => {
-                    return Poll::Ready(CompletionMeta {
-                        result: Err(e),
-                        flags: 0,
-                    })
-                }
+        // check if canceled
+        if readiness.is_canceled() {
+            // clear CANCELED part only
+            ref_mut.clear_readiness(readiness & Ready::CANCELED);
+            return Poll::Ready(CompletionMeta {
+                result: Err(io::Error::from_raw_os_error(125)),
+                flags: 0,
+            });
+        }
+
+        match OpAble::legacy_call(data) {
+            Ok(n) => Poll::Ready(CompletionMeta {
+                result: Ok(n),
+                flags: 0,
+            }),
+            Err(ref e) if e.kind() == io::ErrorKind::WouldBlock => {
+                ref_mut.clear_readiness(direction.mask());
+                ref_mut.set_waker(cx, direction);
+                Poll::Pending
             }
+            Err(e) => Poll::Ready(CompletionMeta {
+                result: Err(e),
+                flags: 0,
+            }),
         }
     }
 

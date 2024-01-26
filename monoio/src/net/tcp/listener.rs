@@ -84,7 +84,7 @@ impl TcpListener {
         }
 
         #[cfg(unix)]
-        let fd = SharedFd::new(sys_listener.into_raw_fd())?;
+        let fd = SharedFd::new::<false>(sys_listener.into_raw_fd())?;
 
         #[cfg(windows)]
         let fd = unimplemented!();
@@ -110,7 +110,7 @@ impl TcpListener {
         let fd = completion.meta.result?;
 
         // Construct stream
-        let stream = TcpStream::from_shared_fd(SharedFd::new(fd as _)?);
+        let stream = TcpStream::from_shared_fd(SharedFd::new::<false>(fd as _)?);
 
         // Construct SocketAddr
         let storage = completion.data.addr.0.as_ptr();
@@ -163,7 +163,7 @@ impl TcpListener {
         let fd = completion.meta.result?;
 
         // Construct stream
-        let stream = TcpStream::from_shared_fd(SharedFd::new(fd as _)?);
+        let stream = TcpStream::from_shared_fd(SharedFd::new::<false>(fd as _)?);
 
         // Construct SocketAddr
         let storage = completion.data.addr.0.as_ptr();
@@ -247,7 +247,7 @@ impl TcpListener {
 
     /// Creates new `TcpListener` from a `std::net::TcpListener`.
     pub fn from_std(stdl: std::net::TcpListener) -> io::Result<Self> {
-        match SharedFd::new(stdl.as_raw_fd()) {
+        match SharedFd::new::<false>(stdl.as_raw_fd()) {
             Ok(shared) => {
                 stdl.into_raw_fd();
                 Ok(Self::from_shared_fd(shared))

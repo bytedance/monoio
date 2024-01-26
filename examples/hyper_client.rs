@@ -1,127 +1,60 @@
-//! HTTP client example with hyper in compatible mode.
+//! HTTP client example with hyper in poll-io mode.
 //!
-//! It will try to fetch http://127.0.0.1:23300/monoio and print the
+//! It will try to fetch http://httpbin.org/ip and print the
 //! response.
-//!
-//! Note:
-//! It is not recommended to use this example as a production code.
-//! The `hyper` require `Send` for a future and obviously the future
-//! is not `Send` in monoio. So we just use some unsafe code to let
-//! it pass which infact not a good solution but the only way to
-//! make it work without modifying hyper.
 
-use std::{future::Future, pin::Pin};
+use std::io::Write;
 
-use monoio_compat::TcpStreamCompat;
+use bytes::Bytes;
+use http_body_util::{BodyExt, Empty};
+use hyper::Request;
+use monoio::{io::IntoPollIo, net::TcpStream};
+use monoio_compat::hyper::MonoioIo;
 
-#[derive(Clone)]
-struct HyperExecutor;
+type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
 
-impl<F> hyper::rt::Executor<F> for HyperExecutor
-where
-    F: Future + 'static,
-    F::Output: 'static,
-{
-    fn execute(&self, fut: F) {
-        monoio::spawn(fut);
+async fn fetch_url(url: hyper::Uri) -> Result<()> {
+    let host = url.host().expect("uri has no host");
+    let port = url.port_u16().unwrap_or(80);
+    let addr = format!("{}:{}", host, port);
+    let stream = TcpStream::connect(addr).await?.into_poll_io()?;
+    let io = MonoioIo::new(stream);
+
+    let (mut sender, conn) = hyper::client::conn::http1::handshake(io).await?;
+    monoio::spawn(async move {
+        if let Err(err) = conn.await {
+            println!("Connection failed: {:?}", err);
+        }
+    });
+
+    let authority = url.authority().unwrap().clone();
+
+    let path = url.path();
+    let req = Request::builder()
+        .uri(path)
+        .header(hyper::header::HOST, authority.as_str())
+        .body(Empty::<Bytes>::new())?;
+
+    let mut res = sender.send_request(req).await?;
+
+    println!("Response: {}", res.status());
+    println!("Headers: {:#?}\n", res.headers());
+
+    // Stream the body, writing each chunk to stdout as we get it
+    // (instead of buffering and printing at the end).
+    while let Some(next) = res.frame().await {
+        let frame = next?;
+        if let Some(chunk) = frame.data_ref() {
+            std::io::stdout().write_all(chunk)?;
+        }
     }
+    println!("\n\nDone!");
+
+    Ok(())
 }
-
-#[derive(Clone)]
-struct HyperConnector;
-
-impl tower_service::Service<hyper::Uri> for HyperConnector {
-    type Response = HyperConnection;
-
-    type Error = std::io::Error;
-
-    #[allow(clippy::type_complexity)]
-    type Future = Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send>>;
-
-    fn poll_ready(
-        &mut self,
-        _: &mut std::task::Context<'_>,
-    ) -> std::task::Poll<Result<(), Self::Error>> {
-        std::task::Poll::Ready(Ok(()))
-    }
-
-    fn call(&mut self, uri: hyper::Uri) -> Self::Future {
-        let host = uri.host().unwrap();
-        let port = uri.port_u16().unwrap_or(80);
-        let address = format!("{host}:{port}");
-
-        #[allow(clippy::type_complexity)]
-        let b: Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>>>> =
-            Box::pin(async move {
-                let conn = monoio::net::TcpStream::connect(address).await?;
-                let hyper_conn = HyperConnection(TcpStreamCompat::new(conn));
-                Ok(hyper_conn)
-            });
-        unsafe { std::mem::transmute(b) }
-    }
-}
-
-struct HyperConnection(TcpStreamCompat);
-
-impl tokio::io::AsyncRead for HyperConnection {
-    fn poll_read(
-        mut self: Pin<&mut Self>,
-        cx: &mut std::task::Context<'_>,
-        buf: &mut tokio::io::ReadBuf<'_>,
-    ) -> std::task::Poll<std::io::Result<()>> {
-        Pin::new(&mut self.0).poll_read(cx, buf)
-    }
-}
-
-impl tokio::io::AsyncWrite for HyperConnection {
-    fn poll_write(
-        mut self: Pin<&mut Self>,
-        cx: &mut std::task::Context<'_>,
-        buf: &[u8],
-    ) -> std::task::Poll<Result<usize, std::io::Error>> {
-        Pin::new(&mut self.0).poll_write(cx, buf)
-    }
-
-    fn poll_flush(
-        mut self: Pin<&mut Self>,
-        cx: &mut std::task::Context<'_>,
-    ) -> std::task::Poll<Result<(), std::io::Error>> {
-        Pin::new(&mut self.0).poll_flush(cx)
-    }
-
-    fn poll_shutdown(
-        mut self: Pin<&mut Self>,
-        cx: &mut std::task::Context<'_>,
-    ) -> std::task::Poll<Result<(), std::io::Error>> {
-        Pin::new(&mut self.0).poll_shutdown(cx)
-    }
-}
-
-impl hyper::client::connect::Connection for HyperConnection {
-    fn connected(&self) -> hyper::client::connect::Connected {
-        hyper::client::connect::Connected::new()
-    }
-}
-
-#[allow(clippy::non_send_fields_in_send_ty)]
-unsafe impl Send for HyperConnection {}
 
 #[monoio::main]
 async fn main() {
-    println!("Running http client");
-    let connector = HyperConnector;
-    let client = hyper::Client::builder()
-        .executor(HyperExecutor)
-        .build::<HyperConnector, hyper::Body>(connector);
-    let res = client
-        .get("http://127.0.0.1:23300/monoio".parse().unwrap())
-        .await
-        .expect("failed to fetch");
-    println!("Response status: {}", res.status());
-    let body = hyper::body::to_bytes(res.into_body())
-        .await
-        .expect("failed to read body");
-    let body =
-        String::from_utf8(body.into_iter().collect()).expect("failed to convert body to string");
-    println!("Response body: {body}");
+    let url = "http://httpbin.org/ip".parse::<hyper::Uri>().unwrap();
+    fetch_url(url).await.unwrap();
 }

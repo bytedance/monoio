@@ -34,8 +34,8 @@ impl UnixSeqpacket {
     pub fn pair() -> io::Result<(Self, Self)> {
         let (a, b) = pair(libc::SOCK_SEQPACKET)?;
         Ok((
-            Self::from_shared_fd(SharedFd::new(a)?),
-            Self::from_shared_fd(SharedFd::new(b)?),
+            Self::from_shared_fd(SharedFd::new::<false>(a)?),
+            Self::from_shared_fd(SharedFd::new::<false>(b)?),
         ))
     }
 
@@ -57,7 +57,7 @@ impl UnixSeqpacket {
         socklen: libc::socklen_t,
     ) -> io::Result<Self> {
         let socket = new_socket(libc::AF_UNIX, libc::SOCK_SEQPACKET)?;
-        let op = Op::connect_unix(SharedFd::new(socket)?, sockaddr, socklen)?;
+        let op = Op::connect_unix(SharedFd::new::<false>(socket)?, sockaddr, socklen)?;
         let completion = op.await;
         completion.meta.result?;
 

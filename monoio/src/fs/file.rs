@@ -137,7 +137,7 @@ impl File {
     #[cfg(unix)]
     pub fn from_std(std: StdFile) -> io::Result<File> {
         Ok(File {
-            fd: SharedFd::new(std.into_raw_fd())?,
+            fd: SharedFd::new::<false>(std.into_raw_fd())?,
         })
     }
 

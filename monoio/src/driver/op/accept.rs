@@ -13,12 +13,12 @@ use {
         accept, socklen_t, INVALID_SOCKET, SOCKADDR_STORAGE,
     },
 };
-#[cfg(all(unix, feature = "legacy"))]
+#[cfg(any(feature = "legacy", feature = "poll-io"))]
 use {crate::syscall_u32, std::os::unix::prelude::AsRawFd};
 
 use super::{super::shared_fd::SharedFd, Op, OpAble};
-#[cfg(feature = "legacy")]
-use crate::driver::legacy::ready::Direction;
+#[cfg(any(feature = "legacy", feature = "poll-io"))]
+use crate::driver::ready::Direction;
 
 /// Accept
 pub(crate) struct Accept {
@@ -62,12 +62,13 @@ impl OpAble for Accept {
         .build()
     }
 
-    #[cfg(feature = "legacy")]
+    #[cfg(all(any(feature = "legacy", feature = "poll-io"), not(windows)))]
+    #[inline]
     fn legacy_interest(&self) -> Option<(Direction, usize)> {
         self.fd.registered_index().map(|idx| (Direction::Read, idx))
     }
 
-    #[cfg(windows)]
+    #[cfg(all(any(feature = "legacy", feature = "poll-io"), windows))]
     fn legacy_call(&mut self) -> io::Result<u32> {
         let fd = self.fd.as_raw_socket();
         let addr = self.addr.0.as_mut_ptr() as *mut _;
@@ -76,7 +77,7 @@ impl OpAble for Accept {
         syscall!(accept(fd, addr, len), PartialEq::eq, INVALID_SOCKET)
     }
 
-    #[cfg(all(unix, feature = "legacy"))]
+    #[cfg(any(feature = "legacy", feature = "poll-io"))]
     fn legacy_call(&mut self) -> io::Result<u32> {
         let fd = self.fd.as_raw_fd();
         let addr = self.addr.0.as_mut_ptr() as *mut _;

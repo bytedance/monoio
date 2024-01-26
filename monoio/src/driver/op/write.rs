@@ -2,9 +2,9 @@ use std::io;
 
 #[cfg(all(target_os = "linux", feature = "iouring"))]
 use io_uring::{opcode, types};
-#[cfg(all(unix, feature = "legacy"))]
+#[cfg(any(feature = "legacy", feature = "poll-io"))]
 use {
-    crate::{driver::legacy::ready::Direction, syscall_u32},
+    crate::{driver::ready::Direction, syscall_u32},
     std::os::unix::prelude::AsRawFd,
 };
 
@@ -51,14 +51,15 @@ impl<T: IoBuf> OpAble for Write<T> {
         .build()
     }
 
-    #[cfg(all(unix, feature = "legacy"))]
+    #[cfg(any(feature = "legacy", feature = "poll-io"))]
+    #[inline]
     fn legacy_interest(&self) -> Option<(Direction, usize)> {
         self.fd
             .registered_index()
             .map(|idx| (Direction::Write, idx))
     }
 
-    #[cfg(all(unix, feature = "legacy"))]
+    #[cfg(any(feature = "legacy", feature = "poll-io"))]
     fn legacy_call(&mut self) -> io::Result<u32> {
         let fd = self.fd.as_raw_fd();
         let seek_offset = libc::off_t::try_from(self.offset)
@@ -120,14 +121,15 @@ impl<T: IoVecBuf> OpAble for WriteVec<T> {
         opcode::Writev::new(types::Fd(self.fd.raw_fd()), ptr, len).build()
     }
 
-    #[cfg(all(unix, feature = "legacy"))]
+    #[cfg(any(feature = "legacy", feature = "poll-io"))]
+    #[inline]
     fn legacy_interest(&self) -> Option<(Direction, usize)> {
         self.fd
             .registered_index()
             .map(|idx| (Direction::Write, idx))
     }
 
-    #[cfg(all(unix, feature = "legacy"))]
+    #[cfg(any(feature = "legacy", feature = "poll-io"))]
     fn legacy_call(&mut self) -> io::Result<u32> {
         syscall_u32!(writev(
             self.fd.raw_fd(),

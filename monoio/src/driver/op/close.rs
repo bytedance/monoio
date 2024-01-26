@@ -11,10 +11,6 @@ use {
 };
 
 use super::{Op, OpAble};
-#[cfg(feature = "legacy")]
-use crate::driver::legacy::ready::Direction;
-#[cfg(all(unix, feature = "legacy"))]
-use crate::syscall_u32;
 
 pub(crate) struct Close {
     #[cfg(unix)]
@@ -42,15 +38,16 @@ impl OpAble for Close {
         opcode::Close::new(types::Fd(self.fd)).build()
     }
 
-    #[cfg(feature = "legacy")]
-    fn legacy_interest(&self) -> Option<(Direction, usize)> {
+    #[cfg(any(feature = "legacy", feature = "poll-io"))]
+    #[inline]
+    fn legacy_interest(&self) -> Option<(crate::driver::ready::Direction, usize)> {
         None
     }
 
-    #[cfg(feature = "legacy")]
+    #[cfg(any(feature = "legacy", feature = "poll-io"))]
     fn legacy_call(&mut self) -> io::Result<u32> {
         #[cfg(unix)]
-        return syscall_u32!(close(self.fd));
+        return crate::syscall_u32!(close(self.fd));
 
         #[cfg(windows)]
         return syscall!(closesocket(self.fd), PartialEq::ne, 0);

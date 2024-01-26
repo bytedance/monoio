@@ -7,6 +7,5 @@ members = [
 
     # Internal
     "examples",
-    "examples/tokio-io-compat",
 ]
 resolver = "2"

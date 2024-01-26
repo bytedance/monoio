@@ -64,7 +64,7 @@ impl UdpSocket {
         socket.bind(&addr)?;
 
         #[cfg(unix)]
-        let fd = SharedFd::new(socket.into_raw_fd())?;
+        let fd = SharedFd::new::<false>(socket.into_raw_fd())?;
         #[cfg(windows)]
         let fd = unimplemented!();
 
@@ -134,7 +134,7 @@ impl UdpSocket {
 
     /// Creates new `UdpSocket` from a `std::net::UdpSocket`.
     pub fn from_std(socket: std::net::UdpSocket) -> io::Result<Self> {
-        match SharedFd::new(socket.as_raw_fd()) {
+        match SharedFd::new::<false>(socket.as_raw_fd()) {
             Ok(shared) => {
                 socket.into_raw_fd();
                 Ok(Self::from_shared_fd(shared))
