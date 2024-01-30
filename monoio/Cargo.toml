@@ -53,6 +53,8 @@ local-sync = "0.0.5"
 tempfile = "3.2"
 
 [features]
+# use nightly only feature flags
+unstable = []
 # async-cancel will push a async-cancel entry into sq when op is canceled
 async-cancel = []
 # enanle zero copy(enable SOCK_ZEROCOPY + MSG_ZEROCOPY flag)

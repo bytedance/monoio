@@ -1,10 +1,10 @@
 #![doc = include_str!("../../README.md")]
 #![warn(missing_docs, unreachable_pub)]
 #![allow(stable_features)]
-#![feature(io_error_more)]
-#![feature(lazy_cell)]
-#![feature(stmt_expr_attributes)]
-#![feature(thread_local)]
+#![cfg_attr(feature = "unstable", feature(io_error_more))]
+#![cfg_attr(feature = "unstable", feature(lazy_cell))]
+#![cfg_attr(feature = "unstable", feature(stmt_expr_attributes))]
+#![cfg_attr(feature = "unstable", feature(thread_local))]
 
 #[macro_use]
 pub mod macros;

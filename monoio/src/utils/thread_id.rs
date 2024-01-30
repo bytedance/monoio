@@ -1,12 +1,11 @@
 use std::sync::{
     atomic::{AtomicUsize, Ordering::Relaxed},
-    LazyLock,
 };
 
 // thread id begins from 16.
 // 0 is default thread
 // 1-15 are unused
-static ID_GEN: LazyLock<AtomicUsize> = LazyLock::new(|| AtomicUsize::new(16));
+static ID_GEN: AtomicUsize = AtomicUsize::new(16);
 
 pub(crate) const DEFAULT_THREAD_ID: usize = 0;
 
