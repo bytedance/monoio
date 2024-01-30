@@ -13,6 +13,7 @@ on:
 env:
   RUST_TOOLCHAIN: nightly
   TOOLCHAIN_PROFILE: minimal
+  CARGO_TERM_COLOR: always
 
 jobs:
   lints:
