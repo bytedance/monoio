@@ -21,6 +21,7 @@ pin-project-lite = "0.2"
 socket2 = { version = "0.5", features = ["all"] }
 
 bytes = { version = "1", optional = true }
+fixed-vec-deque = { version = "0.1", optional = true }
 flume = { version = "0.10", optional = true }
 mio = { version = "0.8", features = [
   "net",
@@ -74,10 +75,20 @@ debug = ["tracing"]
 legacy = ["mio"]
 # iouring support
 iouring = []
+# iouring support with user provided  IO operation limits
+iouring-fixed = ["dep:fixed-vec-deque"]
 # tokio-compatible(only have effect when legacy is enabled and iouring is not)
 tokio-compat = ["tokio"]
 # signal enables setting ctrl_c handler
 signal = ["ctrlc", "sync"]
 signal-termination = ["signal", "ctrlc/termination"]
 # by default both iouring and legacy are enabled
-default = ["async-cancel", "bytes", "iouring", "legacy", "macros", "utils"]
+default = [
+  "async-cancel",
+  "bytes",
+  "iouring",
+  "iouring-fixed",
+  "legacy",
+  "macros",
+  "utils",
+]

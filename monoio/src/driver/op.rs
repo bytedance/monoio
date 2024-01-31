@@ -47,6 +47,8 @@ pub(crate) struct CompletionMeta {
     pub(crate) result: io::Result<u32>,
     #[allow(unused)]
     pub(crate) flags: u32,
+    // relevant to io_uring_fixed runtime
+    pub(crate) user_data: usize,
 }
 
 pub(crate) trait OpAble {
@@ -97,6 +99,14 @@ impl<T> Op<T> {
         T: OpAble,
     {
         driver::CURRENT.with(|this| this.submit_with(data))
+    }
+
+    /// Submit an operation to uring if submission queue is not full.
+    pub(super) fn maybe_submit_with(data: T) -> io::Result<Op<T>>
+    where
+        T: OpAble,
+    {
+        driver::CURRENT.with(|this| this.maybe_submit_with(data))
     }
 
     /// Try submitting an operation to uring
