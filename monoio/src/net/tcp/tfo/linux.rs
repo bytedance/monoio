@@ -5,8 +5,8 @@ use std::{cell::Cell, io, os::fd::AsRawFd};
 pub(crate) static TFO_CONNECT_AVAILABLE: Cell<bool> = Cell::new(true);
 
 #[cfg(not(feature = "unstable"))]
-thread_local!{
-    pub(crate) static TFO_CONNECT_AVAILABLE: Cell<bool> = Cell::new(true);
+thread_local! {
+    pub(crate) static TFO_CONNECT_AVAILABLE: Cell<bool> = const { Cell::new(true) };
 }
 
 /// Call before listen.

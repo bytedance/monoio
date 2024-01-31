@@ -32,8 +32,8 @@ pub(crate) fn dummy_waker() -> Waker {
 static SHOULD_POLL: Cell<bool> = Cell::new(true);
 
 #[cfg(not(feature = "unstable"))]
-thread_local!{
-    static SHOULD_POLL: Cell<bool> = Cell::new(true);
+thread_local! {
+    static SHOULD_POLL: Cell<bool> = const { Cell::new(true) };
 }
 
 #[inline]

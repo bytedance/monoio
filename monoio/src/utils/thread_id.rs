@@ -1,6 +1,4 @@
-use std::sync::{
-    atomic::{AtomicUsize, Ordering::Relaxed},
-};
+use std::sync::atomic::{AtomicUsize, Ordering::Relaxed};
 
 // thread id begins from 16.
 // 0 is default thread

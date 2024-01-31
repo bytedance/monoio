@@ -1,18 +1,16 @@
-use std::{
-    sync::{LazyLock, Mutex},
-    task::Waker,
-};
+use std::{sync::Mutex, task::Waker};
 
 use flume::Sender;
 use fxhash::FxHashMap;
+use once_cell::sync::Lazy;
 
 use crate::driver::UnparkHandle;
 
-static UNPARK: LazyLock<Mutex<FxHashMap<usize, UnparkHandle>>> =
-    LazyLock::new(|| Mutex::new(FxHashMap::default()));
+static UNPARK: Lazy<Mutex<FxHashMap<usize, UnparkHandle>>> =
+    Lazy::new(|| Mutex::new(FxHashMap::default()));
 
-static WAKER_SENDER: LazyLock<Mutex<FxHashMap<usize, Sender<Waker>>>> =
-    LazyLock::new(|| Mutex::new(FxHashMap::default()));
+static WAKER_SENDER: Lazy<Mutex<FxHashMap<usize, Sender<Waker>>>> =
+    Lazy::new(|| Mutex::new(FxHashMap::default()));
 
 macro_rules! lock {
     ($x: ident) => {
