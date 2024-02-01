@@ -1,12 +1,19 @@
-use std::net::{IpAddr, SocketAddr};
-
-use monoio::net::{TcpListener, TcpStream};
-
 macro_rules! test_accept {
     ($(($ident:ident, $target:expr),)*) => {
         $(
+            // will report { code: 38, kind: Unsupported, message: "Function not implemented" } in aarch64,
+            // armv7, riscv64gc, s390x, just ignore
+            #[cfg(not(any(
+                target_arch = "aarch64",
+                target_arch = "arm",
+                target_arch = "riscv64",
+                target_arch = "s390x",
+            )))]
             #[monoio::test_all]
             async fn $ident() {
+                use std::net::{IpAddr, SocketAddr};
+                use monoio::net::{TcpListener, TcpStream};
+
                 let listener = TcpListener::bind($target).unwrap();
                 let addr = listener.local_addr().unwrap();
                 let (tx, rx) = local_sync::oneshot::channel();

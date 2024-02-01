@@ -127,6 +127,8 @@ async fn cancel_read() {
 )))]
 #[monoio::test_all]
 async fn explicit_close() {
+    use std::os::fd::AsRawFd;
+
     let mut tempfile = tempfile();
     tempfile.write_all(HELLO).unwrap();
 
