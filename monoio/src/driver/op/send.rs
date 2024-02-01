@@ -43,6 +43,7 @@ impl<T: IoBuf> Op<Send<T>> {
 impl<T: IoBuf> OpAble for Send<T> {
     #[cfg(all(target_os = "linux", feature = "iouring"))]
     fn uring_op(&mut self) -> io_uring::squeue::Entry {
+        #[allow(deprecated)]
         #[cfg(feature = "zero-copy")]
         fn zero_copy_flag_guard<T: IoBuf>(buf: &T) -> libc::c_int {
             // TODO: use libc const after supported.
@@ -52,11 +53,9 @@ impl<T: IoBuf> OpAble for Send<T> {
             // see also: https://www.kernel.org/doc/html/v4.16/networking/msg_zerocopy.html
             const MSG_ZEROCOPY_THRESHOLD: usize = 10 * 1024 * 1024;
             if buf.bytes_init() >= MSG_ZEROCOPY_THRESHOLD {
-                #[allow(deprecated)]
                 libc::MSG_NOSIGNAL as libc::c_int
                     | MSG_ZEROCOPY
             } else {
-                #[allow(deprecated)]
                 libc::MSG_NOSIGNAL as libc::c_int
             }
         }
