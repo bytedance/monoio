@@ -81,8 +81,8 @@ mod tests {
         feature = "iouring",
         not(any(
             target_arch = "aarch64",
-            target_arch = "armv7",
-            target_arch = "riscv64gc",
+            target_arch = "arm",
+            target_arch = "riscv64",
             target_arch = "s390x",
         ))
     ))]
