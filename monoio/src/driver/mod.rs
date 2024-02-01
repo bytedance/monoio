@@ -1,6 +1,11 @@
 /// Monoio Driver.
-// #[cfg(unix)]
 pub(crate) mod op;
+#[cfg(feature = "poll-io")]
+pub(crate) mod poll;
+#[cfg(any(feature = "legacy", feature = "poll-io"))]
+pub(crate) mod ready;
+#[cfg(any(feature = "legacy", feature = "poll-io"))]
+pub(crate) mod scheduled_io;
 pub(crate) mod shared_fd;
 #[cfg(feature = "sync")]
 pub(crate) mod thread;
@@ -20,14 +25,6 @@ use std::{
 
 #[cfg(feature = "legacy")]
 pub use self::legacy::LegacyDriver;
-// #[cfg(windows)]
-// pub mod op {
-//     pub struct CompletionMeta {}
-//     pub struct Op<T> {
-//         pub data: T,
-//     }
-//     pub trait OpAble {}
-// }
 #[cfg(feature = "legacy")]
 use self::legacy::LegacyInner;
 use self::op::{CompletionMeta, Op, OpAble};
@@ -88,6 +85,7 @@ pub trait Driver {
 
 scoped_thread_local!(pub(crate) static CURRENT: Inner);
 
+#[derive(Clone)]
 pub(crate) enum Inner {
     #[cfg(all(target_os = "linux", feature = "iouring"))]
     Uring(std::rc::Rc<std::cell::UnsafeCell<UringInner>>),
@@ -126,6 +124,29 @@ impl Inner {
             _ => unimplemented!(),
             #[cfg(all(target_os = "linux", feature = "iouring"))]
             Inner::Uring(this) => UringInner::poll_op(this, index, cx),
+            #[cfg(feature = "legacy")]
+            Inner::Legacy(this) => LegacyInner::poll_op::<T>(this, data, cx),
+            #[cfg(all(
+                not(feature = "legacy"),
+                not(all(target_os = "linux", feature = "iouring"))
+            ))]
+            _ => {
+                util::feature_panic();
+            }
+        }
+    }
+
+    #[cfg(feature = "poll-io")]
+    fn poll_legacy_op<T: OpAble>(
+        &self,
+        data: &mut T,
+        cx: &mut Context<'_>,
+    ) -> Poll<CompletionMeta> {
+        match self {
+            #[cfg(windows)]
+            _ => unimplemented!(),
+            #[cfg(all(target_os = "linux", feature = "iouring"))]
+            Inner::Uring(this) => UringInner::poll_legacy_op(this, data, cx),
             #[cfg(feature = "legacy")]
             Inner::Legacy(this) => LegacyInner::poll_op::<T>(this, data, cx),
             #[cfg(all(

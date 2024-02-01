@@ -6,11 +6,11 @@ use io_uring::{opcode, types};
 use windows_sys::Win32::{Foundation::INVALID_HANDLE_VALUE, Storage::FileSystem::CreateFileW};
 
 use super::{Op, OpAble};
-#[cfg(feature = "legacy")]
-use crate::driver::legacy::ready::Direction;
+#[cfg(any(feature = "legacy", feature = "poll-io"))]
+use crate::driver::ready::Direction;
 #[cfg(windows)]
 use crate::syscall;
-#[cfg(all(unix, feature = "legacy"))]
+#[cfg(any(feature = "legacy", feature = "poll-io"))]
 use crate::syscall_u32;
 use crate::{driver::util::cstr, fs::OpenOptions};
 
@@ -62,12 +62,13 @@ impl OpAble for Open {
             .build()
     }
 
-    #[cfg(feature = "legacy")]
+    #[cfg(any(feature = "legacy", feature = "poll-io"))]
+    #[inline]
     fn legacy_interest(&self) -> Option<(Direction, usize)> {
         None
     }
 
-    #[cfg(all(unix, feature = "legacy"))]
+    #[cfg(all(any(feature = "legacy", feature = "poll-io"), not(windows)))]
     fn legacy_call(&mut self) -> io::Result<u32> {
         syscall_u32!(open(
             self.path.as_c_str().as_ptr(),
@@ -76,7 +77,7 @@ impl OpAble for Open {
         ))
     }
 
-    #[cfg(windows)]
+    #[cfg(all(any(feature = "legacy", feature = "poll-io"), windows))]
     fn legacy_call(&mut self) -> io::Result<u32> {
         syscall!(
             CreateFileW(

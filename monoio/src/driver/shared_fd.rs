@@ -5,7 +5,7 @@ use std::os::windows::io::{AsRawSocket, FromRawSocket, OwnedSocket, RawSocket};
 use std::{cell::UnsafeCell, io, rc::Rc};
 
 #[cfg(windows)]
-use super::legacy::iocp::SocketState;
+use super::legacy::iocp::SocketState as RawFd;
 use super::CURRENT;
 
 // Tracks in-flight operations on a file descriptor. Ensures all in-flight
@@ -17,11 +17,8 @@ pub(crate) struct SharedFd {
 
 struct Inner {
     // Open file descriptor
-    #[cfg(unix)]
+    #[cfg(any(unix, windows))]
     fd: RawFd,
-
-    #[cfg(windows)]
-    fd: SocketState,
 
     // Waker to notify when the close operation completes.
     state: UnsafeCell<State>,
@@ -32,6 +29,85 @@ enum State {
     Uring(UringState),
     #[cfg(all(unix, feature = "legacy"))]
     Legacy(Option<usize>),
+}
+
+#[cfg(feature = "poll-io")]
+impl State {
+    #[cfg(all(target_os = "linux", feature = "iouring"))]
+    #[allow(unreachable_patterns)]
+    pub(crate) fn cvt_uring_poll(&mut self, fd: RawFd) -> io::Result<()> {
+        let state = match self {
+            State::Uring(state) => state,
+            _ => return Ok(()),
+        };
+        // TODO: only Init state can convert?
+        if matches!(state, UringState::Init) {
+            let mut source = mio::unix::SourceFd(&fd);
+            crate::syscall!(fcntl(fd, libc::F_SETFL, libc::O_NONBLOCK))?;
+            let reg = CURRENT
+                .with(|inner| match inner {
+                    #[cfg(all(target_os = "linux", feature = "iouring"))]
+                    crate::driver::Inner::Uring(r) => super::IoUringDriver::register_poll_io(
+                        r,
+                        &mut source,
+                        super::ready::RW_INTERESTS,
+                    ),
+                    #[cfg(feature = "legacy")]
+                    crate::driver::Inner::Legacy(_) => panic!("unexpected legacy runtime"),
+                })
+                .map_err(|e| {
+                    let _ = crate::syscall!(fcntl(fd, libc::F_SETFL, 0));
+                    e
+                })?;
+            *state = UringState::Legacy(Some(reg));
+        } else {
+            return Err(io::Error::new(
+                io::ErrorKind::Other,
+                "not clear uring state",
+            ));
+        }
+        Ok(())
+    }
+
+    #[cfg(not(all(target_os = "linux", feature = "iouring")))]
+    #[inline]
+    pub(crate) fn cvt_uring_poll(&mut self, _fd: RawFd) -> io::Result<()> {
+        Ok(())
+    }
+
+    #[cfg(all(target_os = "linux", feature = "iouring"))]
+    pub(crate) fn cvt_comp(&mut self, fd: RawFd) -> io::Result<()> {
+        let inner = match self {
+            Self::Uring(UringState::Legacy(inner)) => inner,
+            _ => return Ok(()),
+        };
+        let Some(token) = inner else {
+            return Err(io::Error::new(io::ErrorKind::Other, "empty token"));
+        };
+        let mut source = mio::unix::SourceFd(&fd);
+        crate::syscall!(fcntl(fd, libc::F_SETFL, 0))?;
+        CURRENT
+            .with(|inner| match inner {
+                #[cfg(all(target_os = "linux", feature = "iouring"))]
+                crate::driver::Inner::Uring(r) => {
+                    super::IoUringDriver::deregister_poll_io(r, &mut source, *token)
+                }
+                #[cfg(feature = "legacy")]
+                crate::driver::Inner::Legacy(_) => panic!("unexpected legacy runtime"),
+            })
+            .map_err(|e| {
+                let _ = crate::syscall!(fcntl(fd, libc::F_SETFL, libc::O_NONBLOCK));
+                e
+            })?;
+        *self = State::Uring(UringState::Init);
+        Ok(())
+    }
+
+    #[cfg(not(all(target_os = "linux", feature = "iouring")))]
+    #[inline]
+    pub(crate) fn cvt_comp(&mut self, _fd: RawFd) -> io::Result<()> {
+        Ok(())
+    }
 }
 
 impl std::fmt::Debug for Inner {
@@ -53,6 +129,10 @@ enum UringState {
 
     /// The FD is fully closed
     Closed,
+
+    /// Poller
+    #[cfg(feature = "poll-io")]
+    Legacy(Option<usize>),
 }
 
 #[cfg(unix)]
@@ -72,24 +152,45 @@ impl AsRawSocket for SharedFd {
 impl SharedFd {
     #[cfg(unix)]
     #[allow(unreachable_code, unused)]
-    pub(crate) fn new(fd: RawFd) -> io::Result<SharedFd> {
-        #[cfg(all(unix, feature = "legacy"))]
-        const RW_INTERESTS: mio::Interest = mio::Interest::READABLE.add(mio::Interest::WRITABLE);
+    pub(crate) fn new<const FORCE_LEGACY: bool>(fd: RawFd) -> io::Result<SharedFd> {
+        enum Reg {
+            Uring,
+            #[cfg(feature = "poll-io")]
+            UringLegacy(io::Result<usize>),
+            Legacy(io::Result<usize>),
+        }
 
         #[cfg(all(target_os = "linux", feature = "iouring", feature = "legacy"))]
         let state = match CURRENT.with(|inner| match inner {
-            super::Inner::Uring(_) => None,
+            super::Inner::Uring(inner) => match FORCE_LEGACY {
+                false => Reg::Uring,
+                true => {
+                    #[cfg(feature = "poll-io")]
+                    {
+                        let mut source = mio::unix::SourceFd(&fd);
+                        Reg::UringLegacy(super::IoUringDriver::register_poll_io(
+                            inner,
+                            &mut source,
+                            super::ready::RW_INTERESTS,
+                        ))
+                    }
+                    #[cfg(not(feature = "poll-io"))]
+                    Reg::Uring
+                }
+            },
             super::Inner::Legacy(inner) => {
                 let mut source = mio::unix::SourceFd(&fd);
-                Some(super::legacy::LegacyDriver::register(
+                Reg::Legacy(super::legacy::LegacyDriver::register(
                     inner,
                     &mut source,
-                    RW_INTERESTS,
+                    super::ready::RW_INTERESTS,
                 ))
             }
         }) {
-            Some(reg) => State::Legacy(Some(reg?)),
-            None => State::Uring(UringState::Init),
+            Reg::Uring => State::Uring(UringState::Init),
+            #[cfg(feature = "poll-io")]
+            Reg::UringLegacy(idx) => State::Uring(UringState::Legacy(Some(idx?))),
+            Reg::Legacy(idx) => State::Legacy(Some(idx?)),
         };
 
         #[cfg(all(not(feature = "legacy"), target_os = "linux", feature = "iouring"))]
@@ -104,7 +205,11 @@ impl SharedFd {
             let reg = CURRENT.with(|inner| match inner {
                 super::Inner::Legacy(inner) => {
                     let mut source = mio::unix::SourceFd(&fd);
-                    super::legacy::LegacyDriver::register(inner, &mut source, RW_INTERESTS)
+                    super::legacy::LegacyDriver::register(
+                        inner,
+                        &mut source,
+                        super::ready::RW_INTERESTS,
+                    )
                 }
             });
 
@@ -131,7 +236,7 @@ impl SharedFd {
     pub(crate) fn new(fd: RawSocket) -> io::Result<SharedFd> {
         const RW_INTERESTS: mio::Interest = mio::Interest::READABLE.add(mio::Interest::WRITABLE);
 
-        let mut fd = SocketState::new(fd);
+        let mut fd = RawFd::new(fd);
 
         let state = {
             let reg = CURRENT.with(|inner| match inner {
@@ -186,7 +291,7 @@ impl SharedFd {
 
         SharedFd {
             inner: Rc::new(Inner {
-                fd: SocketState::new(fd),
+                fd: RawFd::new(fd),
                 state: UnsafeCell::new(state),
             }),
         }
@@ -290,6 +395,8 @@ impl SharedFd {
     pub(crate) fn registered_index(&self) -> Option<usize> {
         let state = unsafe { &*self.inner.state.get() };
         match state {
+            #[cfg(all(target_os = "linux", feature = "iouring", feature = "poll-io"))]
+            State::Uring(UringState::Legacy(s)) => *s,
             #[cfg(all(target_os = "linux", feature = "iouring"))]
             State::Uring(_) => None,
             #[cfg(feature = "legacy")]
@@ -328,6 +435,20 @@ impl SharedFd {
                 this.inner.closed().await;
             }
         }
+    }
+
+    #[cfg(feature = "poll-io")]
+    #[inline]
+    pub(crate) fn cvt_poll(&mut self) -> io::Result<()> {
+        let state = unsafe { &mut *self.inner.state.get() };
+        state.cvt_uring_poll(self.inner.fd)
+    }
+
+    #[cfg(feature = "poll-io")]
+    #[inline]
+    pub(crate) fn cvt_comp(&mut self) -> io::Result<()> {
+        let state = unsafe { &mut *self.inner.state.get() };
+        state.cvt_comp(self.inner.fd)
     }
 }
 
@@ -368,6 +489,8 @@ impl Inner {
                         Poll::Ready(())
                     }
                     UringState::Closed => Poll::Ready(()),
+                    #[cfg(feature = "poll-io")]
+                    UringState::Legacy(_) => Poll::Ready(()),
                 };
             }
             Poll::Ready(())
@@ -389,44 +512,67 @@ impl Drop for Inner {
                 };
             }
             #[cfg(feature = "legacy")]
-            State::Legacy(idx) => {
-                if CURRENT.is_set() {
-                    CURRENT.with(|inner| {
-                        match inner {
-                            #[cfg(all(target_os = "linux", feature = "iouring"))]
-                            super::Inner::Uring(_) => {
-                                unreachable!("close legacy fd with uring runtime")
-                            }
-                            #[cfg(all(unix, feature = "legacy"))]
-                            super::Inner::Legacy(inner) => {
-                                // deregister it from driver(Poll and slab) and close fd
-                                if let Some(idx) = idx {
-                                    let mut source = mio::unix::SourceFd(&fd);
-                                    let _ = super::legacy::LegacyDriver::deregister(
-                                        inner,
-                                        *idx,
-                                        &mut source,
-                                    );
-                                }
-                            }
-                            #[cfg(windows)]
-                            super::Inner::Legacy(inner) => {
-                                // deregister it from driver(Poll and slab) and close fd
-                                if let Some(idx) = idx {
-                                    let _ = super::legacy::LegacyDriver::deregister(
-                                        inner, *idx, &mut fd,
-                                    );
-                                }
-                            }
-                        }
-                    })
-                }
-                #[cfg(all(unix, feature = "legacy"))]
-                let _ = unsafe { std::fs::File::from_raw_fd(fd) };
-                #[cfg(windows)]
-                let _ = unsafe { OwnedSocket::from_raw_socket(fd.socket) };
-            }
+            State::Legacy(idx) => drop_legacy(fd, *idx),
+            #[cfg(all(target_os = "linux", feature = "iouring", feature = "poll-io"))]
+            State::Uring(UringState::Legacy(idx)) => drop_uring_legacy(fd, *idx),
             _ => {}
         }
     }
+}
+
+#[cfg(feature = "legacy")]
+fn drop_legacy(fd: RawFd, idx: Option<usize>) {
+    if CURRENT.is_set() {
+        CURRENT.with(|inner| {
+            #[cfg(any(all(target_os = "linux", feature = "iouring"), feature = "legacy"))]
+            match inner {
+                #[cfg(all(target_os = "linux", feature = "iouring"))]
+                super::Inner::Uring(_) => {
+                    unreachable!("close legacy fd with uring runtime")
+                }
+                super::Inner::Legacy(inner) => {
+                    // deregister it from driver(Poll and slab) and close fd
+                    #[cfg(not(windows))]
+                    if let Some(idx) = idx {
+                        let mut source = mio::unix::SourceFd(&fd);
+                        let _ = super::legacy::LegacyDriver::deregister(inner, idx, &mut source);
+                    }
+                    #[cfg(windows)]
+                    if let Some(idx) = idx {
+                        let _ = super::legacy::LegacyDriver::deregister(inner, idx, &mut fd);
+                    }
+                }
+            }
+        })
+    }
+    #[cfg(all(unix, feature = "legacy"))]
+    let _ = unsafe { std::fs::File::from_raw_fd(fd) };
+    #[cfg(windows)]
+    let _ = unsafe { OwnedSocket::from_raw_socket(fd.socket) };
+}
+
+#[cfg(feature = "poll-io")]
+fn drop_uring_legacy(fd: RawFd, idx: Option<usize>) {
+    if CURRENT.is_set() {
+        CURRENT.with(|inner| {
+            match inner {
+                #[cfg(all(unix, feature = "legacy"))]
+                super::Inner::Legacy(_) => {
+                    unreachable!("close uring fd with legacy runtime")
+                }
+                #[cfg(all(target_os = "linux", feature = "iouring"))]
+                super::Inner::Uring(inner) => {
+                    // deregister it from driver(Poll and slab) and close fd
+                    if let Some(idx) = idx {
+                        let mut source = mio::unix::SourceFd(&fd);
+                        let _ = super::IoUringDriver::deregister_poll_io(inner, &mut source, idx);
+                    }
+                }
+            }
+        })
+    }
+    #[cfg(unix)]
+    let _ = unsafe { std::fs::File::from_raw_fd(fd) };
+    #[cfg(windows)]
+    let _ = unsafe { OwnedSocket::from_raw_socket(fd.socket) };
 }

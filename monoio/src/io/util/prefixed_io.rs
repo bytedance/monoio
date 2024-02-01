@@ -40,7 +40,7 @@ pub struct PrefixedReadIo<I, P> {
 
 impl<I, P> PrefixedReadIo<I, P> {
     /// Create a PrefixedIo with given io and read prefix.
-    pub fn new(io: I, prefix: P) -> Self {
+    pub const fn new(io: I, prefix: P) -> Self {
         Self {
             io,
             prefix,
@@ -49,11 +49,12 @@ impl<I, P> PrefixedReadIo<I, P> {
     }
 
     /// If the prefix has read to eof
-    pub fn prefix_finished(&self) -> bool {
+    pub const fn prefix_finished(&self) -> bool {
         self.prefix_finished
     }
 
     /// Into inner
+    #[inline]
     pub fn into_inner(self) -> I {
         self.io
     }

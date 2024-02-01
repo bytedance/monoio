@@ -20,11 +20,13 @@ const DEFAULT_BUF_SIZE: usize = 8 * 1024;
 
 impl<R> BufReader<R> {
     /// Create BufReader with default buffer size
+    #[inline]
     pub fn new(inner: R) -> Self {
         Self::with_capacity(DEFAULT_BUF_SIZE, inner)
     }
 
     /// Create BufReader with given buffer size
+    #[inline]
     pub fn with_capacity(capacity: usize, inner: R) -> Self {
         let buffer = vec![0; capacity];
         Self {
@@ -38,11 +40,13 @@ impl<R> BufReader<R> {
     /// Gets a reference to the underlying reader.
     ///
     /// It is inadvisable to directly read from the underlying reader.
-    pub fn get_ref(&self) -> &R {
+    #[inline]
+    pub const fn get_ref(&self) -> &R {
         &self.inner
     }
 
     /// Gets a mutable reference to the underlying reader.
+    #[inline]
     pub fn get_mut(&mut self) -> &mut R {
         &mut self.inner
     }
@@ -50,6 +54,7 @@ impl<R> BufReader<R> {
     /// Consumes this `BufReader`, returning the underlying reader.
     ///
     /// Note that any leftover data in the internal buffer is lost.
+    #[inline]
     pub fn into_inner(self) -> R {
         self.inner
     }
@@ -58,6 +63,7 @@ impl<R> BufReader<R> {
     ///
     /// Unlike `fill_buf`, this will not attempt to fill the buffer if it is
     /// empty.
+    #[inline]
     pub fn buffer(&self) -> &[u8] {
         &self.buf.as_ref().expect("unable to take buffer")[self.pos..self.cap]
     }

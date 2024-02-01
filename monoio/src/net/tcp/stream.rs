@@ -59,7 +59,7 @@ impl TcpConnectOpts {
 }
 /// TcpStream
 pub struct TcpStream {
-    fd: SharedFd,
+    pub(super) fd: SharedFd,
     meta: StreamMeta,
 }
 
@@ -130,7 +130,7 @@ impl TcpStream {
                 tfo = false;
             }
         }
-        let op = Op::connect(SharedFd::new(socket)?, addr, tfo)?;
+        let op = Op::connect(SharedFd::new::<false>(socket)?, addr, tfo)?;
         let completion = op.await;
         completion.meta.result?;
 
@@ -204,7 +204,7 @@ impl TcpStream {
 
     /// Creates new `TcpStream` from a `std::net::TcpStream`.
     pub fn from_std(stream: std::net::TcpStream) -> io::Result<Self> {
-        match SharedFd::new(stream.as_raw_fd()) {
+        match SharedFd::new::<false>(stream.as_raw_fd()) {
             Ok(shared) => {
                 stream.into_raw_fd();
                 Ok(Self::from_shared_fd(shared))

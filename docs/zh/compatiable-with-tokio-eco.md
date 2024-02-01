@@ -1,13 +1,29 @@
 ---
 title: 与 Tokio 生态兼容
 date: 2021-12-17 18:00:00
+updated: 2024-01-30 15:00:00
 author: ihciah
 ---
 
 # 与 Tokio 生态兼容
 现有 Rust 组件中有大量的组件与 Tokio 是兼容的，它们直接依赖了 Tokio 的 `AsyncRead` 和 `AsyncWrite` 接口。
 
-而在 Monoio，由于底层是异步系统调用，所以我们选择了类似 tokio-uring 的做法：提供传 buffer 所有权的 IO 接口。但现阶段明显没有很多可用的库可以工作，所以我们需要以一定的性能牺牲来快速支持功能。
+而在 Monoio，由于底层是异步系统调用，所以我们选择了类似 tokio-uring 的做法：提供传 buffer 所有权的 IO 接口。但现阶段明显没有很多可用的库可以工作，所以我们需要一些手段来兼容现有接口的组件。
+
+当前共有 3 种兼容手段：
+
+## tokio-compat
+`tokio-compat` 是 monoio 的一个 feature。当关闭 `iouring` 且打开 `legacy` feature 时，开启 `tokio-compat` feature 后，`TcpStream`/`UnixStream` 会实现 `tokio::io::{AsyncRead, AsyncWrite}`。
+
+如果你明确不使用 iouring，那么你可以通过这种方式提供兼容性。这种形式的兼容性是没有 overhead 的。如果你有可能会使用 iouring，那么你应该使用 `poll-io` feature。
+
+## poll-io
+`poll-io` 是 monoio 的一个 feature。当开启该 feature 后：
+1. `tokio::io` 会被 reexport 到 `monoio::io::poll_io`
+2. `TcpStream`/`UnixStream` 可以与 `TcpStreamPoll`/`UnixStreamPoll` 互相转换
+3. `TcpStreamPoll`/`UnixStreamPoll` 实现 `tokio::io::{AsyncRead, AsyncWrite}`
+
+这个 feature 的底层实现是在 iouring 上运行 epoll 来感知 fd readiness，并直接发起 syscall。这种形式的兼容虽然无法有效利用 iouring 做异步 io，但它的性能与其他基于 epoll+syscall 的实现是类似的，没有额外的拷贝开销。
 
 ## monoio-compat
 `monoio-compat` 是一个兼容层，它基于 buffer 所有权的接口实现 Tokio 的 `AsyncRead` 和 `AsyncWrite`。

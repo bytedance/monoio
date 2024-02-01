@@ -13,8 +13,8 @@ use windows_sys::Win32::Networking::WinSock::{
 };
 
 use super::{super::shared_fd::SharedFd, Op, OpAble};
-#[cfg(feature = "legacy")]
-use crate::driver::legacy::ready::Direction;
+#[cfg(any(feature = "legacy", feature = "poll-io"))]
+use crate::driver::ready::Direction;
 
 pub(crate) struct PollAdd {
     /// Holds a strong ref to the FD, preventing the file from being closed
@@ -23,7 +23,7 @@ pub(crate) struct PollAdd {
     fd: SharedFd,
     // true: read; false: write
     is_read: bool,
-    #[cfg(feature = "legacy")]
+    #[cfg(any(feature = "legacy", feature = "poll-io"))]
     relaxed: bool,
 }
 
@@ -32,7 +32,7 @@ impl Op<PollAdd> {
         Op::submit_with(PollAdd {
             fd: fd.clone(),
             is_read: true,
-            #[cfg(feature = "legacy")]
+            #[cfg(any(feature = "legacy", feature = "poll-io"))]
             relaxed: _relaxed,
         })
     }
@@ -41,7 +41,7 @@ impl Op<PollAdd> {
         Op::submit_with(PollAdd {
             fd: fd.clone(),
             is_read: false,
-            #[cfg(feature = "legacy")]
+            #[cfg(any(feature = "legacy", feature = "poll-io"))]
             relaxed: _relaxed,
         })
     }
@@ -66,7 +66,8 @@ impl OpAble for PollAdd {
         .build()
     }
 
-    #[cfg(feature = "legacy")]
+    #[cfg(any(feature = "legacy", feature = "poll-io"))]
+    #[inline]
     fn legacy_interest(&self) -> Option<(Direction, usize)> {
         self.fd.registered_index().map(|idx| {
             (
@@ -80,7 +81,7 @@ impl OpAble for PollAdd {
         })
     }
 
-    #[cfg(all(unix, feature = "legacy"))]
+    #[cfg(all(any(feature = "legacy", feature = "poll-io"), not(windows)))]
     fn legacy_call(&mut self) -> io::Result<u32> {
         if !self.relaxed {
             use std::{io::ErrorKind, os::fd::AsRawFd};
@@ -102,7 +103,7 @@ impl OpAble for PollAdd {
         Ok(0)
     }
 
-    #[cfg(windows)]
+    #[cfg(all(any(feature = "legacy", feature = "poll-io"), windows))]
     fn legacy_call(&mut self) -> io::Result<u32> {
         if !self.relaxed {
             let mut pollfd = WSAPOLLFD {

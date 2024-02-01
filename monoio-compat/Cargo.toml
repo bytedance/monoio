@@ -4,16 +4,26 @@ categories = ["asynchronous", "network-programming"]
 description = "A compat wrapper for monoio."
 edition = "2021"
 keywords = ["runtime", "iouring", "async"]
-license = "MIT/Apache-2.0"
+license = "MIT OR Apache-2.0"
 name = "monoio-compat"
 readme = "README.md"
 repository = "https://github.com/bytedance/monoio"
 version = "0.2.1"
 
 [dependencies]
-monoio = {version = "0.2.0", path = "../monoio", default-features = false}
+monoio = { version = "0.2.0", path = "../monoio", default-features = false }
 reusable-box-future = "0.2"
-tokio = {version = "1", default-features = false, features = ["io-util"]}
+tokio = { version = "1", default-features = false, features = ["io-util"] }
+
+hyper = { version = "1.1", optional = true }
+pin-project-lite = { version = "0.2", optional = true }
 
 [dev-dependencies]
-monoio = {version = "0.2.0", path = "../monoio", features = ["async-cancel", "macros"]}
+monoio = { version = "0.2.0", path = "../monoio", features = [
+    "async-cancel",
+    "macros",
+] }
+
+[features]
+# this is an experimental feature
+hyper = ["dep:hyper", "dep:pin-project-lite", "monoio/poll-io"]

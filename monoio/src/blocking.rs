@@ -137,6 +137,7 @@ impl DefaultThreadPool {
 }
 
 impl ThreadPool for DefaultThreadPool {
+    #[inline]
     fn schedule_task(&self, task: BlockingTask) {
         self.pool.execute(move || task.run());
     }

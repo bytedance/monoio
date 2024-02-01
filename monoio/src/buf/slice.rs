@@ -32,6 +32,7 @@ pub struct SliceMut<T> {
 
 impl<T: IoBuf + IoBufMut> SliceMut<T> {
     /// Create a SliceMut from a buffer and range.
+    #[inline]
     pub fn new(mut buf: T, begin: usize, end: usize) -> Self {
         assert!(end <= buf.bytes_total());
         assert!(begin <= buf.bytes_init());
@@ -46,7 +47,7 @@ impl<T> SliceMut<T> {
     /// # Safety
     /// begin must be initialized, and end must be within the buffer capacity.
     #[inline]
-    pub unsafe fn new_unchecked(buf: T, begin: usize, end: usize) -> Self {
+    pub const unsafe fn new_unchecked(buf: T, begin: usize, end: usize) -> Self {
         Self { buf, begin, end }
     }
 
@@ -63,7 +64,7 @@ impl<T> SliceMut<T> {
     /// assert_eq!(1, slice.begin());
     /// ```
     #[inline]
-    pub fn begin(&self) -> usize {
+    pub const fn begin(&self) -> usize {
         self.begin
     }
 
@@ -80,7 +81,7 @@ impl<T> SliceMut<T> {
     /// assert_eq!(5, slice.end());
     /// ```
     #[inline]
-    pub fn end(&self) -> usize {
+    pub const fn end(&self) -> usize {
         self.end
     }
 
@@ -100,7 +101,7 @@ impl<T> SliceMut<T> {
     /// assert_eq!(&slice[..], b"hello");
     /// ```
     #[inline]
-    pub fn get_ref(&self) -> &T {
+    pub const fn get_ref(&self) -> &T {
         &self.buf
     }
 
@@ -139,6 +140,7 @@ impl<T> SliceMut<T> {
     /// let buf = slice.into_inner();
     /// assert_eq!(buf, b"hello world");
     /// ```
+    #[inline]
     pub fn into_inner(self) -> T {
         self.buf
     }
@@ -208,25 +210,25 @@ impl<T> Slice<T> {
     /// # Safety
     /// begin and end must be within the buffer initialized range.
     #[inline]
-    pub unsafe fn new_unchecked(buf: T, begin: usize, end: usize) -> Self {
+    pub const unsafe fn new_unchecked(buf: T, begin: usize, end: usize) -> Self {
         Self { buf, begin, end }
     }
 
     /// Offset in the underlying buffer at which this slice starts.
     #[inline]
-    pub fn begin(&self) -> usize {
+    pub const fn begin(&self) -> usize {
         self.begin
     }
 
     /// Ofset in the underlying buffer at which this slice ends.
     #[inline]
-    pub fn end(&self) -> usize {
+    pub const fn end(&self) -> usize {
         self.end
     }
 
     /// Gets a reference to the underlying buffer.
     #[inline]
-    pub fn get_ref(&self) -> &T {
+    pub const fn get_ref(&self) -> &T {
         &self.buf
     }
 
@@ -263,6 +265,7 @@ pub struct IoVecWrapper<T> {
 
 impl<T: IoVecBuf> IoVecWrapper<T> {
     /// Create a new IoVecWrapper with something that impl IoVecBuf.
+    #[inline]
     pub fn new(buf: T) -> Result<Self, T> {
         #[cfg(unix)]
         if buf.read_iovec_len() == 0 {
@@ -276,6 +279,7 @@ impl<T: IoVecBuf> IoVecWrapper<T> {
     }
 
     /// Consume self and return raw iovec buf.
+    #[inline]
     pub fn into_inner(self) -> T {
         self.raw
     }
@@ -319,6 +323,7 @@ pub struct IoVecWrapperMut<T> {
 
 impl<T: IoVecBufMut> IoVecWrapperMut<T> {
     /// Create a new IoVecWrapperMut with something that impl IoVecBufMut.
+    #[inline]
     pub fn new(mut iovec_buf: T) -> Result<Self, T> {
         if iovec_buf.write_iovec_len() == 0 {
             return Err(iovec_buf);
@@ -327,6 +332,7 @@ impl<T: IoVecBufMut> IoVecWrapperMut<T> {
     }
 
     /// Consume self and return raw iovec buf.
+    #[inline]
     pub fn into_inner(self) -> T {
         self.raw
     }

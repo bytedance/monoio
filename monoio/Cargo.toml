@@ -4,11 +4,11 @@ categories = ["asynchronous", "network-programming"]
 description = "A thread per core runtime based on iouring."
 edition = "2021"
 keywords = ["runtime", "iouring", "async"]
-license = "MIT/Apache-2.0"
+license = "MIT OR Apache-2.0"
 name = "monoio"
 readme = "../README.md"
 repository = "https://github.com/bytedance/monoio"
-version = "0.2.1"
+version = "0.2.2"
 
 # common dependencies
 [dependencies]
@@ -19,10 +19,10 @@ fxhash = "0.2"
 libc = "0.2"
 pin-project-lite = "0.2"
 socket2 = { version = "0.5", features = ["all"] }
-once_cell = "1.19.0"
+memchr = "2.7"
 
 bytes = { version = "1", optional = true }
-flume = { version = "0.10", optional = true }
+flume = { version = "0.11", optional = true }
 mio = { version = "0.8", features = [
   "net",
   "os-poll",
@@ -34,7 +34,8 @@ tracing = { version = "0.1", default-features = false, features = [
   "std",
 ], optional = true }
 ctrlc = { version = "3", optional = true }
-memchr = "2.6"
+lazy_static = { version = "1", optional = true }
+once_cell = { version = "1.19.0", optional = true }
 
 # windows dependencies(will be added when windows support finished)
 [target.'cfg(windows)'.dependencies.windows-sys]
@@ -66,7 +67,7 @@ splice = []
 # enable `async main` macros support
 macros = ["monoio-macros"]
 # allow waker to be sent across threads
-sync = ["flume", "threadpool"]
+sync = ["flume", "threadpool", "once_cell"]
 # enable bind cpu set
 utils = ["nix"]
 # enable debug if you want to know what runtime does
@@ -77,6 +78,8 @@ legacy = ["mio"]
 iouring = []
 # tokio-compatible(only have effect when legacy is enabled and iouring is not)
 tokio-compat = ["tokio"]
+# (experimental)enable poll-io to convert structs to structs that impl tokio's poll io
+poll-io = ["tokio", "mio"]
 # signal enables setting ctrl_c handler
 signal = ["ctrlc", "sync"]
 signal-termination = ["signal", "ctrlc/termination"]

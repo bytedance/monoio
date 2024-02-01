@@ -31,7 +31,7 @@ impl RawBuf {
     /// # Safety
     /// make sure the pointer and length is valid when RawBuf is used.
     #[inline]
-    pub unsafe fn new(ptr: *const u8, len: usize) -> Self {
+    pub const unsafe fn new(ptr: *const u8, len: usize) -> Self {
         Self { ptr, len }
     }
 }
@@ -126,12 +126,12 @@ impl RawBufVectored {
     /// make sure the pointer and length is valid when RawBuf is used.
     #[cfg(unix)]
     #[inline]
-    pub unsafe fn new(ptr: *const libc::iovec, len: usize) -> Self {
+    pub const unsafe fn new(ptr: *const libc::iovec, len: usize) -> Self {
         Self { ptr, len }
     }
     #[cfg(windows)]
     #[inline]
-    pub unsafe fn new(ptr: *const WSABUF, len: usize) -> Self {
+    pub const unsafe fn new(ptr: *const WSABUF, len: usize) -> Self {
         Self { ptr, len }
     }
 }

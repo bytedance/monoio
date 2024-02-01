@@ -29,7 +29,7 @@ impl UnixSeqpacketListener {
         crate::syscall!(bind(socket, &addr as *const _ as *const _, addr_len))?;
         crate::syscall!(listen(socket, backlog))?;
         Ok(Self {
-            fd: SharedFd::new(socket)?,
+            fd: SharedFd::new::<false>(socket)?,
         })
     }
 
@@ -50,7 +50,7 @@ impl UnixSeqpacketListener {
         let fd = completion.meta.result?;
 
         // Construct stream
-        let stream = UnixSeqpacket::from_shared_fd(SharedFd::new(fd as _)?);
+        let stream = UnixSeqpacket::from_shared_fd(SharedFd::new::<false>(fd as _)?);
 
         // Construct SocketAddr
         let mut storage = unsafe { std::mem::MaybeUninit::assume_init(completion.data.addr.0) };

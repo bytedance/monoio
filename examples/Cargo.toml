@@ -17,6 +17,7 @@ monoio = { path = "../monoio", default-features = false, features = [
     "legacy",
     "macros",
     "utils",
+    "poll-io",      # experimental
 ] }
 
 # Enable tracing and tracing-subscriber for print out runtime debug
@@ -25,15 +26,16 @@ monoio = { path = "../monoio", default-features = false, features = [
 # tracing-subscriber = "0.3"
 
 # For hyper examples
-hyper = { version = "0.14", features = ["http1", "client", "server", "stream"] }
+hyper = { version = "1.1", features = ["http1", "client", "server"] }
+http-body-util = "0.1"
 
 # For h2 examples
 bytes = { version = "1" }
-h2 = { version = "0.3" }
-http = { version = "0.2" }
+h2 = { version = "0.4" }
+http = { version = "1" }
 
 # For hyper and h2 examples
-monoio-compat = { path = "../monoio-compat" }
+monoio-compat = { path = "../monoio-compat", features = ["hyper"] }
 
 tokio = { version = "1", default-features = false, features = ["io-util"] }
 tower-service = "0.3"
@@ -69,6 +71,10 @@ path = "echo.rs"
 [[example]]
 name = "echo-tfo"
 path = "echo_tfo.rs"
+
+[[example]]
+name = "echo-poll"
+path = "echo_poll.rs"
 
 [[example]]
 name = "join"

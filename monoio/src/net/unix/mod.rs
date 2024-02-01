@@ -20,6 +20,9 @@ pub use socket_addr::SocketAddr;
 pub use split::{UnixOwnedReadHalf, UnixOwnedWriteHalf};
 pub use stream::UnixStream;
 
+#[cfg(feature = "poll-io")]
+pub mod stream_poll;
+
 pub(crate) fn path_offset(sockaddr: &libc::sockaddr_un) -> usize {
     let base = sockaddr as *const _ as usize;
     let path = &sockaddr.sun_path as *const _ as usize;

@@ -12,25 +12,33 @@ pub(crate) struct ScheduledIo {
 }
 
 impl Default for ScheduledIo {
+    #[inline]
     fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl ScheduledIo {
+    pub(crate) const fn new() -> Self {
         Self {
             readiness: Ready::EMPTY,
             reader: None,
             writer: None,
         }
     }
-}
 
-impl ScheduledIo {
     #[allow(unused)]
+    #[inline]
     pub(crate) fn set_writable(&mut self) {
         self.readiness |= Ready::WRITABLE;
     }
 
+    #[inline]
     pub(crate) fn set_readiness(&mut self, f: impl Fn(Ready) -> Ready) {
         self.readiness = f(self.readiness);
     }
 
+    #[inline]
     pub(crate) fn wake(&mut self, ready: Ready) {
         if ready.is_readable() {
             if let Some(waker) = self.reader.take() {
@@ -44,11 +52,13 @@ impl ScheduledIo {
         }
     }
 
+    #[inline]
     pub(crate) fn clear_readiness(&mut self, ready: Ready) {
         self.readiness = self.readiness - ready;
     }
 
     #[allow(clippy::needless_pass_by_ref_mut)]
+    #[inline]
     pub(crate) fn poll_readiness(
         &mut self,
         cx: &mut Context<'_>,
@@ -58,6 +68,12 @@ impl ScheduledIo {
         if !ready.is_empty() {
             return Poll::Ready(ready);
         }
+        self.set_waker(cx, direction);
+        Poll::Pending
+    }
+
+    #[inline]
+    pub(crate) fn set_waker(&mut self, cx: &mut Context<'_>, direction: Direction) {
         let slot = match direction {
             Direction::Read => &mut self.reader,
             Direction::Write => &mut self.writer,
@@ -72,6 +88,5 @@ impl ScheduledIo {
                 *slot = Some(cx.waker().clone());
             }
         }
-        Poll::Pending
     }
 }

@@ -128,6 +128,7 @@ impl Ready {
         self.contains(Ready::WRITE_CLOSED)
     }
 
+    #[allow(dead_code)]
     pub(crate) fn is_canceled(self) -> bool {
         !(self & Ready::CANCELED).is_empty()
     }
@@ -240,3 +241,5 @@ impl Direction {
         }
     }
 }
+
+pub(crate) const RW_INTERESTS: mio::Interest = mio::Interest::READABLE.add(mio::Interest::WRITABLE);

@@ -6,7 +6,7 @@ use std::io;
 use io_uring::{opcode, types};
 #[cfg(all(unix, feature = "legacy"))]
 use {
-    crate::{driver::legacy::ready::Direction, syscall_u32},
+    crate::{driver::ready::Direction, syscall_u32},
     std::os::unix::prelude::AsRawFd,
 };
 
@@ -73,6 +73,7 @@ impl OpAble for Splice {
     }
 
     #[cfg(all(unix, feature = "legacy"))]
+    #[inline]
     fn legacy_interest(&self) -> Option<(Direction, usize)> {
         match self.direction {
             SpliceDirection::FromPipe => self

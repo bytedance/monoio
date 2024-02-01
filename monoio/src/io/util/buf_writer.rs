@@ -20,11 +20,13 @@ const DEFAULT_BUF_SIZE: usize = 8 * 1024;
 
 impl<W> BufWriter<W> {
     /// Create BufWriter with default buffer size
+    #[inline]
     pub fn new(inner: W) -> Self {
         Self::with_capacity(DEFAULT_BUF_SIZE, inner)
     }
 
     /// Create BufWriter with given buffer size
+    #[inline]
     pub fn with_capacity(capacity: usize, inner: W) -> Self {
         let buffer = vec![0; capacity];
         Self {

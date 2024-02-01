@@ -53,24 +53,29 @@ pub(crate) trait OpAble {
     #[cfg(all(target_os = "linux", feature = "iouring"))]
     fn uring_op(&mut self) -> io_uring::squeue::Entry;
 
-    #[cfg(feature = "legacy")]
-    fn legacy_interest(&self) -> Option<(super::legacy::ready::Direction, usize)>;
-    #[cfg(feature = "legacy")]
+    #[cfg(any(feature = "legacy", feature = "poll-io"))]
+    fn legacy_interest(&self) -> Option<(super::ready::Direction, usize)>;
+    #[cfg(any(feature = "legacy", feature = "poll-io"))]
     fn legacy_call(&mut self) -> io::Result<u32>;
 }
 
 /// If legacy is enabled and iouring is not, we can expose io interface in a poll-like way.
 /// This can provide better compatibility for crates programmed in poll-like way.
-#[cfg(all(unix, feature = "legacy"))]
+#[cfg(any(feature = "legacy", feature = "poll-io"))]
 pub(crate) trait PollLegacy {
+    #[cfg(feature = "legacy")]
     fn poll_legacy(&mut self, cx: &mut std::task::Context<'_>) -> std::task::Poll<CompletionMeta>;
+    #[cfg(feature = "poll-io")]
+    fn poll_io(&mut self, cx: &mut std::task::Context<'_>) -> std::task::Poll<CompletionMeta>;
 }
 
-#[cfg(all(unix, feature = "legacy"))]
+#[cfg(any(feature = "legacy", feature = "poll-io"))]
 impl<T> PollLegacy for T
 where
     T: OpAble,
 {
+    #[cfg(feature = "legacy")]
+    #[inline]
     fn poll_legacy(&mut self, _cx: &mut std::task::Context<'_>) -> std::task::Poll<CompletionMeta> {
         #[cfg(all(feature = "iouring", feature = "tokio-compat"))]
         unsafe {
@@ -84,6 +89,12 @@ where
 
         #[cfg(not(all(feature = "iouring", feature = "tokio-compat")))]
         driver::CURRENT.with(|this| this.poll_op(self, 0, _cx))
+    }
+
+    #[cfg(feature = "poll-io")]
+    #[inline]
+    fn poll_io(&mut self, cx: &mut std::task::Context<'_>) -> std::task::Poll<CompletionMeta> {
+        driver::CURRENT.with(|this| this.poll_legacy_op(self, cx))
     }
 }
 
@@ -164,12 +175,14 @@ impl<T> Drop for Op<T> {
 /// Check if current driver is legacy.
 #[allow(unused)]
 #[cfg(not(target_os = "linux"))]
-pub fn is_legacy() -> bool {
+#[inline]
+pub const fn is_legacy() -> bool {
     true
 }
 
 /// Check if current driver is legacy.
 #[cfg(target_os = "linux")]
+#[inline]
 pub fn is_legacy() -> bool {
     super::CURRENT.with(|inner| inner.is_legacy())
 }
@@ -178,7 +191,7 @@ pub fn is_legacy() -> bool {
 pub(crate) struct OpCanceller {
     pub(super) index: usize,
     #[cfg(feature = "legacy")]
-    pub(super) direction: Option<super::legacy::ready::Direction>,
+    pub(super) direction: Option<super::ready::Direction>,
 }
 
 impl OpCanceller {

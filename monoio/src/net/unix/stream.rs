@@ -23,7 +23,7 @@ use crate::{
 
 /// UnixStream
 pub struct UnixStream {
-    fd: SharedFd,
+    pub(super) fd: SharedFd,
 }
 
 /// UnixStream is safe to split to two parts
@@ -52,7 +52,7 @@ impl UnixStream {
         socklen: libc::socklen_t,
     ) -> io::Result<Self> {
         let socket = new_socket(libc::AF_UNIX, libc::SOCK_STREAM)?;
-        let op = Op::connect_unix(SharedFd::new(socket)?, sockaddr, socklen)?;
+        let op = Op::connect_unix(SharedFd::new::<false>(socket)?, sockaddr, socklen)?;
         let completion = op.await;
         completion.meta.result?;
 
@@ -86,7 +86,7 @@ impl UnixStream {
 
     /// Creates new `UnixStream` from a `std::os::unix::net::UnixStream`.
     pub fn from_std(stream: std::os::unix::net::UnixStream) -> io::Result<Self> {
-        match SharedFd::new(stream.as_raw_fd()) {
+        match SharedFd::new::<false>(stream.as_raw_fd()) {
             Ok(shared) => {
                 stream.into_raw_fd();
                 Ok(Self::from_shared_fd(shared))
