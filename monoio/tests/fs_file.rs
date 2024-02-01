@@ -1,6 +1,6 @@
 use std::{
     io::prelude::*,
-    os::unix::io::{AsRawFd, FromRawFd, RawFd},
+    os::unix::io::{FromRawFd, RawFd},
 };
 
 use monoio::fs::File;
@@ -17,6 +17,14 @@ async fn read_hello(file: &File) {
     assert_eq!(&buf, &HELLO[..n]);
 }
 
+// will report { code: 38, kind: Unsupported, message: "Function not implemented" } in aarch64,
+// armv7, riscv64gc, s390x, just ignore
+#[cfg(not(any(
+    target_arch = "aarch64",
+    target_arch = "arm",
+    target_arch = "riscv64",
+    target_arch = "s390x",
+)))]
 #[monoio::test_all]
 async fn basic_read() {
     let mut tempfile = tempfile();
@@ -26,6 +34,14 @@ async fn basic_read() {
     read_hello(&file).await;
 }
 
+// will report { code: 38, kind: Unsupported, message: "Function not implemented" } in aarch64,
+// armv7, riscv64gc, s390x, just ignore
+#[cfg(not(any(
+    target_arch = "aarch64",
+    target_arch = "arm",
+    target_arch = "riscv64",
+    target_arch = "s390x",
+)))]
 #[monoio::test_all]
 async fn basic_read_exact() {
     let mut tempfile = tempfile();
@@ -42,6 +58,14 @@ async fn basic_read_exact() {
     assert_eq!(res.unwrap_err().kind(), std::io::ErrorKind::UnexpectedEof);
 }
 
+// will report { code: 38, kind: Unsupported, message: "Function not implemented" } in aarch64,
+// armv7, riscv64gc, s390x, just ignore
+#[cfg(not(any(
+    target_arch = "aarch64",
+    target_arch = "arm",
+    target_arch = "riscv64",
+    target_arch = "s390x",
+)))]
 #[monoio::test_all]
 async fn basic_write() {
     let tempfile = tempfile();
@@ -53,6 +77,14 @@ async fn basic_write() {
     assert_eq!(file, HELLO);
 }
 
+// will report { code: 38, kind: Unsupported, message: "Function not implemented" } in aarch64,
+// armv7, riscv64gc, s390x, just ignore
+#[cfg(not(any(
+    target_arch = "aarch64",
+    target_arch = "arm",
+    target_arch = "riscv64",
+    target_arch = "s390x",
+)))]
 #[monoio::test_all]
 async fn basic_write_all() {
     let tempfile = tempfile();
@@ -64,6 +96,14 @@ async fn basic_write_all() {
     assert_eq!(file, HELLO);
 }
 
+// will report { code: 38, kind: Unsupported, message: "Function not implemented" } in aarch64,
+// armv7, riscv64gc, s390x, just ignore
+#[cfg(not(any(
+    target_arch = "aarch64",
+    target_arch = "arm",
+    target_arch = "riscv64",
+    target_arch = "s390x",
+)))]
 #[monoio::test(driver = "uring")]
 async fn cancel_read() {
     let mut tempfile = tempfile();
@@ -77,6 +117,14 @@ async fn cancel_read() {
     read_hello(&file).await;
 }
 
+// will report { code: 38, kind: Unsupported, message: "Function not implemented" } in aarch64,
+// armv7, riscv64gc, s390x, just ignore
+#[cfg(not(any(
+    target_arch = "aarch64",
+    target_arch = "arm",
+    target_arch = "riscv64",
+    target_arch = "s390x",
+)))]
 #[monoio::test_all]
 async fn explicit_close() {
     let mut tempfile = tempfile();
@@ -90,6 +138,14 @@ async fn explicit_close() {
     assert_invalid_fd(fd);
 }
 
+// will report { code: 38, kind: Unsupported, message: "Function not implemented" } in aarch64,
+// armv7, riscv64gc, s390x, just ignore
+#[cfg(not(any(
+    target_arch = "aarch64",
+    target_arch = "arm",
+    target_arch = "riscv64",
+    target_arch = "s390x",
+)))]
 #[monoio::test_all]
 async fn drop_open() {
     let tempfile = tempfile();
@@ -103,8 +159,18 @@ async fn drop_open() {
     drop(file_w);
 }
 
+// will report { code: 38, kind: Unsupported, message: "Function not implemented" } in aarch64,
+// armv7, riscv64gc, s390x, just ignore
+#[cfg(not(any(
+    target_arch = "aarch64",
+    target_arch = "arm",
+    target_arch = "riscv64",
+    target_arch = "s390x",
+)))]
 #[test]
 fn drop_off_runtime() {
+    use std::os::fd::AsRawFd;
+
     let tempfile = tempfile();
     #[cfg(target_os = "linux")]
     let file = monoio::start::<monoio::IoUringDriver, _>(async {
@@ -121,6 +187,14 @@ fn drop_off_runtime() {
     assert_invalid_fd(fd);
 }
 
+// will report { code: 38, kind: Unsupported, message: "Function not implemented" } in aarch64,
+// armv7, riscv64gc, s390x, just ignore
+#[cfg(not(any(
+    target_arch = "aarch64",
+    target_arch = "arm",
+    target_arch = "riscv64",
+    target_arch = "s390x",
+)))]
 #[monoio::test_all]
 async fn sync_doesnt_kill_anything() {
     let tempfile = tempfile();
