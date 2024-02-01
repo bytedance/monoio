@@ -1,13 +1,14 @@
 //! Example for using h2 directly.
-//! Note: This is only meant for compatible usage.
 //! Example code is modified from https://github.com/hyperium/h2/blob/master/examples/server.rs.
 
-use monoio::net::{TcpListener, TcpStream};
-use monoio_compat::StreamWrapper;
+use monoio::{
+    io::IntoPollIo,
+    net::{TcpListener, TcpStream},
+};
 
-async fn serve(socket: TcpStream) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    let socket_wrapper = StreamWrapper::new(socket);
-    let mut connection = h2::server::handshake(socket_wrapper).await?;
+async fn serve(io: TcpStream) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let io = io.into_poll_io()?;
+    let mut connection = h2::server::handshake(io).await?;
     println!("H2 connection bound");
 
     while let Some(result) = connection.accept().await {
