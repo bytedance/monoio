@@ -1,15 +1,16 @@
 //! Example for using h2 directly.
-//! Note: This is only meant for compatible usage.
 //! Example code is modified from https://github.com/hyperium/h2/blob/master/examples/client.rs.
 
-use monoio::net::TcpStream;
-use monoio_compat::StreamWrapper;
+use monoio::{io::IntoPollIo, net::TcpStream};
 
 #[monoio::main]
 async fn main() {
-    let tcp = TcpStream::connect("127.0.0.1:5928").await.unwrap();
-    let tcp_wrapper = StreamWrapper::new(tcp);
-    let (mut client, h2) = h2::client::handshake(tcp_wrapper).await.unwrap();
+    let io = TcpStream::connect("127.0.0.1:5928")
+        .await
+        .unwrap()
+        .into_poll_io()
+        .unwrap();
+    let (mut client, h2) = h2::client::handshake(io).await.unwrap();
 
     println!("sending request");
 
