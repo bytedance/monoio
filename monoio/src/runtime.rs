@@ -414,7 +414,19 @@ where
 
 #[cfg(test)]
 mod tests {
-    #[cfg(all(feature = "sync", target_os = "linux", feature = "iouring"))]
+    // will report { code: 38, kind: Unsupported, message: "Function not implemented" } in aarch64,
+    // armv7, riscv64gc, s390x, just ignore
+    #[cfg(all(
+        target_os = "linux",
+        feature = "sync",
+        feature = "iouring",
+        not(any(
+            target_arch = "aarch64",
+            target_arch = "armv7",
+            target_arch = "riscv64gc",
+            target_arch = "s390x",
+        ))
+    ))]
     #[test]
     fn across_thread() {
         use futures::channel::oneshot;
@@ -443,7 +455,18 @@ mod tests {
         });
     }
 
-    #[cfg(all(target_os = "linux", feature = "iouring"))]
+    // will report { code: 38, kind: Unsupported, message: "Function not implemented" } in aarch64,
+    // armv7, riscv64gc, s390x, just ignore
+    #[cfg(all(
+        target_os = "linux",
+        feature = "iouring",
+        not(any(
+            target_arch = "aarch64",
+            target_arch = "armv7",
+            target_arch = "riscv64gc",
+            target_arch = "s390x",
+        ))
+    ))]
     #[test]
     fn timer() {
         use crate::driver::IoUringDriver;
