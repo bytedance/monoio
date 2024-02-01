@@ -53,8 +53,7 @@ impl<T: IoBuf> OpAble for Send<T> {
             // see also: https://www.kernel.org/doc/html/v4.16/networking/msg_zerocopy.html
             const MSG_ZEROCOPY_THRESHOLD: usize = 10 * 1024 * 1024;
             if buf.bytes_init() >= MSG_ZEROCOPY_THRESHOLD {
-                libc::MSG_NOSIGNAL as libc::c_int
-                    | MSG_ZEROCOPY
+                libc::MSG_NOSIGNAL as libc::c_int | MSG_ZEROCOPY
             } else {
                 libc::MSG_NOSIGNAL as libc::c_int
             }
