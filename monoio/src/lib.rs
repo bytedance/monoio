@@ -5,6 +5,7 @@
 #![cfg_attr(feature = "unstable", feature(lazy_cell))]
 #![cfg_attr(feature = "unstable", feature(stmt_expr_attributes))]
 #![cfg_attr(feature = "unstable", feature(thread_local))]
+#![cfg_attr(feature = "unstable", feature(stmt_expr_attributes))]
 
 #[macro_use]
 pub mod macros;

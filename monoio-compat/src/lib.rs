@@ -1,6 +1,6 @@
 //! For compat with tokio AsyncRead and AsyncWrite.
 
-#![feature(new_uninit)]
+#![cfg_attr(feature = "unstable", feature(new_uninit))]
 
 pub mod box_future;
 mod buf;
