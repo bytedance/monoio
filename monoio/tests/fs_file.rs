@@ -17,8 +17,7 @@ async fn read_hello(file: &File) {
     assert_eq!(&buf, &HELLO[..n]);
 }
 
-#[monoio::test_if_support_arch]
-#[monoio::test_all]
+#[monoio::test_all(only_in_support_arch = true)]
 async fn basic_read() {
     let mut tempfile = tempfile();
     tempfile.write_all(HELLO).unwrap();
@@ -27,8 +26,7 @@ async fn basic_read() {
     read_hello(&file).await;
 }
 
-#[monoio::test_if_support_arch]
-#[monoio::test_all]
+#[monoio::test_all(only_in_support_arch = true)]
 async fn basic_read_exact() {
     let mut tempfile = tempfile();
     tempfile.write_all(HELLO).unwrap();
@@ -44,8 +42,7 @@ async fn basic_read_exact() {
     assert_eq!(res.unwrap_err().kind(), std::io::ErrorKind::UnexpectedEof);
 }
 
-#[monoio::test_if_support_arch]
-#[monoio::test_all]
+#[monoio::test_all(only_in_support_arch = true)]
 async fn basic_write() {
     let tempfile = tempfile();
 
@@ -56,8 +53,7 @@ async fn basic_write() {
     assert_eq!(file, HELLO);
 }
 
-#[monoio::test_if_support_arch]
-#[monoio::test_all]
+#[monoio::test_all(only_in_support_arch = true)]
 async fn basic_write_all() {
     let tempfile = tempfile();
 
@@ -68,8 +64,7 @@ async fn basic_write_all() {
     assert_eq!(file, HELLO);
 }
 
-#[monoio::test_if_support_arch]
-#[monoio::test(driver = "uring")]
+#[monoio::test(driver = "uring", only_in_support_arch = true)]
 async fn cancel_read() {
     let mut tempfile = tempfile();
     tempfile.write_all(HELLO).unwrap();
@@ -82,8 +77,7 @@ async fn cancel_read() {
     read_hello(&file).await;
 }
 
-#[monoio::test_if_support_arch]
-#[monoio::test_all]
+#[monoio::test_all(only_in_support_arch = true)]
 async fn explicit_close() {
     use std::os::fd::AsRawFd;
 
@@ -98,8 +92,7 @@ async fn explicit_close() {
     assert_invalid_fd(fd);
 }
 
-#[monoio::test_if_support_arch]
-#[monoio::test_all]
+#[monoio::test_all(only_in_support_arch = true)]
 async fn drop_open() {
     let tempfile = tempfile();
 
@@ -112,7 +105,12 @@ async fn drop_open() {
     drop(file_w);
 }
 
-#[monoio::test_if_support_arch]
+#[cfg(not(any(
+    target_arch = "aarch64",
+    target_arch = "arm",
+    target_arch = "riscv64",
+    target_arch = "s390x",
+)))]
 #[test]
 fn drop_off_runtime() {
     use std::os::fd::AsRawFd;
@@ -133,8 +131,7 @@ fn drop_off_runtime() {
     assert_invalid_fd(fd);
 }
 
-#[monoio::test_if_support_arch]
-#[monoio::test_all]
+#[monoio::test_all(only_in_support_arch = true)]
 async fn sync_doesnt_kill_anything() {
     let tempfile = tempfile();
 

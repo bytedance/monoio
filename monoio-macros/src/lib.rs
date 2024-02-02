@@ -9,7 +9,6 @@ extern crate proc_macro;
 
 mod entry;
 mod select;
-mod test;
 
 use proc_macro::TokenStream;
 #[cfg(unix)]
@@ -40,12 +39,4 @@ pub fn test_all(args: TokenStream, item: TokenStream) -> TokenStream {
 #[doc(hidden)]
 pub fn select_priv_declare_output_enum(input: TokenStream) -> TokenStream {
     select::declare_output_enum(input)
-}
-
-/// Implementation detail of the `test_if_support_arch!` macro. This macro is **not** intended
-/// to be used as part of the public API and is permitted to change.
-#[proc_macro_attribute]
-#[doc(hidden)]
-pub fn test_if_support_arch(_: TokenStream, input: TokenStream) -> TokenStream {
-    test::test_if_support_arch(input)
 }

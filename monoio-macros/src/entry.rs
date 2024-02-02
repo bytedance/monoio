@@ -13,6 +13,7 @@ type AttributeArgs = syn::punctuated::Punctuated<syn::Meta, syn::Token![,]>;
 struct FinalConfig {
     entries: Option<u32>,
     timer_enabled: Option<bool>,
+    only_in_support_arch: Option<bool>,
     threads: Option<u32>,
     driver: DriverType,
 }
@@ -21,6 +22,7 @@ struct FinalConfig {
 const DEFAULT_ERROR_CONFIG: FinalConfig = FinalConfig {
     entries: None,
     timer_enabled: None,
+    only_in_support_arch: None,
     threads: None,
     driver: DriverType::Fusion,
 };
@@ -28,6 +30,7 @@ const DEFAULT_ERROR_CONFIG: FinalConfig = FinalConfig {
 struct Configuration {
     entries: Option<(u32, Span)>,
     timer_enabled: Option<(bool, Span)>,
+    only_in_support_arch: Option<(bool, Span)>,
     threads: Option<(u32, Span)>,
     driver: Option<(DriverType, Span)>,
 }
@@ -44,6 +47,7 @@ impl Configuration {
         Configuration {
             entries: None,
             timer_enabled: None,
+            only_in_support_arch: None,
             threads: None,
             driver: None,
         }
@@ -92,10 +96,28 @@ impl Configuration {
         Ok(())
     }
 
+    fn set_only_in_support_arch(
+        &mut self,
+        enabled: syn::Lit,
+        span: Span,
+    ) -> Result<(), syn::Error> {
+        if self.only_in_support_arch.is_some() {
+            return Err(syn::Error::new(
+                span,
+                "`only_in_support_arch` set multiple times.",
+            ));
+        }
+
+        let enabled = parse_bool(enabled, span, "only_in_support_arch")?;
+        self.only_in_support_arch = Some((enabled, span));
+        Ok(())
+    }
+
     fn build(&self) -> Result<FinalConfig, syn::Error> {
         Ok(FinalConfig {
             entries: self.entries.map(|(e, _)| e),
             timer_enabled: self.timer_enabled.map(|(t, _)| t),
+            only_in_support_arch: self.timer_enabled.map(|(t, _)| t),
             threads: self.threads.map(|(t, _)| t),
             driver: self.driver.map(|(d, _)| d).unwrap_or(DriverType::Fusion),
         })
@@ -186,6 +208,8 @@ fn build_config(input: syn::ItemFn, args: AttributeArgs) -> Result<FinalConfig, 
                     "timer_enabled" | "enable_timer" | "timer" => {
                         config.set_timer_enabled(lit.clone(), syn::spanned::Spanned::span(lit))?
                     }
+                    "only_in_support_arch" => config
+                        .set_only_in_support_arch(lit.clone(), syn::spanned::Spanned::span(lit))?,
                     "worker_threads" | "workers" | "threads" => {
                         config.set_threads(lit.clone(), syn::spanned::Spanned::span(lit))?;
                         // Function must return `()` since it will be swallowed.
@@ -350,8 +374,22 @@ fn parse_knobs(mut input: syn::ItemFn, is_test: bool, config: FinalConfig) -> To
         quote! {}
     };
     let cfg_attr = if config.driver == DriverType::Uring && is_test {
-        quote! {
-            #[cfg(target_os = "linux")]
+        if Some(true) == config.only_in_support_arch {
+            quote! {
+                #[cfg(all(
+                    target_os = "linux",
+                    not(any(
+                        target_arch = "aarch64",
+                        target_arch = "arm",
+                        target_arch = "riscv64",
+                        target_arch = "s390x",
+                    )
+                )))]
+            }
+        } else {
+            quote! {
+                #[cfg(target_os = "linux")]
+            }
         }
     } else {
         quote! {}

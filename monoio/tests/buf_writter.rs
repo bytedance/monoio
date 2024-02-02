@@ -1,5 +1,4 @@
-#[monoio::test_if_support_arch]
-#[monoio::test_all]
+#[monoio::test_all(only_in_support_arch = true)]
 async fn ensure_buf_writter_write_properly() {
     use monoio::{
         io::{AsyncReadRent, AsyncWriteRent, BufReader, BufWriter, Splitable},

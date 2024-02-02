@@ -1,8 +1,7 @@
 macro_rules! test_accept {
     ($(($ident:ident, $target:expr),)*) => {
         $(
-            #[monoio::test_if_support_arch]
-            #[monoio::test_all]
+            #[monoio::test_all(only_in_support_arch = true)]
             async fn $ident() {
                 use std::net::{IpAddr, SocketAddr};
                 use monoio::net::{TcpListener, TcpStream};

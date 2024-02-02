@@ -15,7 +15,9 @@ fi
 export RUST_TEST_THREADS=1
 export RUST_BACKTRACE=1
 
-# test
+# test monoio mod
+cd "${PROJECT_DIR}"/monoio
+
 "${CARGO}" test --target "${TARGET}" --no-default-features
 "${CARGO}" test --target "${TARGET}" --no-default-features --release
 
