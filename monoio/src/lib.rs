@@ -10,7 +10,7 @@
 pub mod macros;
 #[cfg(feature = "macros")]
 #[doc(hidden)]
-pub use monoio_macros::select_priv_declare_output_enum;
+pub use monoio_macros::{select_priv_declare_output_enum, test_if_support_arch};
 #[macro_use]
 mod driver;
 pub(crate) mod builder;

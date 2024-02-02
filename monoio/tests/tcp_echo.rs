@@ -3,14 +3,7 @@ use monoio::{
     net::{TcpListener, TcpStream},
 };
 
-// will report { code: 38, kind: Unsupported, message: "Function not implemented" } in aarch64,
-// armv7, riscv64gc, s390x, just ignore
-#[cfg(not(any(
-    target_arch = "aarch64",
-    target_arch = "arm",
-    target_arch = "riscv64",
-    target_arch = "s390x",
-)))]
+#[monoio::test_if_support_arch]
 #[monoio::test_all]
 async fn echo_server() {
     const ITER: usize = 1024;
@@ -70,14 +63,7 @@ async fn echo_server() {
     assert!(rx.await.is_ok());
 }
 
-// will report { code: 38, kind: Unsupported, message: "Function not implemented" } in aarch64,
-// armv7, riscv64gc, s390x, just ignore
-#[cfg(not(any(
-    target_arch = "aarch64",
-    target_arch = "arm",
-    target_arch = "riscv64",
-    target_arch = "s390x",
-)))]
+#[monoio::test_if_support_arch]
 #[monoio::test_all(timer_enabled = true)]
 async fn rw_able() {
     let listener = TcpListener::bind("127.0.0.1:0").unwrap();
@@ -112,14 +98,7 @@ async fn rw_able() {
     assert!(conn.readable(false).await.is_ok());
 }
 
-// will report { code: 38, kind: Unsupported, message: "Function not implemented" } in aarch64,
-// armv7, riscv64gc, s390x, just ignore
-#[cfg(not(any(
-    target_arch = "aarch64",
-    target_arch = "arm",
-    target_arch = "riscv64",
-    target_arch = "s390x",
-)))]
+#[monoio::test_if_support_arch]
 #[monoio::test_all]
 async fn echo_tfo() {
     use std::net::SocketAddr;

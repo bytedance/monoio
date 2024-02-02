@@ -5,14 +5,7 @@ use monoio::net::{TcpListener, TcpStream};
 macro_rules! test_connect_ip {
     ($(($ident:ident, $target:expr, $addr_f:path),)*) => {
         $(
-            // will report { code: 38, kind: Unsupported, message: "Function not implemented" } in aarch64,
-            // armv7, riscv64gc, s390x, just ignore
-            #[cfg(not(any(
-                target_arch = "aarch64",
-                target_arch = "arm",
-                target_arch = "riscv64",
-                target_arch = "s390x",
-            )))]
+            #[monoio::test_if_support_arch]
             #[monoio::test_all]
             async fn $ident() {
                 let listener = TcpListener::bind($target).unwrap();
@@ -45,14 +38,7 @@ test_connect_ip! {
 macro_rules! test_connect {
     ($(($ident:ident, $mapping:tt),)*) => {
         $(
-            // will report { code: 38, kind: Unsupported, message: "Function not implemented" } in aarch64,
-            // armv7, riscv64gc, s390x, just ignore
-            #[cfg(not(any(
-                target_arch = "aarch64",
-                target_arch = "arm",
-                target_arch = "riscv64",
-                target_arch = "s390x",
-            )))]
+            #[monoio::test_if_support_arch]
             #[monoio::test_all]
             async fn $ident() {
                 let listener = TcpListener::bind("127.0.0.1:0").unwrap();
@@ -97,14 +83,7 @@ test_connect! {
     })),
 }
 
-// will report { code: 38, kind: Unsupported, message: "Function not implemented" } in aarch64,
-// armv7, riscv64gc, s390x, just ignore
-#[cfg(not(any(
-    target_arch = "aarch64",
-    target_arch = "arm",
-    target_arch = "riscv64",
-    target_arch = "s390x",
-)))]
+#[monoio::test_if_support_arch]
 #[monoio::test_all(timer_enabled = true)]
 async fn connect_timeout_dst() {
     let drop_flag = DropFlag::default();
@@ -124,27 +103,13 @@ async fn connect_timeout_dst() {
     drop_flag.assert_dropped();
 }
 
-// will report { code: 38, kind: Unsupported, message: "Function not implemented" } in aarch64,
-// armv7, riscv64gc, s390x, just ignore
-#[cfg(not(any(
-    target_arch = "aarch64",
-    target_arch = "arm",
-    target_arch = "riscv64",
-    target_arch = "s390x",
-)))]
+#[monoio::test_if_support_arch]
 #[monoio::test_all]
 async fn connect_invalid_dst() {
     assert!(TcpStream::connect("127.0.0.1:1").await.is_err());
 }
 
-// will report { code: 38, kind: Unsupported, message: "Function not implemented" } in aarch64,
-// armv7, riscv64gc, s390x, just ignore
-#[cfg(not(any(
-    target_arch = "aarch64",
-    target_arch = "arm",
-    target_arch = "riscv64",
-    target_arch = "s390x",
-)))]
+#[monoio::test_if_support_arch]
 #[monoio::test_all(timer_enabled = true)]
 async fn cancel_read() {
     use monoio::io::CancelableAsyncReadRent;
@@ -162,14 +127,7 @@ async fn cancel_read() {
     assert!(res.is_err());
 }
 
-// will report { code: 38, kind: Unsupported, message: "Function not implemented" } in aarch64,
-// armv7, riscv64gc, s390x, just ignore
-#[cfg(not(any(
-    target_arch = "aarch64",
-    target_arch = "arm",
-    target_arch = "riscv64",
-    target_arch = "s390x",
-)))]
+#[monoio::test_if_support_arch]
 #[monoio::test_all(timer_enabled = true)]
 async fn cancel_select() {
     use std::pin::pin;
