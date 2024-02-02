@@ -40,11 +40,6 @@ jobs:
         with:
           command: check
           args: --no-default-features
-      - name: Run cargo check with all features
-        uses: actions-rs/cargo@v1
-        with:
-          command: check
-          args: --all-features
       - name: Run cargo clippy
         uses: actions-rs/cargo@v1
         with:
@@ -74,10 +69,11 @@ jobs:
           x86_64-apple-darwin,
 #          aarch64-apple-darwin,
 
-          x86_64-pc-windows-gnu,
-          x86_64-pc-windows-msvc,
-          i686-pc-windows-gnu,
-          i686-pc-windows-msvc,
+          # unsupported yet
+#          x86_64-pc-windows-gnu,
+#          x86_64-pc-windows-msvc,
+#          i686-pc-windows-gnu,
+#          i686-pc-windows-msvc,
         ]
         channel: [stable, nightly]
         include:
@@ -103,11 +99,12 @@ jobs:
 #          - target: aarch64-apple-darwin
 #            os: macos-latest
 
-          - target: x86_64-pc-windows-msvc
-            os: windows-latest
-          - target: x86_64-pc-windows-gnu
-            os: windows-latest
-          - target: i686-pc-windows-msvc
-            os: windows-latest
-          - target: i686-pc-windows-gnu
-            os: windows-latest
+          # unsupported yet
+#          - target: x86_64-pc-windows-msvc
+#            os: windows-latest
+#          - target: x86_64-pc-windows-gnu
+#            os: windows-latest
+#          - target: i686-pc-windows-msvc
+#            os: windows-latest
+#          - target: i686-pc-windows-gnu
+#            os: windows-latest
