@@ -117,7 +117,7 @@ impl Configuration {
         Ok(FinalConfig {
             entries: self.entries.map(|(e, _)| e),
             timer_enabled: self.timer_enabled.map(|(t, _)| t),
-            only_in_support_arch: self.timer_enabled.map(|(t, _)| t),
+            only_in_support_arch: self.only_in_support_arch.map(|(t, _)| t),
             threads: self.threads.map(|(t, _)| t),
             driver: self.driver.map(|(d, _)| d).unwrap_or(DriverType::Fusion),
         })
