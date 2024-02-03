@@ -351,7 +351,7 @@ fn parse_knobs(mut input: syn::ItemFn, is_test: bool, config: FinalConfig) -> To
     };
     let cfg_attr = if config.driver == DriverType::Uring && is_test {
         quote! {
-            #[cfg(target_os = "linux")]
+            #[cfg(all(target_os = "linux", feature = "iouring"))]
         }
     } else {
         quote! {}
