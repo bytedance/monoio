@@ -45,7 +45,12 @@ cd "${PROJECT_DIR}"/monoio-compat
 "${CARGO}" test --target "${TARGET}"
 "${CARGO}" test --target "${TARGET}" --release
 
+"${CARGO}" test --target "${TARGET}" --no-default-features --features hyper
+"${CARGO}" test --target "${TARGET}" --no-default-features --features hyper --release
+
 if [ "${CHANNEL}" == "nightly" ]; then
     "${CARGO}" test --target "${TARGET}" --all-features
     "${CARGO}" test --target "${TARGET}" --all-features --release
 fi
+
+# todo maybe we should test examples here ?
