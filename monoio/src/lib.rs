@@ -56,9 +56,9 @@ pub use {builder::FusionDriver, runtime::FusionRuntime};
 /// Basic usage
 ///
 /// ```no_run
-/// #[cfg(not(all(target_os = "linux", feature = "iouring")))]
 /// fn main() -> Result<(), Box<dyn std::error::Error>> {
-///     monoio::start::<monoio::LegacyDriver, _>(async {
+///     #[cfg(not(all(target_os = "linux", feature = "iouring")))]
+///     let r = monoio::start::<monoio::LegacyDriver, _>(async {
 ///         // Open a file
 ///         let file = monoio::fs::File::open("hello.txt").await?;
 ///
@@ -73,7 +73,10 @@ pub use {builder::FusionDriver, runtime::FusionRuntime};
 ///         println!("{:?}", &buf[..n]);
 ///
 ///         Ok(())
-///     })
+///     });
+///     #[cfg(all(target_os = "linux", feature = "iouring"))]
+///     let r = Ok(());
+///     r
 /// }
 /// ```
 pub fn start<D, F>(future: F) -> F::Output
@@ -97,9 +100,9 @@ where
 /// # Examples
 ///
 /// ```no_run
-/// #[cfg(not(all(target_os = "linux", feature = "iouring")))]
 /// fn main() -> Result<(), Box<dyn std::error::Error>> {
-///     monoio::start::<monoio::LegacyDriver, _>(async {
+///     #[cfg(not(all(target_os = "linux", feature = "iouring")))]
+///     let r = monoio::start::<monoio::LegacyDriver, _>(async {
 ///         // Open a file
 ///         let file = monoio::fs::File::open("hello.txt").await?;
 ///
@@ -114,7 +117,10 @@ where
 ///         println!("{:?}", &buf[..n]);
 ///
 ///         Ok(())
-///     })
+///     });
+///     #[cfg(all(target_os = "linux", feature = "iouring"))]
+///     let r = Ok(());
+///     r
 /// }
 /// ```
 pub type BufResult<T, B> = (std::io::Result<T>, B);
