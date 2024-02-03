@@ -22,7 +22,7 @@ cd "${PROJECT_DIR}"/monoio
 "${CARGO}" test --target "${TARGET}" --no-default-features --features "async-cancel,bytes,legacy,macros,utils"
 "${CARGO}" test --target "${TARGET}" --no-default-features --features "async-cancel,bytes,legacy,macros,utils" --release
 
-if [ "${TARGET}" = "x86_64-unknown-linux-gnu" ]; then
+if [ "${TARGET}" = "x86_64-unknown-linux-gnu" ] || [ "${TARGET}" = "i686-unknown-linux-gnu" ]; then
 
     # only enabled uring driver
     "${CARGO}" test --target "${TARGET}" --no-default-features --features "async-cancel,bytes,iouring,macros,utils"
