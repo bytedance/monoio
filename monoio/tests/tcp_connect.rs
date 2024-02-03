@@ -31,6 +31,19 @@ macro_rules! test_connect_ip {
 
 test_connect_ip! {
     (connect_v4, "127.0.0.1:0", SocketAddr::is_ipv4),
+}
+
+#[cfg(not(all(
+    target_os = "linux",
+    any(
+        target_arch = "i686",
+        target_arch = "aarch64",
+        target_arch = "arm",
+        target_arch = "riscv64",
+        target_arch = "s390x"
+    )
+)))]
+test_connect_ip! {
     (connect_v6, "[::1]:0", SocketAddr::is_ipv6),
 }
 
