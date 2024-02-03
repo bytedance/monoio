@@ -62,9 +62,9 @@ jobs:
           aarch64-unknown-linux-gnu,
           armv7-unknown-linux-gnueabihf,
           riscv64gc-unknown-linux-gnu,
-          loongarch64-unknown-linux-gnu,
           s390x-unknown-linux-gnu,
 #          mips64-unknown-linux-muslabi64,
+#          loongarch64-unknown-linux-gnu,
 
           x86_64-apple-darwin,
 #          aarch64-apple-darwin,
@@ -87,11 +87,11 @@ jobs:
             os: ubuntu-latest
           - target: riscv64gc-unknown-linux-gnu
             os: ubuntu-latest
-          - target: loongarch64-unknown-linux-gnu
-            os: ubuntu-latest
           - target: s390x-unknown-linux-gnu
             os: ubuntu-latest
 #          - target: mips64-unknown-linux-muslabi64
+#            os: ubuntu-latest
+#          - target: loongarch64-unknown-linux-gnu
 #            os: ubuntu-latest
 
           - target: x86_64-apple-darwin

@@ -36,7 +36,7 @@ test_connect_ip! {
 #[cfg(not(all(
     target_os = "linux",
     any(
-        target_arch = "i686",
+        target_arch = "x86",
         target_arch = "aarch64",
         target_arch = "arm",
         target_arch = "riscv64",
