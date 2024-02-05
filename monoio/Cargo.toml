@@ -47,7 +47,7 @@ version = "0.48.0"
 nix = { version = "0.26", optional = true }
 
 [target.'cfg(target_os = "linux")'.dependencies]
-io-uring = { version = "0.6" }
+io-uring = { version = "0.6", optional = true }
 
 [dev-dependencies]
 futures = "0.3"
@@ -75,7 +75,7 @@ debug = ["tracing"]
 # enable legacy driver support(will make monoio available for older kernel and macOS)
 legacy = ["mio"]
 # iouring support
-iouring = []
+iouring = ["io-uring"]
 # tokio-compatible(only have effect when legacy is enabled and iouring is not)
 tokio-compat = ["tokio"]
 # (experimental)enable poll-io to convert structs to structs that impl tokio's poll io

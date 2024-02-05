@@ -137,7 +137,7 @@ impl TcpStream {
         let stream = TcpStream::from_shared_fd(completion.data.fd);
         // wait write ready on epoll branch
         if crate::driver::op::is_legacy() {
-            #[cfg(any(target_os = "ios", target_os = "macos"))]
+            #[cfg(all(any(target_os = "ios", target_os = "macos"), feature = "legacy"))]
             if !tfo {
                 stream.writable(true).await?;
             } else {
@@ -151,6 +151,8 @@ impl TcpStream {
                             readiness.set_writable();
                         }
                     }
+                    #[allow(unreachable_patterns)]
+                    _ => unreachable!("should never happens"),
                 })
             }
             #[cfg(not(any(target_os = "ios", target_os = "macos")))]

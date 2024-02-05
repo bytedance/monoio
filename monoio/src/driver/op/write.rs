@@ -69,7 +69,7 @@ impl<T: IoBuf> OpAble for Write<T> {
             fd,
             self.buf.read_ptr() as _,
             self.buf.bytes_init(),
-            seek_offset
+            seek_offset as _
         ));
 
         #[cfg(target_os = "macos")]

@@ -106,11 +106,11 @@ async fn drop_open() {
 #[test]
 fn drop_off_runtime() {
     let tempfile = tempfile();
-    #[cfg(target_os = "linux")]
+    #[cfg(all(target_os = "linux", feature = "iouring"))]
     let file = monoio::start::<monoio::IoUringDriver, _>(async {
         File::open(tempfile.path()).await.unwrap()
     });
-    #[cfg(not(target_os = "linux"))]
+    #[cfg(not(all(target_os = "linux", feature = "iouring")))]
     let file = monoio::start::<monoio::LegacyDriver, _>(async {
         File::open(tempfile.path()).await.unwrap()
     });

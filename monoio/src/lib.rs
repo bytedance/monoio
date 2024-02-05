@@ -56,12 +56,11 @@ pub use {builder::FusionDriver, runtime::FusionRuntime};
 /// Basic usage
 ///
 /// ```no_run
-/// use monoio::fs::File;
-///
 /// fn main() -> Result<(), Box<dyn std::error::Error>> {
-///     monoio::start::<monoio::LegacyDriver, _>(async {
+///     #[cfg(not(all(target_os = "linux", feature = "iouring")))]
+///     let r = monoio::start::<monoio::LegacyDriver, _>(async {
 ///         // Open a file
-///         let file = File::open("hello.txt").await?;
+///         let file = monoio::fs::File::open("hello.txt").await?;
 ///
 ///         let buf = vec![0; 4096];
 ///         // Read some data, the buffer is passed by ownership and
@@ -74,7 +73,10 @@ pub use {builder::FusionDriver, runtime::FusionRuntime};
 ///         println!("{:?}", &buf[..n]);
 ///
 ///         Ok(())
-///     })
+///     });
+///     #[cfg(all(target_os = "linux", feature = "iouring"))]
+///     let r = Ok(());
+///     r
 /// }
 /// ```
 pub fn start<D, F>(future: F) -> F::Output
@@ -98,12 +100,11 @@ where
 /// # Examples
 ///
 /// ```no_run
-/// use monoio::fs::File;
-///
 /// fn main() -> Result<(), Box<dyn std::error::Error>> {
-///     monoio::start::<monoio::LegacyDriver, _>(async {
+///     #[cfg(not(all(target_os = "linux", feature = "iouring")))]
+///     let r = monoio::start::<monoio::LegacyDriver, _>(async {
 ///         // Open a file
-///         let file = File::open("hello.txt").await?;
+///         let file = monoio::fs::File::open("hello.txt").await?;
 ///
 ///         let buf = vec![0; 4096];
 ///         // Read some data, the buffer is passed by ownership and
@@ -116,7 +117,10 @@ where
 ///         println!("{:?}", &buf[..n]);
 ///
 ///         Ok(())
-///     })
+///     });
+///     #[cfg(all(target_os = "linux", feature = "iouring"))]
+///     let r = Ok(());
+///     r
 /// }
 /// ```
 pub type BufResult<T, B> = (std::io::Result<T>, B);
