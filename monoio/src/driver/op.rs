@@ -61,6 +61,7 @@ pub(crate) trait OpAble {
 
 /// If legacy is enabled and iouring is not, we can expose io interface in a poll-like way.
 /// This can provide better compatibility for crates programmed in poll-like way.
+#[allow(dead_code)]
 #[cfg(any(feature = "legacy", feature = "poll-io"))]
 pub(crate) trait PollLegacy {
     #[cfg(feature = "legacy")]

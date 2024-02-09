@@ -310,7 +310,7 @@ unsafe impl<T: IoVecBuf> IoBuf for IoVecWrapper<T> {
         #[cfg(windows)]
         {
             let wsabuf = unsafe { *self.raw.read_wsabuf_ptr() };
-            wsabuf.len
+            wsabuf.len as _
         }
     }
 }
@@ -325,7 +325,12 @@ impl<T: IoVecBufMut> IoVecWrapperMut<T> {
     /// Create a new IoVecWrapperMut with something that impl IoVecBufMut.
     #[inline]
     pub fn new(mut iovec_buf: T) -> Result<Self, T> {
+        #[cfg(unix)]
         if iovec_buf.write_iovec_len() == 0 {
+            return Err(iovec_buf);
+        }
+        #[cfg(windows)]
+        if iovec_buf.write_wsabuf_len() == 0 {
             return Err(iovec_buf);
         }
         Ok(Self { raw: iovec_buf })
@@ -348,7 +353,7 @@ unsafe impl<T: IoVecBufMut> IoBufMut for IoVecWrapperMut<T> {
         #[cfg(windows)]
         {
             let wsabuf = unsafe { *self.raw.write_wsabuf_ptr() };
-            wsabuf.buf as *mut u8
+            wsabuf.buf
         }
     }
 
@@ -361,7 +366,7 @@ unsafe impl<T: IoVecBufMut> IoBufMut for IoVecWrapperMut<T> {
         #[cfg(windows)]
         {
             let wsabuf = unsafe { *self.raw.write_wsabuf_ptr() };
-            wsabuf.len
+            wsabuf.len as _
         }
     }
 

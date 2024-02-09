@@ -1,3 +1,4 @@
+use core::fmt::Debug;
 use std::{
     marker::PhantomPinned,
     os::windows::prelude::RawSocket,
@@ -23,6 +24,7 @@ pub enum SockPollStatus {
     Cancelled,
 }
 
+#[derive(Debug)]
 pub struct SocketState {
     pub socket: RawSocket,
     pub inner: Option<Pin<Arc<Mutex<SockState>>>>,
@@ -220,6 +222,13 @@ impl SockState {
         self.poll_status = SockPollStatus::Cancelled;
         self.pending_evts = 0;
         Ok(())
+    }
+}
+
+impl Debug for SockState {
+    #[allow(unused_variables)]
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        unimplemented!()
     }
 }
 

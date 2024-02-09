@@ -107,7 +107,7 @@ impl OpAble for PollAdd {
     fn legacy_call(&mut self) -> io::Result<u32> {
         if !self.relaxed {
             let mut pollfd = WSAPOLLFD {
-                fd: self.fd.as_raw_socket(),
+                fd: self.fd.as_raw_socket() as _,
                 events: if self.is_read {
                     POLLIN as _
                 } else {

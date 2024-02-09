@@ -14,6 +14,7 @@ pub use monoio_macros::select_priv_declare_output_enum;
 #[macro_use]
 mod driver;
 pub(crate) mod builder;
+#[allow(dead_code)]
 pub(crate) mod runtime;
 mod scheduler;
 pub mod time;

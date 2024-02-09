@@ -31,7 +31,7 @@ impl CompletionPort {
         let result = unsafe { CreateIoCompletionPort(handle, self.handle, token, 0) };
 
         if result == 0 {
-            return Err(std::io::Error::last_os_error());
+            Err(std::io::Error::last_os_error())
         } else {
             Ok(())
         }

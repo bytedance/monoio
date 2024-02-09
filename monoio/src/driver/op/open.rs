@@ -10,7 +10,7 @@ use super::{Op, OpAble};
 use crate::driver::ready::Direction;
 #[cfg(windows)]
 use crate::syscall;
-#[cfg(any(feature = "legacy", feature = "poll-io"))]
+#[cfg(all(unix, any(feature = "legacy", feature = "poll-io")))]
 use crate::syscall_u32;
 use crate::{driver::util::cstr, fs::OpenOptions};
 
@@ -81,13 +81,13 @@ impl OpAble for Open {
     fn legacy_call(&mut self) -> io::Result<u32> {
         syscall!(
             CreateFileW(
-                self.path.as_c_str().as_ptr(),
+                self.path.as_c_str().as_ptr().cast(),
                 self.opts.access_mode()?,
                 self.opts.share_mode,
                 self.opts.security_attributes,
                 self.opts.creation_mode()?,
                 self.opts.get_flags_and_attributes(),
-                std::ptr::null_mut(),
+                0,
             ),
             PartialEq::eq,
             INVALID_HANDLE_VALUE

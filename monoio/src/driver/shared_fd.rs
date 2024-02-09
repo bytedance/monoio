@@ -1,7 +1,9 @@
 #[cfg(unix)]
 use std::os::unix::io::{AsRawFd, FromRawFd, RawFd};
 #[cfg(windows)]
-use std::os::windows::io::{AsRawSocket, FromRawSocket, OwnedSocket, RawSocket};
+use std::os::windows::io::{
+    AsRawHandle, AsRawSocket, FromRawSocket, OwnedSocket, RawHandle, RawSocket,
+};
 use std::{cell::UnsafeCell, io, rc::Rc};
 
 #[cfg(windows)]
@@ -27,7 +29,7 @@ struct Inner {
 enum State {
     #[cfg(all(target_os = "linux", feature = "iouring"))]
     Uring(UringState),
-    #[cfg(all(unix, feature = "legacy"))]
+    #[cfg(feature = "legacy")]
     Legacy(Option<usize>),
 }
 
@@ -146,6 +148,13 @@ impl AsRawFd for SharedFd {
 impl AsRawSocket for SharedFd {
     fn as_raw_socket(&self) -> RawSocket {
         self.raw_socket()
+    }
+}
+
+#[cfg(windows)]
+impl AsRawHandle for SharedFd {
+    fn as_raw_handle(&self) -> RawHandle {
+        self.raw_handle()
     }
 }
 
@@ -309,6 +318,11 @@ impl SharedFd {
         self.inner.fd.socket
     }
 
+    #[cfg(windows)]
+    pub(crate) fn raw_handle(&self) -> RawHandle {
+        unimplemented!()
+    }
+
     #[cfg(unix)]
     /// Try unwrap Rc, then deregister if registered and return rawfd.
     /// Note: this action will consume self and return rawfd without closing it.
@@ -363,32 +377,33 @@ impl SharedFd {
     /// Try unwrap Rc, then deregister if registered and return rawfd.
     /// Note: this action will consume self and return rawfd without closing it.
     pub(crate) fn try_unwrap(self) -> Result<RawSocket, Self> {
-        let fd = self.inner.fd;
-        match Rc::try_unwrap(self.inner) {
-            Ok(_inner) => {
-                let state = unsafe { &*_inner.state.get() };
-
-                #[allow(irrefutable_let_patterns)]
-                if let State::Legacy(idx) = state {
-                    if CURRENT.is_set() {
-                        CURRENT.with(|inner| {
-                            match inner {
-                                super::Inner::Legacy(inner) => {
-                                    // deregister it from driver(Poll and slab) and close fd
-                                    if let Some(idx) = idx {
-                                        let _ = super::legacy::LegacyDriver::deregister(
-                                            inner, *idx, &mut fd,
-                                        );
-                                    }
-                                }
-                            }
-                        })
-                    }
-                }
-                Ok(fd.socket)
-            }
-            Err(inner) => Err(Self { inner }),
-        }
+        // let mut fd = self.inner.fd;
+        // match Rc::try_unwrap(self.inner) {
+        //     Ok(_inner) => {
+        //         let state = unsafe { &*_inner.state.get() };
+        //
+        //         #[allow(irrefutable_let_patterns)]
+        //         if let State::Legacy(idx) = state {
+        //             if CURRENT.is_set() {
+        //                 CURRENT.with(|inner| {
+        //                     match inner {
+        //                         super::Inner::Legacy(inner) => {
+        //                             // deregister it from driver(Poll and slab) and close fd
+        //                             if let Some(idx) = idx {
+        //                                 let _ = super::legacy::LegacyDriver::deregister(
+        //                                     inner, *idx, &mut fd,
+        //                                 );
+        //                             }
+        //                         }
+        //                     }
+        //                 })
+        //             }
+        //         }
+        //         Ok(fd.socket)
+        //     }
+        //     Err(inner) => Err(Self { inner }),
+        // }
+        unimplemented!()
     }
 
     #[allow(unused)]
@@ -499,6 +514,7 @@ impl Inner {
     }
 }
 
+#[cfg(unix)]
 impl Drop for Inner {
     fn drop(&mut self) {
         let fd = self.fd;
@@ -520,8 +536,9 @@ impl Drop for Inner {
     }
 }
 
+#[allow(unused_mut)]
 #[cfg(feature = "legacy")]
-fn drop_legacy(fd: RawFd, idx: Option<usize>) {
+fn drop_legacy(mut fd: RawFd, idx: Option<usize>) {
     if CURRENT.is_set() {
         CURRENT.with(|inner| {
             #[cfg(any(all(target_os = "linux", feature = "iouring"), feature = "legacy"))]

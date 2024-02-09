@@ -1,56 +1,60 @@
 #!/usr/bin/env sh
 
-set -ex
+if [ "${NO_RUN}" != "1" ] && [ "${NO_RUN}" != "true" ]; then
 
-CARGO=cargo
-if [ "${CROSS}" = "1" ]; then
-    export CARGO_NET_RETRY=5
-    export CARGO_NET_TIMEOUT=10
+    set -ex
 
-    cargo install cross
-    CARGO=cross
-fi
+    CARGO=cargo
+    if [ "${CROSS}" = "1" ]; then
+        export CARGO_NET_RETRY=5
+        export CARGO_NET_TIMEOUT=10
 
-# If a test crashes, we want to know which one it was.
-export RUST_TEST_THREADS=1
-export RUST_BACKTRACE=1
+        cargo install cross
+        CARGO=cross
+    fi
 
-# test monoio mod
-cd "${PROJECT_DIR}"/monoio
+    # If a test crashes, we want to know which one it was.
+    export RUST_TEST_THREADS=1
+    export RUST_BACKTRACE=1
 
-# only enable legacy driver
-"${CARGO}" test --target "${TARGET}" --no-default-features --features "async-cancel,bytes,legacy,macros,utils"
-"${CARGO}" test --target "${TARGET}" --no-default-features --features "async-cancel,bytes,legacy,macros,utils" --release
+    # test monoio mod
+    cd "${PROJECT_DIR}"/monoio
 
-if [ "${TARGET}" = "x86_64-unknown-linux-gnu" ] || [ "${TARGET}" = "i686-unknown-linux-gnu" ]; then
+    # only enable legacy driver
+    "${CARGO}" test --target "${TARGET}" --no-default-features --features "async-cancel,bytes,legacy,macros,utils"
+    "${CARGO}" test --target "${TARGET}" --no-default-features --features "async-cancel,bytes,legacy,macros,utils" --release
 
-    # only enabled uring driver
-    "${CARGO}" test --target "${TARGET}" --no-default-features --features "async-cancel,bytes,iouring,macros,utils"
-    "${CARGO}" test --target "${TARGET}" --no-default-features --features "async-cancel,bytes,iouring,macros,utils" --release
+    if [ "${TARGET}" = "x86_64-unknown-linux-gnu" ] || [ "${TARGET}" = "i686-unknown-linux-gnu" ]; then
+        # only enabled uring driver
+        "${CARGO}" test --target "${TARGET}" --no-default-features --features "async-cancel,bytes,iouring,macros,utils"
+        "${CARGO}" test --target "${TARGET}" --no-default-features --features "async-cancel,bytes,iouring,macros,utils" --release
+    fi
 
-    # enable uring+legacy driver
+    if [ "${TARGET}" != "aarch64-unknown-linux-gnu" ] && [ "${TARGET}" != "armv7-unknown-linux-gnueabihf" ] &&
+       [ "${TARGET}" != "riscv64gc-unknown-linux-gnu" ] && [ "${TARGET}" != "s390x-unknown-linux-gnu" ]; then
+        # enable uring+legacy driver
+        "${CARGO}" test --target "${TARGET}"
+        "${CARGO}" test --target "${TARGET}" --release
+    fi
+
+    if [ "${CHANNEL}" == "nightly" ] && ( [ "${TARGET}" = "x86_64-unknown-linux-gnu" ] || [ "${TARGET}" = "i686-unknown-linux-gnu" ] ); then
+        "${CARGO}" test --target "${TARGET}" --all-features
+        "${CARGO}" test --target "${TARGET}" --all-features --release
+    fi
+
+    # test monoio-compat mod
+    cd "${PROJECT_DIR}"/monoio-compat
+
     "${CARGO}" test --target "${TARGET}"
     "${CARGO}" test --target "${TARGET}" --release
+
+    "${CARGO}" test --target "${TARGET}" --no-default-features --features hyper
+    "${CARGO}" test --target "${TARGET}" --no-default-features --features hyper --release
 
     if [ "${CHANNEL}" == "nightly" ]; then
         "${CARGO}" test --target "${TARGET}" --all-features
         "${CARGO}" test --target "${TARGET}" --all-features --release
     fi
 
+    # todo maybe we should test examples here ?
 fi
-
-# test monoio-compat mod
-cd "${PROJECT_DIR}"/monoio-compat
-
-"${CARGO}" test --target "${TARGET}"
-"${CARGO}" test --target "${TARGET}" --release
-
-"${CARGO}" test --target "${TARGET}" --no-default-features --features hyper
-"${CARGO}" test --target "${TARGET}" --no-default-features --features hyper --release
-
-if [ "${CHANNEL}" == "nightly" ]; then
-    "${CARGO}" test --target "${TARGET}" --all-features
-    "${CARGO}" test --target "${TARGET}" --all-features --release
-fi
-
-# todo maybe we should test examples here ?

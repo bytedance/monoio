@@ -1,4 +1,5 @@
 /// Monoio Driver.
+#[allow(dead_code)]
 pub(crate) mod op;
 #[cfg(feature = "poll-io")]
 pub(crate) mod poll;
@@ -6,6 +7,7 @@ pub(crate) mod poll;
 pub(crate) mod ready;
 #[cfg(any(feature = "legacy", feature = "poll-io"))]
 pub(crate) mod scheduled_io;
+#[allow(dead_code)]
 pub(crate) mod shared_fd;
 #[cfg(feature = "sync")]
 pub(crate) mod thread;
@@ -23,7 +25,8 @@ use std::{
     time::Duration,
 };
 
-#[cfg(feature = "legacy")]
+#[allow(unreachable_pub)]
+#[cfg(all(feature = "legacy", unix))]
 pub use self::legacy::LegacyDriver;
 #[cfg(feature = "legacy")]
 use self::legacy::LegacyInner;
@@ -96,8 +99,6 @@ pub(crate) enum Inner {
 impl Inner {
     fn submit_with<T: OpAble>(&self, data: T) -> io::Result<Op<T>> {
         match self {
-            #[cfg(windows)]
-            _ => unimplemented!(),
             #[cfg(all(target_os = "linux", feature = "iouring"))]
             Inner::Uring(this) => UringInner::submit_with_data(this, data),
             #[cfg(feature = "legacy")]
@@ -107,7 +108,10 @@ impl Inner {
                 not(all(target_os = "linux", feature = "iouring"))
             ))]
             _ => {
+                #[cfg(unix)]
                 util::feature_panic();
+                #[cfg(windows)]
+                unimplemented!();
             }
         }
     }

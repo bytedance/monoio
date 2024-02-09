@@ -50,6 +50,6 @@ impl OpAble for Close {
         return crate::syscall_u32!(close(self.fd));
 
         #[cfg(windows)]
-        return syscall!(closesocket(self.fd), PartialEq::ne, 0);
+        return syscall!(closesocket(self.fd as _), PartialEq::ne, 0);
     }
 }

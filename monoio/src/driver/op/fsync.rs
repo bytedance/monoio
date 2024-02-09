@@ -3,14 +3,15 @@ use std::io;
 #[cfg(all(target_os = "linux", feature = "iouring"))]
 use io_uring::{opcode, types};
 #[cfg(windows)]
-use windows_sys::Win32::Storage::FileSystem::FlushFileBuffers;
+use {
+    crate::syscall, std::os::windows::prelude::AsRawHandle,
+    windows_sys::Win32::Storage::FileSystem::FlushFileBuffers,
+};
 
 use super::{super::shared_fd::SharedFd, Op, OpAble};
 #[cfg(any(feature = "legacy", feature = "poll-io"))]
 use crate::driver::ready::Direction;
-#[cfg(windows)]
-use crate::syscall;
-#[cfg(any(feature = "legacy", feature = "poll-io"))]
+#[cfg(all(any(feature = "legacy", feature = "poll-io"), unix))]
 use crate::syscall_u32;
 
 pub(crate) struct Fsync {
@@ -57,13 +58,13 @@ impl OpAble for Fsync {
     #[cfg(all(any(feature = "legacy", feature = "poll-io"), windows))]
     fn legacy_call(&mut self) -> io::Result<u32> {
         syscall!(
-            FlushFileBuffers(self.handle.as_raw_handle()),
+            FlushFileBuffers(self.fd.as_raw_handle() as _),
             PartialEq::eq,
             0
         )
     }
 
-    #[cfg(any(feature = "legacy", feature = "poll-io"))]
+    #[cfg(all(any(feature = "legacy", feature = "poll-io"), unix))]
     fn legacy_call(&mut self) -> io::Result<u32> {
         #[cfg(target_os = "linux")]
         if self.data_sync {

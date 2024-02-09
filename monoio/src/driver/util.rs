@@ -1,5 +1,6 @@
 use std::{ffi::CString, io, path::Path};
 
+#[allow(unused_variables)]
 pub(super) fn cstr(p: &Path) -> io::Result<CString> {
     #[cfg(unix)]
     {
@@ -35,6 +36,7 @@ macro_rules! syscall {
     }};
 }
 
+/// Do syscall and return Result<T, std::io::Error>
 #[cfg(windows)]
 #[macro_export]
 macro_rules! syscall {
@@ -43,7 +45,7 @@ macro_rules! syscall {
         if $err_test(&res, &$err_value) {
             Err(io::Error::last_os_error())
         } else {
-            Ok(res)
+            Ok(res.try_into().unwrap())
         }
     }};
 }

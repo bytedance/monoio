@@ -2,13 +2,19 @@ use std::io;
 
 #[cfg(all(target_os = "linux", feature = "iouring"))]
 use io_uring::{opcode, types};
-#[cfg(any(feature = "legacy", feature = "poll-io"))]
+#[cfg(all(windows, any(feature = "legacy", feature = "poll-io")))]
 use {
-    crate::{driver::ready::Direction, syscall_u32},
-    std::os::unix::prelude::AsRawFd,
+    crate::syscall,
+    std::ffi::c_void,
+    std::os::windows::io::AsRawSocket,
+    windows_sys::Win32::Networking::WinSock::{recv, WSAGetLastError, WSARecv, SOCKET_ERROR},
 };
+#[cfg(all(unix, any(feature = "legacy", feature = "poll-io")))]
+use {crate::syscall_u32, std::os::unix::prelude::AsRawFd};
 
 use super::{super::shared_fd::SharedFd, Op, OpAble};
+#[cfg(any(feature = "legacy", feature = "poll-io"))]
+use crate::driver::ready::Direction;
 use crate::{
     buf::{IoBufMut, IoVecBufMut},
     BufResult,
@@ -72,7 +78,7 @@ impl<T: IoBufMut> OpAble for Read<T> {
         self.fd.registered_index().map(|idx| (Direction::Read, idx))
     }
 
-    #[cfg(any(feature = "legacy", feature = "poll-io"))]
+    #[cfg(all(any(feature = "legacy", feature = "poll-io"), unix))]
     fn legacy_call(&mut self) -> io::Result<u32> {
         let fd = self.fd.as_raw_fd();
         let seek_offset = libc::off_t::try_from(self.offset)
@@ -92,6 +98,24 @@ impl<T: IoBufMut> OpAble for Read<T> {
             self.buf.bytes_total(),
             seek_offset
         ));
+    }
+
+    #[cfg(all(any(feature = "legacy", feature = "poll-io"), windows))]
+    fn legacy_call(&mut self) -> io::Result<u32> {
+        let fd = self.fd.as_raw_socket();
+        let seek_offset = libc::off_t::try_from(self.offset)
+            .map_err(|_| io::Error::new(io::ErrorKind::Other, "offset too big"))?;
+        syscall!(
+            recv(
+                fd as _,
+                (self.buf.write_ptr().cast::<c_void>() as usize + seek_offset as usize)
+                    as *mut c_void as *mut _,
+                self.buf.bytes_total() as i32 - seek_offset,
+                0
+            ),
+            PartialOrd::ge,
+            0
+        )
     }
 }
 
@@ -139,12 +163,37 @@ impl<T: IoVecBufMut> OpAble for ReadVec<T> {
         self.fd.registered_index().map(|idx| (Direction::Read, idx))
     }
 
-    #[cfg(any(feature = "legacy", feature = "poll-io"))]
+    #[cfg(all(any(feature = "legacy", feature = "poll-io"), unix))]
     fn legacy_call(&mut self) -> io::Result<u32> {
         syscall_u32!(readv(
             self.fd.raw_fd(),
             self.buf_vec.write_iovec_ptr(),
             self.buf_vec.write_iovec_len().min(i32::MAX as usize) as _
         ))
+    }
+
+    #[cfg(all(any(feature = "legacy", feature = "poll-io"), windows))]
+    fn legacy_call(&mut self) -> io::Result<u32> {
+        let mut bytes_recved = 0;
+        let ret = unsafe {
+            WSARecv(
+                self.fd.raw_socket() as _,
+                self.buf_vec.write_wsabuf_ptr(),
+                self.buf_vec.write_wsabuf_len() as _,
+                &mut bytes_recved,
+                std::ptr::null_mut(),
+                std::ptr::null_mut(),
+                None,
+            )
+        };
+        match ret {
+            0 => return Err(std::io::ErrorKind::WouldBlock.into()),
+            SOCKET_ERROR => {
+                let error = unsafe { WSAGetLastError() };
+                return Err(std::io::Error::from_raw_os_error(error));
+            }
+            _ => (),
+        }
+        Ok(bytes_recved)
     }
 }
