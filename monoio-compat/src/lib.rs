@@ -21,7 +21,6 @@ pub type UnixStreamCompat = StreamWrapper<monoio::net::UnixStream>;
 
 #[cfg(test)]
 mod tests {
-    use crate::{AsyncReadExt, AsyncWriteExt, TcpStreamCompat, TcpStreamCompatUnsafe};
 
     #[monoio::test_all]
     async fn test_rw() {
