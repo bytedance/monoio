@@ -226,6 +226,7 @@ impl<T: IoBufMut> OpAble for RecvMsg<T> {
     }
 }
 
+#[cfg(unix)]
 pub(crate) struct RecvMsgUnix<T> {
     /// Holds a strong ref to the FD, preventing the file from being closed
     /// while the operation is in-flight.
@@ -234,7 +235,6 @@ pub(crate) struct RecvMsgUnix<T> {
 
     /// Reference to the in-flight buffer.
     pub(crate) buf: T,
-    #[cfg(unix)]
     pub(crate) info: Box<(
         MaybeUninit<libc::sockaddr_storage>,
         [libc::iovec; 1],
@@ -288,18 +288,7 @@ impl<T: IoBufMut> Op<RecvMsgUnix<T>> {
     }
 }
 
-#[cfg(windows)]
-impl<T: IoBufMut> Op<RecvMsgUnix<T>> {
-    #[allow(unused_mut, unused_variables)]
-    pub(crate) fn recv_msg_unix(fd: SharedFd, mut buf: T) -> io::Result<Self> {
-        unimplemented!()
-    }
-
-    pub(crate) async fn wait(self) -> BufResult<(usize, SocketAddr), T> {
-        unimplemented!()
-    }
-}
-
+#[cfg(unix)]
 impl<T: IoBufMut> OpAble for RecvMsgUnix<T> {
     #[cfg(all(target_os = "linux", feature = "iouring"))]
     fn uring_op(&mut self) -> io_uring::squeue::Entry {
@@ -312,15 +301,9 @@ impl<T: IoBufMut> OpAble for RecvMsgUnix<T> {
         self.fd.registered_index().map(|idx| (Direction::Read, idx))
     }
 
-    #[cfg(all(any(feature = "legacy", feature = "poll-io"), unix))]
+    #[cfg(any(feature = "legacy", feature = "poll-io"))]
     fn legacy_call(&mut self) -> io::Result<u32> {
         let fd = self.fd.as_raw_fd();
         syscall_u32!(recvmsg(fd, &mut self.info.2 as *mut _, 0))
-    }
-
-    #[cfg(all(any(feature = "legacy", feature = "poll-io"), windows))]
-    fn legacy_call(&mut self) -> io::Result<u32> {
-        let _fd = self.fd.as_raw_socket();
-        unimplemented!();
     }
 }

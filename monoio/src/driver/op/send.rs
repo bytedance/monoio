@@ -220,6 +220,7 @@ impl<T: IoBuf> OpAble for SendMsg<T> {
     }
 }
 
+#[cfg(unix)]
 pub(crate) struct SendMsgUnix<T> {
     /// Holds a strong ref to the FD, preventing the file from being closed
     /// while the operation is in-flight.
@@ -228,7 +229,6 @@ pub(crate) struct SendMsgUnix<T> {
 
     /// Reference to the in-flight buffer.
     pub(crate) buf: T,
-    #[cfg(unix)]
     pub(crate) info: Box<(Option<UnixSocketAddr>, [libc::iovec; 1], libc::msghdr)>,
 }
 
@@ -273,22 +273,7 @@ impl<T: IoBuf> Op<SendMsgUnix<T>> {
     }
 }
 
-#[cfg(windows)]
-impl<T: IoBuf> Op<SendMsgUnix<T>> {
-    #[allow(unused_variables)]
-    pub(crate) fn send_msg_unix(
-        fd: SharedFd,
-        buf: T,
-        socket_addr: Option<SocketAddr>,
-    ) -> io::Result<Self> {
-        unimplemented!()
-    }
-
-    pub(crate) async fn wait(self) -> BufResult<usize, T> {
-        unimplemented!()
-    }
-}
-
+#[cfg(unix)]
 impl<T: IoBuf> OpAble for SendMsgUnix<T> {
     #[cfg(all(target_os = "linux", feature = "iouring"))]
     fn uring_op(&mut self) -> io_uring::squeue::Entry {
@@ -307,7 +292,7 @@ impl<T: IoBuf> OpAble for SendMsgUnix<T> {
             .map(|idx| (Direction::Write, idx))
     }
 
-    #[cfg(all(any(feature = "legacy", feature = "poll-io"), unix))]
+    #[cfg(any(feature = "legacy", feature = "poll-io"))]
     #[inline]
     fn legacy_call(&mut self) -> io::Result<u32> {
         #[cfg(target_os = "linux")]
@@ -317,11 +302,5 @@ impl<T: IoBuf> OpAble for SendMsgUnix<T> {
         const FLAGS: libc::c_int = 0;
         let fd = self.fd.as_raw_fd();
         syscall_u32!(sendmsg(fd, &mut self.info.2 as *mut _, FLAGS))
-    }
-
-    #[cfg(all(any(feature = "legacy", feature = "poll-io"), windows))]
-    fn legacy_call(&mut self) -> io::Result<u32> {
-        let _fd = self.fd.as_raw_socket();
-        unimplemented!();
     }
 }
