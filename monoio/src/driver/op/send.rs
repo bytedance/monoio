@@ -2,15 +2,20 @@ use std::{io, net::SocketAddr};
 
 #[cfg(all(target_os = "linux", feature = "iouring"))]
 use io_uring::{opcode, types};
-use socket2::SockAddr;
-#[cfg(any(feature = "legacy", feature = "poll-io"))]
+#[cfg(unix)]
+use {crate::net::unix::SocketAddr as UnixSocketAddr, socket2::SockAddr};
+#[cfg(all(windows, any(feature = "legacy", feature = "poll-io")))]
 use {
-    crate::{driver::ready::Direction, syscall_u32},
-    std::os::unix::prelude::AsRawFd,
+    crate::syscall, std::os::windows::io::AsRawSocket,
+    windows_sys::Win32::Networking::WinSock::send,
 };
+#[cfg(all(unix, any(feature = "legacy", feature = "poll-io")))]
+use {crate::syscall_u32, std::os::unix::prelude::AsRawFd};
 
 use super::{super::shared_fd::SharedFd, Op, OpAble};
-use crate::{buf::IoBuf, net::unix::SocketAddr as UnixSocketAddr, BufResult};
+#[cfg(any(feature = "legacy", feature = "poll-io"))]
+use crate::driver::ready::Direction;
+use crate::{buf::IoBuf, BufResult};
 
 pub(crate) struct Send<T> {
     /// Holds a strong ref to the FD, preventing the file from being closed
@@ -82,7 +87,7 @@ impl<T: IoBuf> OpAble for Send<T> {
             .map(|idx| (Direction::Write, idx))
     }
 
-    #[cfg(any(feature = "legacy", feature = "poll-io"))]
+    #[cfg(all(any(feature = "legacy", feature = "poll-io"), unix))]
     fn legacy_call(&mut self) -> io::Result<u32> {
         let fd = self.fd.as_raw_fd();
         #[cfg(target_os = "linux")]
@@ -98,6 +103,16 @@ impl<T: IoBuf> OpAble for Send<T> {
             flags
         ))
     }
+
+    #[cfg(all(any(feature = "legacy", feature = "poll-io"), windows))]
+    fn legacy_call(&mut self) -> io::Result<u32> {
+        let fd = self.fd.as_raw_socket();
+        syscall!(
+            send(fd as _, self.buf.read_ptr(), self.buf.bytes_init() as _, 0),
+            PartialOrd::ge,
+            0
+        )
+    }
 }
 
 pub(crate) struct SendMsg<T> {
@@ -108,9 +123,11 @@ pub(crate) struct SendMsg<T> {
 
     /// Reference to the in-flight buffer.
     pub(crate) buf: T,
+    #[cfg(unix)]
     pub(crate) info: Box<(Option<SockAddr>, [libc::iovec; 1], libc::msghdr)>,
 }
 
+#[cfg(unix)]
 impl<T: IoBuf> Op<SendMsg<T>> {
     pub(crate) fn send_msg(
         fd: SharedFd,
@@ -151,6 +168,22 @@ impl<T: IoBuf> Op<SendMsg<T>> {
     }
 }
 
+#[cfg(windows)]
+impl<T: IoBuf> Op<SendMsg<T>> {
+    #[allow(unused_variables)]
+    pub(crate) fn send_msg(
+        fd: SharedFd,
+        buf: T,
+        socket_addr: Option<SocketAddr>,
+    ) -> io::Result<Self> {
+        unimplemented!()
+    }
+
+    pub(crate) async fn wait(self) -> BufResult<usize, T> {
+        unimplemented!()
+    }
+}
+
 impl<T: IoBuf> OpAble for SendMsg<T> {
     #[cfg(all(target_os = "linux", feature = "iouring"))]
     fn uring_op(&mut self) -> io_uring::squeue::Entry {
@@ -169,7 +202,7 @@ impl<T: IoBuf> OpAble for SendMsg<T> {
             .map(|idx| (Direction::Write, idx))
     }
 
-    #[cfg(any(feature = "legacy", feature = "poll-io"))]
+    #[cfg(all(any(feature = "legacy", feature = "poll-io"), unix))]
     fn legacy_call(&mut self) -> io::Result<u32> {
         #[cfg(target_os = "linux")]
         #[allow(deprecated)]
@@ -179,8 +212,15 @@ impl<T: IoBuf> OpAble for SendMsg<T> {
         let fd = self.fd.as_raw_fd();
         syscall_u32!(sendmsg(fd, &mut self.info.2 as *mut _, FLAGS))
     }
+
+    #[cfg(all(any(feature = "legacy", feature = "poll-io"), windows))]
+    fn legacy_call(&mut self) -> io::Result<u32> {
+        let _fd = self.fd.as_raw_socket();
+        unimplemented!();
+    }
 }
 
+#[cfg(unix)]
 pub(crate) struct SendMsgUnix<T> {
     /// Holds a strong ref to the FD, preventing the file from being closed
     /// while the operation is in-flight.
@@ -192,6 +232,7 @@ pub(crate) struct SendMsgUnix<T> {
     pub(crate) info: Box<(Option<UnixSocketAddr>, [libc::iovec; 1], libc::msghdr)>,
 }
 
+#[cfg(unix)]
 impl<T: IoBuf> Op<SendMsgUnix<T>> {
     pub(crate) fn send_msg_unix(
         fd: SharedFd,
@@ -232,6 +273,7 @@ impl<T: IoBuf> Op<SendMsgUnix<T>> {
     }
 }
 
+#[cfg(unix)]
 impl<T: IoBuf> OpAble for SendMsgUnix<T> {
     #[cfg(all(target_os = "linux", feature = "iouring"))]
     fn uring_op(&mut self) -> io_uring::squeue::Entry {

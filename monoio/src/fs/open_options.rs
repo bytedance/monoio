@@ -378,7 +378,7 @@ impl OpenOptions {
             (false, _, true, None) => Ok(FILE_GENERIC_WRITE & !FILE_WRITE_DATA),
             (true, _, true, None) => Ok(GENERIC_READ | (FILE_GENERIC_WRITE & !FILE_WRITE_DATA)),
             (false, false, false, None) => {
-                Err(io::Error::from_raw_os_error(ERROR_INVALID_PARAMETER))
+                Err(io::Error::from_raw_os_error(ERROR_INVALID_PARAMETER as _))
             }
         }
     }
@@ -414,12 +414,12 @@ impl OpenOptions {
             (true, false) => {}
             (false, false) => {
                 if self.truncate || self.create || self.create_new {
-                    return Err(io::Error::from_raw_os_error(ERROR_INVALID_PARAMETER));
+                    return Err(io::Error::from_raw_os_error(ERROR_INVALID_PARAMETER as _));
                 }
             }
             (_, true) => {
                 if self.truncate && !self.create_new {
-                    return Err(io::Error::from_raw_os_error(ERROR_INVALID_PARAMETER));
+                    return Err(io::Error::from_raw_os_error(ERROR_INVALID_PARAMETER as _));
                 }
             }
         }
@@ -439,7 +439,7 @@ impl OpenOptions {
             | self.attributes
             | self.security_qos_flags
             | if self.create_new {
-                FILE_FLAG_OPEN_REPARSE_POINT
+                FILE_FLAG_OPEN_REPARSE_POINT as _
             } else {
                 0
             }

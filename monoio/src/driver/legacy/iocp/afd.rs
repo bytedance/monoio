@@ -67,6 +67,7 @@ pub const KNOWN_EVENTS: u32 = POLL_RECEIVE
     | POLL_CONNECT_FAIL;
 
 #[repr(C)]
+#[derive(Debug)]
 pub struct AfdPollHandleInfo {
     pub handle: HANDLE,
     pub events: u32,
@@ -74,6 +75,7 @@ pub struct AfdPollHandleInfo {
 }
 
 #[repr(C)]
+#[derive(Debug)]
 pub struct AfdPollInfo {
     pub timeout: i64,
     pub number_of_handles: u32,
@@ -81,6 +83,7 @@ pub struct AfdPollInfo {
     pub handles: [AfdPollHandleInfo; 1],
 }
 
+#[derive(Debug)]
 pub struct Afd {
     file: File,
 }

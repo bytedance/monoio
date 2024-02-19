@@ -46,7 +46,7 @@ impl Ready {
     pub(crate) const WRITE_ALL: Ready = Ready(WRITABLE | WRITE_CLOSED | WRITE_CANCELED);
 
     #[cfg(windows)]
-    pub(crate) fn from_mio(event: &super::iocp::Event) -> Ready {
+    pub(crate) fn from_mio(event: &super::legacy::iocp::Event) -> Ready {
         let mut ready = Ready::EMPTY;
 
         if event.is_readable() {
@@ -242,4 +242,5 @@ impl Direction {
     }
 }
 
+#[allow(dead_code)]
 pub(crate) const RW_INTERESTS: mio::Interest = mio::Interest::READABLE.add(mio::Interest::WRITABLE);

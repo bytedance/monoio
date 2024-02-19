@@ -2,10 +2,9 @@
 
 use std::io;
 
-use crate::{
-    io::{AsyncReadRent, AsyncWriteRent, AsyncWriteRentExt},
-    net::unix::new_pipe,
-};
+use crate::io::{AsyncReadRent, AsyncWriteRent, AsyncWriteRentExt};
+#[cfg(unix)]
+use crate::net::unix::new_pipe;
 
 const BUF_SIZE: usize = 4 * 1024;
 

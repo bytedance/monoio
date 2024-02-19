@@ -16,7 +16,7 @@ mod wheel;
 
 pub(super) mod sleep;
 
-use std::{cell::RefCell, convert::TryInto, fmt, io, num::NonZeroU64, ptr::NonNull, rc::Rc};
+use std::{cell::RefCell, fmt, io, num::NonZeroU64, ptr::NonNull, rc::Rc};
 
 use crate::{
     driver::Driver,

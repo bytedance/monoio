@@ -24,16 +24,18 @@ pub unsafe trait IoVecBuf: Unpin + 'static {
     #[cfg(unix)]
     fn read_iovec_ptr(&self) -> *const libc::iovec;
 
-    #[cfg(unix)]
     /// Returns the count of iovec struct behind the pointer.
     ///
     /// # Safety
     /// There must be really that number of iovec here.
+    #[cfg(unix)]
     fn read_iovec_len(&self) -> usize;
 
+    /// Returns a raw pointer to WSABUF struct.
     #[cfg(windows)]
     fn read_wsabuf_ptr(&self) -> *const WSABUF;
 
+    /// Returns the count of WSABUF struct behind the pointer.
     #[cfg(windows)]
     fn read_wsabuf_len(&self) -> usize;
 }
@@ -110,7 +112,7 @@ impl From<Vec<Vec<u8>>> for VecBuf {
                 .iter()
                 .map(|v| WSABUF {
                     buf: v.as_ptr() as _,
-                    len: v.len(),
+                    len: v.len() as _,
                 })
                 .collect();
             Self { wsabufs, raw: vs }
@@ -187,7 +189,6 @@ impl From<VecBuf> for Vec<Vec<u8>> {
 /// See the safety note of the methods.
 #[allow(clippy::unnecessary_safety_doc)]
 pub unsafe trait IoVecBufMut: Unpin + 'static {
-    #[cfg(unix)]
     /// Returns a raw mutable pointer to iovec struct.
     /// struct iovec {
     ///     void  *iov_base;    /* Starting address */
@@ -200,15 +201,18 @@ pub unsafe trait IoVecBufMut: Unpin + 'static {
     /// The implementation must ensure that, while the runtime owns the value,
     /// the pointer returned by `write_iovec_ptr` **does not** change.
     /// Also, the value pointed must be a valid iovec struct.
+    #[cfg(unix)]
     fn write_iovec_ptr(&mut self) -> *mut libc::iovec;
 
     /// Returns the count of iovec struct behind the pointer.
     #[cfg(unix)]
     fn write_iovec_len(&mut self) -> usize;
 
+    /// Returns a raw mutable pointer to WSABUF struct.
     #[cfg(windows)]
     fn write_wsabuf_ptr(&mut self) -> *mut WSABUF;
 
+    /// Returns the count of WSABUF struct behind the pointer.
     #[cfg(windows)]
     fn write_wsabuf_len(&mut self) -> usize;
 
@@ -252,19 +256,19 @@ unsafe impl IoVecBufMut for VecBuf {
 #[cfg(windows)]
 unsafe impl IoVecBufMut for VecBuf {
     fn write_wsabuf_ptr(&mut self) -> *mut WSABUF {
-        self.write_wsabuf_ptr() as *mut _
+        self.read_wsabuf_ptr() as *mut _
     }
 
     fn write_wsabuf_len(&mut self) -> usize {
-        self.write_wsabuf_len()
+        self.read_wsabuf_len()
     }
 
     unsafe fn set_init(&mut self, mut len: usize) {
         for (idx, wsabuf) in self.wsabufs.iter_mut().enumerate() {
-            if wsabuf.len <= len {
+            if wsabuf.len as usize <= len {
                 // set_init all
-                self.raw[idx].set_len(wsabuf.len);
-                len -= wsabuf.len;
+                self.raw[idx].set_len(wsabuf.len as _);
+                len -= wsabuf.len as usize;
             } else {
                 if len > 0 {
                     self.raw[idx].set_len(len);

@@ -16,6 +16,7 @@ use super::{
 };
 use crate::utils::slab::Slab;
 
+#[allow(missing_docs, unreachable_pub, dead_code, unused_imports)]
 #[cfg(windows)]
 pub(super) mod iocp;
 
@@ -44,6 +45,7 @@ pub(crate) struct LegacyInner {
 }
 
 /// Driver with Poll-like syscall.
+#[allow(unreachable_pub)]
 pub struct LegacyDriver {
     inner: Rc<UnsafeCell<LegacyInner>>,
 
@@ -55,6 +57,7 @@ pub struct LegacyDriver {
 #[cfg(feature = "sync")]
 const TOKEN_WAKEUP: mio::Token = mio::Token(1 << 31);
 
+#[allow(dead_code)]
 impl LegacyDriver {
     const DEFAULT_ENTRIES: u32 = 1024;
 
@@ -154,7 +157,11 @@ impl LegacyDriver {
             Err(ref e) if e.kind() == io::ErrorKind::Interrupted => {}
             Err(e) => return Err(e),
         }
-        for event in events.iter() {
+        #[cfg(unix)]
+        let iter = events.iter();
+        #[cfg(windows)]
+        let iter = events.events.iter();
+        for event in iter {
             let token = event.token();
 
             #[cfg(feature = "sync")]
@@ -171,7 +178,7 @@ impl LegacyDriver {
     #[cfg(windows)]
     pub(crate) fn register(
         this: &Rc<UnsafeCell<LegacyInner>>,
-        state: &mut iocp::SockState,
+        state: &mut iocp::SocketState,
         interest: mio::Interest,
     ) -> io::Result<usize> {
         let inner = unsafe { &mut *this.get() };
@@ -191,7 +198,7 @@ impl LegacyDriver {
     pub(crate) fn deregister(
         this: &Rc<UnsafeCell<LegacyInner>>,
         token: usize,
-        state: &mut iocp::SockState,
+        state: &mut iocp::SocketState,
     ) -> io::Result<()> {
         let inner = unsafe { &mut *this.get() };
 

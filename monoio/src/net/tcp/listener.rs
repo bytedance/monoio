@@ -1,11 +1,15 @@
-#[cfg(unix)]
-use std::os::unix::prelude::{AsRawFd, FromRawFd, IntoRawFd, RawFd};
 #[cfg(windows)]
-use std::os::windows::prelude::{AsRawHandle, FromRawSocket, RawHandle};
+use std::os::windows::prelude::{AsRawSocket, FromRawSocket, IntoRawSocket, RawSocket};
 use std::{
     cell::UnsafeCell,
     io,
-    net::{Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6, ToSocketAddrs},
+    net::{SocketAddr, ToSocketAddrs},
+};
+
+#[cfg(unix)]
+use {
+    std::net::{Ipv4Addr, Ipv6Addr, SocketAddrV4, SocketAddrV6},
+    std::os::unix::prelude::{AsRawFd, FromRawFd, IntoRawFd, RawFd},
 };
 
 use super::stream::TcpStream;
@@ -25,6 +29,7 @@ pub struct TcpListener {
 }
 
 impl TcpListener {
+    #[allow(unreachable_code, clippy::diverging_sub_expression, unused_variables)]
     pub(crate) fn from_shared_fd(fd: SharedFd) -> Self {
         #[cfg(unix)]
         let sys_listener = unsafe { std::net::TcpListener::from_raw_fd(fd.raw_fd()) };
@@ -87,7 +92,7 @@ impl TcpListener {
         let fd = SharedFd::new::<false>(sys_listener.into_raw_fd())?;
 
         #[cfg(windows)]
-        let fd = unimplemented!();
+        let fd = SharedFd::new(sys_listener.into_raw_socket())?;
 
         Ok(Self::from_shared_fd(fd))
     }
@@ -246,10 +251,23 @@ impl TcpListener {
     }
 
     /// Creates new `TcpListener` from a `std::net::TcpListener`.
+    #[cfg(unix)]
     pub fn from_std(stdl: std::net::TcpListener) -> io::Result<Self> {
         match SharedFd::new::<false>(stdl.as_raw_fd()) {
             Ok(shared) => {
                 stdl.into_raw_fd();
+                Ok(Self::from_shared_fd(shared))
+            }
+            Err(e) => Err(e),
+        }
+    }
+
+    /// Creates new `TcpListener` from a `std::net::TcpListener`.
+    #[cfg(windows)]
+    pub fn from_std(stdl: std::net::TcpListener) -> io::Result<Self> {
+        match SharedFd::new(stdl.as_raw_socket()) {
+            Ok(shared) => {
+                stdl.into_raw_socket();
                 Ok(Self::from_shared_fd(shared))
             }
             Err(e) => Err(e),
@@ -281,9 +299,10 @@ impl AsRawFd for TcpListener {
 }
 
 #[cfg(windows)]
-impl AsRawHandle for TcpListener {
-    fn as_raw_handle(&self) -> RawHandle {
-        self.fd.raw_handle()
+impl AsRawSocket for TcpListener {
+    #[inline]
+    fn as_raw_socket(&self) -> RawSocket {
+        self.fd.raw_socket()
     }
 }
 

@@ -96,17 +96,22 @@ impl OpAble for Connect {
         }
 
         #[cfg(windows)]
-        match crate::syscall!(
-            connect(
-                self.fd.raw_socket(),
-                self.socket_addr.as_ptr(),
-                self.socket_addr_len,
-            ),
-            PartialEq::eq,
-            SOCKET_ERROR
-        ) {
-            Err(err) if err.kind() != io::ErrorKind::WouldBlock => Err(err),
-            _ => Ok(self.fd.raw_fd() as u32),
+        {
+            let res = unsafe {
+                connect(
+                    self.fd.raw_socket() as _,
+                    self.socket_addr.as_ptr().cast(),
+                    self.socket_addr_len,
+                )
+            };
+            if res == SOCKET_ERROR {
+                let err = io::Error::last_os_error();
+                if err.kind() != io::ErrorKind::WouldBlock {
+                    return Err(err);
+                }
+            }
+            #[allow(clippy::unnecessary_cast)]
+            Ok(self.fd.raw_socket() as u32)
         }
     }
 }
@@ -152,7 +157,7 @@ impl OpAble for ConnectUnix {
         None
     }
 
-    #[cfg(any(feature = "legacy", feature = "poll-io"))]
+    #[cfg(all(any(feature = "legacy", feature = "poll-io"), unix))]
     fn legacy_call(&mut self) -> io::Result<u32> {
         match crate::syscall_u32!(connect(
             self.fd.raw_fd(),
@@ -162,6 +167,11 @@ impl OpAble for ConnectUnix {
             Err(err) if err.raw_os_error() != Some(libc::EINPROGRESS) => Err(err),
             _ => Ok(self.fd.raw_fd() as u32),
         }
+    }
+
+    #[cfg(all(any(feature = "legacy", feature = "poll-io"), windows))]
+    fn legacy_call(&mut self) -> io::Result<u32> {
+        unimplemented!()
     }
 }
 
@@ -201,7 +211,7 @@ pub(crate) fn socket_addr(addr: &SocketAddr) -> (SocketAddrCRepr, i32) {
             };
 
             let sockaddr_in = SOCKADDR_IN {
-                sin_family: AF_INET as u16, // 1
+                sin_family: AF_INET, // 1
                 sin_port: addr.port().to_be(),
                 sin_addr,
                 sin_zero: [0; 8],
@@ -223,7 +233,7 @@ pub(crate) fn socket_addr(addr: &SocketAddr) -> (SocketAddrCRepr, i32) {
             };
 
             let sockaddr_in6 = SOCKADDR_IN6 {
-                sin6_family: AF_INET6 as u16, // 23
+                sin6_family: AF_INET6, // 23
                 sin6_port: addr.port().to_be(),
                 sin6_addr,
                 sin6_flowinfo: addr.flowinfo(),

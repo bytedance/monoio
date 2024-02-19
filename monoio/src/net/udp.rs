@@ -1,9 +1,12 @@
 //! UDP impl.
 
+#[cfg(unix)]
+use std::os::unix::prelude::{AsRawFd, FromRawFd, IntoRawFd};
+#[cfg(windows)]
+use std::os::windows::prelude::{AsRawSocket, FromRawSocket, IntoRawSocket, RawSocket};
 use std::{
     io,
     net::{SocketAddr, ToSocketAddrs},
-    os::fd::{AsRawFd, FromRawFd, IntoRawFd},
 };
 
 use crate::{
@@ -66,7 +69,7 @@ impl UdpSocket {
         #[cfg(unix)]
         let fd = SharedFd::new::<false>(socket.into_raw_fd())?;
         #[cfg(windows)]
-        let fd = unimplemented!();
+        let fd = SharedFd::new(socket.into_raw_socket())?;
 
         Ok(Self::from_shared_fd(fd))
     }
@@ -91,9 +94,15 @@ impl UdpSocket {
 
     /// Returns the socket address of the remote peer this socket was connected to.
     pub fn peer_addr(&self) -> io::Result<SocketAddr> {
+        #[cfg(unix)]
         let socket = unsafe { socket2::Socket::from_raw_fd(self.fd.as_raw_fd()) };
+        #[cfg(windows)]
+        let socket = unsafe { socket2::Socket::from_raw_socket(self.fd.as_raw_socket()) };
         let addr = socket.peer_addr();
+        #[cfg(unix)]
         socket.into_raw_fd();
+        #[cfg(windows)]
+        socket.into_raw_socket();
         addr?
             .as_socket()
             .ok_or_else(|| io::ErrorKind::InvalidInput.into())
@@ -101,9 +110,15 @@ impl UdpSocket {
 
     /// Returns the socket address that this socket was created from.
     pub fn local_addr(&self) -> io::Result<SocketAddr> {
+        #[cfg(unix)]
         let socket = unsafe { socket2::Socket::from_raw_fd(self.fd.as_raw_fd()) };
+        #[cfg(windows)]
+        let socket = unsafe { socket2::Socket::from_raw_socket(self.fd.as_raw_socket()) };
         let addr = socket.local_addr();
+        #[cfg(unix)]
         socket.into_raw_fd();
+        #[cfg(windows)]
+        socket.into_raw_socket();
         addr?
             .as_socket()
             .ok_or_else(|| io::ErrorKind::InvalidInput.into())
@@ -133,6 +148,7 @@ impl UdpSocket {
     }
 
     /// Creates new `UdpSocket` from a `std::net::UdpSocket`.
+    #[cfg(unix)]
     pub fn from_std(socket: std::net::UdpSocket) -> io::Result<Self> {
         match SharedFd::new::<false>(socket.as_raw_fd()) {
             Ok(shared) => {
@@ -143,19 +159,53 @@ impl UdpSocket {
         }
     }
 
+    /// Creates new `UdpSocket` from a `std::net::UdpSocket`.
+    #[cfg(windows)]
+    pub fn from_std(socket: std::net::UdpSocket) -> io::Result<Self> {
+        match SharedFd::new(socket.as_raw_socket()) {
+            Ok(shared) => {
+                socket.into_raw_socket();
+                Ok(Self::from_shared_fd(shared))
+            }
+            Err(e) => Err(e),
+        }
+    }
+
     /// Set value for the `SO_REUSEADDR` option on this socket.
+    #[allow(unused_variables)]
     pub fn set_reuse_address(&self, reuse: bool) -> io::Result<()> {
-        let socket = unsafe { socket2::Socket::from_raw_fd(self.fd.as_raw_fd()) };
-        let r = socket.set_reuse_address(reuse);
-        socket.into_raw_fd();
+        #[cfg(unix)]
+        let r = {
+            let socket = unsafe { socket2::Socket::from_raw_fd(self.fd.as_raw_fd()) };
+            let r = socket.set_reuse_address(reuse);
+            socket.into_raw_fd();
+            r
+        };
+        #[cfg(windows)]
+        let r = {
+            let socket = unsafe { socket2::Socket::from_raw_socket(self.fd.as_raw_socket()) };
+            socket.into_raw_socket();
+            Ok(())
+        };
         r
     }
 
     /// Set value for the `SO_REUSEPORT` option on this socket.
+    #[allow(unused_variables)]
     pub fn set_reuse_port(&self, reuse: bool) -> io::Result<()> {
-        let socket = unsafe { socket2::Socket::from_raw_fd(self.fd.as_raw_fd()) };
-        let r = socket.set_reuse_port(reuse);
-        socket.into_raw_fd();
+        #[cfg(unix)]
+        let r = {
+            let socket = unsafe { socket2::Socket::from_raw_fd(self.fd.as_raw_fd()) };
+            let r = socket.set_reuse_port(reuse);
+            socket.into_raw_fd();
+            r
+        };
+        #[cfg(windows)]
+        let r = {
+            let socket = unsafe { socket2::Socket::from_raw_socket(self.fd.as_raw_socket()) };
+            socket.into_raw_socket();
+            Ok(())
+        };
         r
     }
 
@@ -190,9 +240,17 @@ impl UdpSocket {
     }
 }
 
+#[cfg(unix)]
 impl AsRawFd for UdpSocket {
     fn as_raw_fd(&self) -> std::os::fd::RawFd {
         self.fd.raw_fd()
+    }
+}
+
+#[cfg(windows)]
+impl AsRawSocket for UdpSocket {
+    fn as_raw_socket(&self) -> RawSocket {
+        self.fd.raw_socket()
     }
 }
 

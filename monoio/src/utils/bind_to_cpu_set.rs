@@ -2,6 +2,7 @@
 #[cfg(unix)]
 pub type BindError<T> = nix::Result<T>;
 
+/// Bind error
 #[cfg(windows)]
 pub type BindError<T> = std::io::Result<T>;
 
@@ -25,6 +26,7 @@ pub fn bind_to_cpu_set(_: impl IntoIterator<Item = usize>) -> BindError<()> {
     Ok(())
 }
 
+/// Bind current thread to given cpus
 #[cfg(windows)]
 pub fn bind_to_cpu_set(_: impl IntoIterator<Item = usize>) -> BindError<()> {
     Ok(())

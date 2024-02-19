@@ -1,11 +1,14 @@
 #[cfg(windows)]
 use std::os::windows::io::{AsRawHandle, RawHandle};
 #[cfg(unix)]
-use std::os::{
-    fd::IntoRawFd,
-    unix::io::{AsRawFd, RawFd},
+use std::{
+    fs::File as StdFile,
+    os::{
+        fd::IntoRawFd,
+        unix::io::{AsRawFd, RawFd},
+    },
 };
-use std::{fs::File as StdFile, io, path::Path};
+use std::{io, path::Path};
 
 use crate::{
     buf::{IoBuf, IoBufMut},

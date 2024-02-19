@@ -9,17 +9,18 @@ pub struct Waker {
 }
 
 impl Waker {
+    #[allow(unreachable_code, unused_variables)]
     pub fn new(poller: &Poller, token: mio::Token) -> io::Result<Waker> {
         Ok(Waker {
             token,
-            port: poller.cp.clone(),
+            // port: poller.cp.clone(),
+            port: unimplemented!(),
         })
     }
 
     pub fn wake(&self) -> io::Result<()> {
         let mut ev = Event::new(self.token);
         ev.set_readable();
-
-        self.port.post(ev.to_completion_status())
+        self.port.post(ev.to_entry())
     }
 }

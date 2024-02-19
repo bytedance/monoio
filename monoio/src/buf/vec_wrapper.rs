@@ -1,5 +1,5 @@
 #[cfg(windows)]
-use windows_sys::Win32::Networking::WinSock::WSABUF;
+use {std::ops::Add, windows_sys::Win32::Networking::WinSock::WSABUF};
 
 use super::{IoVecBuf, IoVecBufMut};
 
@@ -44,6 +44,7 @@ pub(crate) fn read_vec_meta<T: IoVecBuf>(buf: &T) -> IoVecMeta {
             data.push(wsabuf);
             len += wsabuf.len;
         }
+        let len = len as _;
         IoVecMeta {
             data,
             offset: 0,
@@ -84,6 +85,7 @@ pub(crate) fn write_vec_meta<T: IoVecBufMut>(buf: &mut T) -> IoVecMeta {
             data.push(wsabuf);
             len += wsabuf.len;
         }
+        let len = len as _;
         IoVecMeta {
             data,
             offset: 0,
@@ -93,6 +95,7 @@ pub(crate) fn write_vec_meta<T: IoVecBufMut>(buf: &mut T) -> IoVecMeta {
 }
 
 impl IoVecMeta {
+    #[allow(unused_mut)]
     pub(crate) fn consume(&mut self, mut amt: usize) {
         #[cfg(unix)]
         {
@@ -124,6 +127,7 @@ impl IoVecMeta {
         }
         #[cfg(windows)]
         {
+            let mut amt = amt as _;
             if amt == 0 {
                 return;
             }
@@ -141,7 +145,7 @@ impl IoVecMeta {
                         return;
                     }
                     std::cmp::Ordering::Greater => {
-                        unsafe { wsabuf.len.add(amt) };
+                        _ = wsabuf.len.add(amt);
                         wsabuf.len -= amt;
                         self.offset = offset;
                         return;

@@ -1,5 +1,4 @@
 use std::{
-    convert::TryInto,
     future::Future,
     pin::Pin,
     task::{Context, Poll},

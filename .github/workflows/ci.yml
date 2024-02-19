@@ -51,6 +51,7 @@ jobs:
           TARGET: ${{ matrix.target }}
           OS: ${{ matrix.os }}
           PROJECT_DIR: ${{ github.workspace }}
+          NO_RUN: ${{ matrix.no_run }}
         run: sh .github/workflows/ci.sh
 
     strategy:
@@ -69,11 +70,10 @@ jobs:
           x86_64-apple-darwin,
           aarch64-apple-darwin,
 
-          # unsupported yet
-#          x86_64-pc-windows-gnu,
-#          x86_64-pc-windows-msvc,
-#          i686-pc-windows-gnu,
-#          i686-pc-windows-msvc,
+          x86_64-pc-windows-gnu,
+          x86_64-pc-windows-msvc,
+          i686-pc-windows-gnu,
+          i686-pc-windows-msvc,
         ]
         channel: [stable, nightly]
         include:
@@ -99,12 +99,15 @@ jobs:
           - target: aarch64-apple-darwin
             os: macos-14
 
-          # unsupported yet
-#          - target: x86_64-pc-windows-msvc
-#            os: windows-latest
-#          - target: x86_64-pc-windows-gnu
-#            os: windows-latest
-#          - target: i686-pc-windows-msvc
-#            os: windows-latest
-#          - target: i686-pc-windows-gnu
-#            os: windows-latest
+          - target: x86_64-pc-windows-msvc
+            os: windows-latest
+            no_run: 1
+          - target: x86_64-pc-windows-gnu
+            os: windows-latest
+            no_run: 1
+          - target: i686-pc-windows-msvc
+            os: windows-latest
+            no_run: 1
+          - target: i686-pc-windows-gnu
+            os: windows-latest
+            no_run: 1

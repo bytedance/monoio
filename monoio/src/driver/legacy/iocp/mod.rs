@@ -1,9 +1,10 @@
 mod afd;
+mod core;
 mod event;
-mod iocp;
 mod state;
 mod waker;
 
+pub use core::*;
 use std::{
     collections::VecDeque,
     os::windows::prelude::RawSocket,
@@ -17,7 +18,6 @@ use std::{
 
 pub use afd::*;
 pub use event::*;
-pub use iocp::*;
 pub use state::*;
 pub use waker::*;
 use windows_sys::Win32::{

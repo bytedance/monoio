@@ -1,13 +1,20 @@
-#[cfg(unix)]
-use std::os::unix::prelude::{AsRawFd, FromRawFd, IntoRawFd, RawFd};
-#[cfg(windows)]
-use std::os::windows::prelude::{AsRawHandle, IntoRawHandle, RawHandle};
 use std::{
     cell::UnsafeCell,
     future::Future,
     io,
     net::{SocketAddr, ToSocketAddrs},
     time::Duration,
+};
+
+#[cfg(unix)]
+use {
+    libc::{AF_INET, AF_INET6, SOCK_STREAM},
+    std::os::unix::prelude::{AsRawFd, FromRawFd, IntoRawFd, RawFd},
+};
+#[cfg(windows)]
+use {
+    std::os::windows::prelude::{AsRawSocket, FromRawSocket, IntoRawSocket, RawSocket},
+    windows_sys::Win32::Networking::WinSock::{AF_INET, AF_INET6, SOCK_STREAM},
 };
 
 use crate::{
@@ -71,7 +78,7 @@ impl TcpStream {
         #[cfg(unix)]
         let meta = StreamMeta::new(fd.raw_fd());
         #[cfg(windows)]
-        let meta = StreamMeta::new(fd.raw_handle());
+        let meta = StreamMeta::new(fd.raw_socket());
         #[cfg(feature = "zero-copy")]
         // enable SOCK_ZEROCOPY
         meta.set_zero_copy();
@@ -102,9 +109,9 @@ impl TcpStream {
         Self::connect_addr_with_config(addr, &DEFAULT_OPTS).await
     }
 
-    #[cfg(windows)]
     /// Establish a connection to the specified `addr`.
-    pub async fn connect_addr(addr: SocketAddr) -> io::Result<Self> {
+    #[cfg(windows)]
+    pub async fn connect_addr(_addr: SocketAddr) -> io::Result<Self> {
         unimplemented!()
     }
 
@@ -114,10 +121,13 @@ impl TcpStream {
         opts: &TcpConnectOpts,
     ) -> io::Result<Self> {
         let domain = match addr {
-            SocketAddr::V4(_) => libc::AF_INET,
-            SocketAddr::V6(_) => libc::AF_INET6,
+            SocketAddr::V4(_) => AF_INET,
+            SocketAddr::V6(_) => AF_INET6,
         };
-        let socket = crate::net::new_socket(domain, libc::SOCK_STREAM)?;
+        #[cfg(unix)]
+        let socket = crate::net::new_socket(domain, SOCK_STREAM)?;
+        #[cfg(windows)]
+        let socket = crate::net::new_socket(domain.into(), SOCK_STREAM)?;
         #[allow(unused_mut)]
         let mut tfo = opts.tcp_fast_open;
 
@@ -130,7 +140,10 @@ impl TcpStream {
                 tfo = false;
             }
         }
+        #[cfg(unix)]
         let op = Op::connect(SharedFd::new::<false>(socket)?, addr, tfo)?;
+        #[cfg(windows)]
+        let op = Op::connect(SharedFd::new(socket)?, addr, tfo)?;
         let completion = op.await;
         completion.meta.result?;
 
@@ -159,9 +172,16 @@ impl TcpStream {
             stream.writable(true).await?;
 
             // getsockopt libc::SO_ERROR
+            #[cfg(unix)]
             let sys_socket = unsafe { std::net::TcpStream::from_raw_fd(stream.fd.raw_fd()) };
+            #[cfg(windows)]
+            let sys_socket =
+                unsafe { std::net::TcpStream::from_raw_socket(stream.fd.raw_socket()) };
             let err = sys_socket.take_error();
+            #[cfg(unix)]
             let _ = sys_socket.into_raw_fd();
+            #[cfg(windows)]
+            let _ = sys_socket.into_raw_socket();
             if let Some(e) = err? {
                 return Err(e);
             }
@@ -205,10 +225,23 @@ impl TcpStream {
     }
 
     /// Creates new `TcpStream` from a `std::net::TcpStream`.
+    #[cfg(unix)]
     pub fn from_std(stream: std::net::TcpStream) -> io::Result<Self> {
         match SharedFd::new::<false>(stream.as_raw_fd()) {
             Ok(shared) => {
                 stream.into_raw_fd();
+                Ok(Self::from_shared_fd(shared))
+            }
+            Err(e) => Err(e),
+        }
+    }
+
+    /// Creates new `TcpStream` from a `std::net::TcpStream`.
+    #[cfg(windows)]
+    pub fn from_std(stream: std::net::TcpStream) -> io::Result<Self> {
+        match SharedFd::new(stream.as_raw_socket()) {
+            Ok(shared) => {
+                stream.into_raw_socket();
                 Ok(Self::from_shared_fd(shared))
             }
             Err(e) => Err(e),
@@ -278,19 +311,20 @@ impl AsRawFd for TcpStream {
 }
 
 #[cfg(windows)]
-impl IntoRawHandle for TcpStream {
+impl IntoRawSocket for TcpStream {
     #[inline]
-    fn into_raw_handle(self) -> RawHandle {
+    fn into_raw_socket(self) -> RawSocket {
         self.fd
             .try_unwrap()
             .expect("unexpected multiple reference to rawfd")
     }
 }
+
 #[cfg(windows)]
-impl AsRawHandle for TcpStream {
+impl AsRawSocket for TcpStream {
     #[inline]
-    fn as_raw_handle(&self) -> RawHandle {
-        self.fd.raw_handle()
+    fn as_raw_socket(&self) -> RawSocket {
+        self.fd.raw_socket()
     }
 }
 
@@ -333,8 +367,8 @@ impl AsyncWriteRent for TcpStream {
     }
 
     #[cfg(windows)]
-    fn shutdown(&mut self) -> impl Future<Output = std::io::Result<()>> {
-        async { unimplemented!() }
+    async fn shutdown(&mut self) -> std::io::Result<()> {
+        unimplemented!()
     }
 }
 
@@ -392,8 +426,8 @@ impl CancelableAsyncWriteRent for TcpStream {
     }
 
     #[cfg(windows)]
-    fn cancelable_shutdown(&mut self, _c: CancelHandle) -> impl Future<Output = io::Result<()>> {
-        async { unimplemented!() }
+    async fn cancelable_shutdown(&mut self, _c: CancelHandle) -> io::Result<()> {
+        unimplemented!()
     }
 }
 
@@ -544,8 +578,11 @@ impl StreamMeta {
             meta: Default::default(),
         }
     }
+
+    /// When operating files, we should use RawHandle;
+    /// When operating sockets, we should use RawSocket;
     #[cfg(windows)]
-    fn new(fd: RawHandle) -> Self {
+    fn new(_: RawSocket) -> Self {
         unimplemented!()
     }
 
@@ -593,6 +630,7 @@ impl StreamMeta {
         self.socket.as_ref().unwrap().set_nodelay(no_delay)
     }
 
+    #[allow(unused_variables)]
     fn set_tcp_keepalive(
         &self,
         time: Option<Duration>,
