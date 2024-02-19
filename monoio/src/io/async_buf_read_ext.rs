@@ -1,7 +1,6 @@
 use std::{
     future::Future,
     io::{Error, ErrorKind, Result},
-    ops::Drop,
     str::from_utf8,
 };
 

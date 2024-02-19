@@ -1,7 +1,7 @@
 // Currently, rust warns when an unsafe fn contains an unsafe {} block. However,
 // in the future, this will change to the reverse. For now, suppress this
 // warning and generally stick with being explicit about unsafety.
-#![allow(unused_unsafe, unused_imports)]
+#![allow(unused_unsafe)]
 #![cfg_attr(not(feature = "rt"), allow(dead_code))]
 
 //! Time driver
@@ -16,7 +16,7 @@ mod wheel;
 
 pub(super) mod sleep;
 
-use std::{cell::RefCell, convert::TryInto, fmt, io, num::NonZeroU64, ptr::NonNull, rc::Rc};
+use std::{cell::RefCell, fmt, io, num::NonZeroU64, ptr::NonNull, rc::Rc};
 
 use crate::{
     driver::Driver,
