@@ -1,7 +1,7 @@
 // Currently, rust warns when an unsafe fn contains an unsafe {} block. However,
 // in the future, this will change to the reverse. For now, suppress this
 // warning and generally stick with being explicit about unsafety.
-#![allow(unused_unsafe)]
+#![allow(unused_unsafe, unused_imports)]
 #![cfg_attr(not(feature = "rt"), allow(dead_code))]
 
 //! Time driver
