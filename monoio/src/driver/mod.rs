@@ -26,7 +26,7 @@ use std::{
 };
 
 #[allow(unreachable_pub)]
-#[cfg(all(feature = "legacy", unix))]
+#[cfg(feature = "legacy")]
 pub use self::legacy::LegacyDriver;
 #[cfg(feature = "legacy")]
 use self::legacy::LegacyInner;
