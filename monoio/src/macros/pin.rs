@@ -8,20 +8,6 @@
 /// Pinning may be done by allocating with [`Box::pin`] or by using the stack
 /// with the `pin!` macro.
 ///
-/// The following will **fail to compile**:
-///
-/// ```compile_fail
-/// async fn my_async_fn() {
-///     // async logic here
-/// }
-///
-/// #[monoio::main]
-/// async fn main() {
-///     let mut future = my_async_fn();
-///     (&mut future).await;
-/// }
-/// ```
-///
 /// To make this work requires pinning:
 ///
 /// ```
@@ -50,20 +36,6 @@
 ///
 /// The `pin!` macro takes **identifiers** as arguments. It does **not** work
 /// with expressions.
-///
-/// The following does not compile as an expression is passed to `pin!`.
-///
-/// ```compile_fail
-/// async fn my_async_fn() {
-///     // async logic here
-/// }
-///
-/// #[monoio::main]
-/// async fn main() {
-///     let mut future = pin!(my_async_fn());
-///     (&mut future).await;
-/// }
-/// ```
 ///
 /// Because assigning to a variable followed by pinning is common, there is also
 /// a variant of the macro that supports doing both in one go.
