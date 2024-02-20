@@ -166,8 +166,6 @@ impl Inner {
     #[allow(unused)]
     fn drop_op<T: 'static>(&self, index: usize, data: &mut Option<T>) {
         match self {
-            #[cfg(windows)]
-            _ => unimplemented!(),
             #[cfg(all(target_os = "linux", feature = "iouring"))]
             Inner::Uring(this) => UringInner::drop_op(this, index, data),
             #[cfg(feature = "legacy")]
