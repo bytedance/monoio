@@ -1,4 +1,3 @@
-#![cfg(not(windows))]
 use std::io::prelude::*;
 #[cfg(unix)]
 use std::os::unix::io::{AsRawFd, FromRawFd, RawFd};
@@ -108,6 +107,7 @@ async fn drop_open() {
     drop(file_w);
 }
 
+#[cfg(not(windows))]
 #[test]
 fn drop_off_runtime() {
     let tempfile = tempfile();

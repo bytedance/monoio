@@ -349,16 +349,19 @@ fn parse_knobs(mut input: syn::ItemFn, is_test: bool, config: FinalConfig) -> To
     } else {
         quote! {}
     };
+    // todo
+    // disable some tests in windows, after the features are completed, it is necessary to rollback
+    // the code here
     let cfg_attr = if is_test {
         match config.driver {
             DriverType::Legacy => quote! {
-                #[cfg(all(feature = "legacy", not(all(windows, feature = "sync"))))]
+                #[cfg(all(feature = "legacy", not(windows)))]
             },
             DriverType::Uring => quote! {
                 #[cfg(all(target_os = "linux", feature = "iouring"))]
             },
             DriverType::Fusion => quote! {
-                #[cfg(all(any(feature = "legacy", feature = "iouring"), not(all(windows, feature = "sync"))))]
+                #[cfg(all(any(feature = "legacy", feature = "iouring"), not(windows, feature = "sync")))]
             },
         }
     } else {
