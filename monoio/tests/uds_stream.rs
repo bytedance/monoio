@@ -1,3 +1,4 @@
+#![cfg(unix)]
 use futures::future::try_join;
 use monoio::{
     io::{AsyncReadRent, AsyncReadRentExt, AsyncWriteRent, AsyncWriteRentExt},

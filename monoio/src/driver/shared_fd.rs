@@ -270,7 +270,7 @@ impl SharedFd {
         let state = CURRENT.with(|inner| match inner {
             #[cfg(all(target_os = "linux", feature = "iouring"))]
             super::Inner::Uring(_) => State::Uring(UringState::Init),
-            #[cfg(all(unix, feature = "legacy"))]
+            #[cfg(feature = "legacy")]
             super::Inner::Legacy(_) => State::Legacy(None),
             #[cfg(all(
                 not(feature = "legacy"),
@@ -337,10 +337,10 @@ impl SharedFd {
                 let mut state = unsafe { MaybeUninit::uninit().assume_init() };
                 std::mem::swap(&mut inner_skip_drop.state, &mut state);
 
-                #[cfg(all(unix, feature = "legacy"))]
+                #[cfg(feature = "legacy")]
                 let state = unsafe { &*state.get() };
 
-                #[cfg(all(unix, feature = "legacy"))]
+                #[cfg(feature = "legacy")]
                 #[allow(irrefutable_let_patterns)]
                 if let State::Legacy(idx) = state {
                     if CURRENT.is_set() {
@@ -562,7 +562,7 @@ fn drop_legacy(mut fd: RawFd, idx: Option<usize>) {
     }
     #[cfg(all(unix, feature = "legacy"))]
     let _ = unsafe { std::fs::File::from_raw_fd(fd) };
-    #[cfg(windows)]
+    #[cfg(all(windows, feature = "legacy"))]
     let _ = unsafe { OwnedSocket::from_raw_socket(fd) };
 }
 
@@ -571,7 +571,7 @@ fn drop_uring_legacy(fd: RawFd, idx: Option<usize>) {
     if CURRENT.is_set() {
         CURRENT.with(|inner| {
             match inner {
-                #[cfg(all(unix, feature = "legacy"))]
+                #[cfg(feature = "legacy")]
                 super::Inner::Legacy(_) => {
                     unreachable!("close uring fd with legacy runtime")
                 }

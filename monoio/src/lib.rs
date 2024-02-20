@@ -39,7 +39,7 @@ pub use builder::{Buildable, RuntimeBuilder};
 pub use driver::Driver;
 #[cfg(all(target_os = "linux", feature = "iouring"))]
 pub use driver::IoUringDriver;
-#[cfg(all(unix, feature = "legacy"))]
+#[cfg(feature = "legacy")]
 pub use driver::LegacyDriver;
 #[cfg(feature = "macros")]
 pub use monoio_macros::{main, test, test_all};

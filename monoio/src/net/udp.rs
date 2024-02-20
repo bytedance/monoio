@@ -37,7 +37,7 @@ impl UdpSocket {
         Self { fd }
     }
 
-    #[cfg(all(unix, feature = "legacy"))]
+    #[cfg(feature = "legacy")]
     fn set_non_blocking(_socket: &socket2::Socket) -> io::Result<()> {
         crate::driver::CURRENT.with(|x| match x {
             // TODO: windows ioring support
@@ -60,7 +60,7 @@ impl UdpSocket {
         };
         let socket =
             socket2::Socket::new(domain, socket2::Type::DGRAM, Some(socket2::Protocol::UDP))?;
-        #[cfg(all(unix, feature = "legacy"))]
+        #[cfg(feature = "legacy")]
         Self::set_non_blocking(&socket)?;
 
         let addr = socket2::SockAddr::from(addr);

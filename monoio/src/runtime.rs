@@ -7,7 +7,7 @@ use std::future::Future;
 use crate::time::TimeDriver;
 #[cfg(all(target_os = "linux", feature = "iouring"))]
 use crate::IoUringDriver;
-#[cfg(all(unix, feature = "legacy"))]
+#[cfg(feature = "legacy")]
 use crate::LegacyDriver;
 use crate::{
     driver::Driver,
@@ -201,7 +201,7 @@ impl<D> Runtime<D> {
 
 /// Fusion Runtime is a wrapper of io_uring driver or legacy driver based
 /// runtime.
-#[cfg(all(unix, feature = "legacy"))]
+#[cfg(feature = "legacy")]
 pub enum FusionRuntime<#[cfg(all(target_os = "linux", feature = "iouring"))] L, R> {
     /// Uring driver based runtime.
     #[cfg(all(target_os = "linux", feature = "iouring"))]

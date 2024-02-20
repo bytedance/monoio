@@ -57,7 +57,7 @@ impl TcpListener {
         let sys_listener =
             socket2::Socket::new(domain, socket2::Type::STREAM, Some(socket2::Protocol::TCP))?;
 
-        #[cfg(all(unix, feature = "legacy"))]
+        #[cfg(feature = "legacy")]
         Self::set_non_blocking(&sys_listener)?;
 
         let addr = socket2::SockAddr::from(addr);
@@ -225,7 +225,7 @@ impl TcpListener {
             })
     }
 
-    #[cfg(all(unix, feature = "legacy"))]
+    #[cfg(feature = "legacy")]
     fn set_non_blocking(_socket: &socket2::Socket) -> io::Result<()> {
         crate::driver::CURRENT.with(|x| match x {
             // TODO: windows ioring support
