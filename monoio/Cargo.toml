@@ -46,6 +46,7 @@ windows-sys = { version = "0.48.0", features = [
     "Win32_Storage_FileSystem",
     "Win32_Security"
 ] }
+polling = { version = "2.8.0", optional = true }
 
 # unix dependencies
 [target.'cfg(unix)'.dependencies]
@@ -78,13 +79,13 @@ utils = ["nix"]
 # enable debug if you want to know what runtime does
 debug = ["tracing"]
 # enable legacy driver support(will make monoio available for older kernel and macOS)
-legacy = ["mio"]
+legacy = ["mio", "polling"]
 # iouring support
 iouring = ["io-uring"]
 # tokio-compatible(only have effect when legacy is enabled and iouring is not)
 tokio-compat = ["tokio"]
 # (experimental)enable poll-io to convert structs to structs that impl tokio's poll io
-poll-io = ["tokio", "mio"]
+poll-io = ["tokio", "mio", "polling"]
 # signal enables setting ctrl_c handler
 signal = ["ctrlc", "sync"]
 signal-termination = ["signal", "ctrlc/termination"]

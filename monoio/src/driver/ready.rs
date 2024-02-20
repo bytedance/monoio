@@ -46,23 +46,15 @@ impl Ready {
     pub(crate) const WRITE_ALL: Ready = Ready(WRITABLE | WRITE_CLOSED | WRITE_CANCELED);
 
     #[cfg(windows)]
-    pub(crate) fn from_mio(event: &super::legacy::iocp::Event) -> Ready {
+    pub(crate) fn from_mio(event: &polling::Event) -> Ready {
         let mut ready = Ready::EMPTY;
 
-        if event.is_readable() {
+        if event.readable {
             ready |= Ready::READABLE;
         }
 
-        if event.is_writable() {
+        if event.writable {
             ready |= Ready::WRITABLE;
-        }
-
-        if event.is_read_closed() {
-            ready |= Ready::READ_CLOSED;
-        }
-
-        if event.is_write_closed() {
-            ready |= Ready::WRITE_CLOSED;
         }
 
         ready

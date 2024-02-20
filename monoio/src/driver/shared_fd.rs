@@ -1,13 +1,13 @@
 #[cfg(unix)]
 use std::os::unix::io::{AsRawFd, FromRawFd, RawFd};
 #[cfg(windows)]
+use std::os::windows::io::RawSocket as RawFd;
+#[cfg(windows)]
 use std::os::windows::io::{
     AsRawHandle, AsRawSocket, FromRawSocket, OwnedSocket, RawHandle, RawSocket,
 };
 use std::{cell::UnsafeCell, io, rc::Rc};
 
-#[cfg(windows)]
-use super::legacy::iocp::SocketState as RawFd;
 use super::CURRENT;
 
 // Tracks in-flight operations on a file descriptor. Ensures all in-flight
@@ -245,12 +245,10 @@ impl SharedFd {
     pub(crate) fn new(fd: RawSocket) -> io::Result<SharedFd> {
         const RW_INTERESTS: mio::Interest = mio::Interest::READABLE.add(mio::Interest::WRITABLE);
 
-        let mut fd = RawFd::new(fd);
-
         let state = {
             let reg = CURRENT.with(|inner| match inner {
                 super::Inner::Legacy(inner) => {
-                    super::legacy::LegacyDriver::register(inner, &mut fd, RW_INTERESTS)
+                    super::legacy::LegacyDriver::register(inner, fd, RW_INTERESTS)
                 }
             });
 
@@ -300,7 +298,7 @@ impl SharedFd {
 
         SharedFd {
             inner: Rc::new(Inner {
-                fd: RawFd::new(fd),
+                fd,
                 state: UnsafeCell::new(state),
             }),
         }
@@ -315,7 +313,7 @@ impl SharedFd {
     #[cfg(windows)]
     /// Returns the RawSocket
     pub(crate) fn raw_socket(&self) -> RawSocket {
-        self.inner.fd.socket
+        self.inner.fd
     }
 
     #[cfg(windows)]
@@ -556,7 +554,7 @@ fn drop_legacy(mut fd: RawFd, idx: Option<usize>) {
                     }
                     #[cfg(windows)]
                     if let Some(idx) = idx {
-                        let _ = super::legacy::LegacyDriver::deregister(inner, idx, &mut fd);
+                        let _ = super::legacy::LegacyDriver::deregister(inner, idx, fd);
                     }
                 }
             }
@@ -565,7 +563,7 @@ fn drop_legacy(mut fd: RawFd, idx: Option<usize>) {
     #[cfg(all(unix, feature = "legacy"))]
     let _ = unsafe { std::fs::File::from_raw_fd(fd) };
     #[cfg(windows)]
-    let _ = unsafe { OwnedSocket::from_raw_socket(fd.socket) };
+    let _ = unsafe { OwnedSocket::from_raw_socket(fd) };
 }
 
 #[cfg(feature = "poll-io")]
