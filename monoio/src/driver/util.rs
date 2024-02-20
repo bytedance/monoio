@@ -8,9 +8,7 @@ pub(super) fn cstr(p: &Path) -> io::Result<CString> {
         Ok(CString::new(p.as_os_str().as_bytes())?)
     }
     #[cfg(windows)]
-    {
-        unimplemented!()
-    }
+    Ok(CString::new(p.as_os_str().as_encoded_bytes())?)
 }
 
 // Convert Duration to Timespec
