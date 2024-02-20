@@ -1,4 +1,4 @@
-use std::{io, os::fd::AsRawFd, task::Context, time::Duration};
+use std::{io, task::Context, time::Duration};
 
 use super::{ready::Direction, scheduled_io::ScheduledIo};
 use crate::{driver::op::CompletionMeta, utils::slab::Slab};
@@ -33,7 +33,7 @@ impl Poll {
 
             if let Some(mut sio) = self.io_dispatch.get(token.0) {
                 let ref_mut = sio.as_mut();
-                let ready = super::ready::Ready::from_mio(event);
+                let ready = super::ready::Ready::from(event);
                 ref_mut.set_readiness(|curr| curr | ready);
                 ref_mut.wake(ready);
             }
@@ -100,7 +100,8 @@ impl Poll {
     }
 }
 
-impl AsRawFd for Poll {
+#[cfg(unix)]
+impl std::os::fd::AsRawFd for Poll {
     #[inline]
     fn as_raw_fd(&self) -> std::os::fd::RawFd {
         self.poll.as_raw_fd()

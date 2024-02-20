@@ -1,7 +1,8 @@
-use std::{
-    io::prelude::*,
-    os::unix::io::{AsRawFd, FromRawFd, RawFd},
-};
+use std::io::prelude::*;
+#[cfg(unix)]
+use std::os::unix::io::{AsRawFd, FromRawFd, RawFd};
+#[cfg(windows)]
+use std::os::windows::io::{AsRawHandle, FromRawHandle, RawHandle as RawFd};
 
 use monoio::fs::File;
 use tempfile::NamedTempFile;
@@ -83,7 +84,10 @@ async fn explicit_close() {
     tempfile.write_all(HELLO).unwrap();
 
     let file = File::open(tempfile.path()).await.unwrap();
+    #[cfg(unix)]
     let fd = file.as_raw_fd();
+    #[cfg(windows)]
+    let fd = file.as_raw_handle();
 
     file.close().await.unwrap();
 
@@ -103,6 +107,7 @@ async fn drop_open() {
     drop(file_w);
 }
 
+#[cfg(not(all(windows, feature = "sync")))]
 #[test]
 fn drop_off_runtime() {
     let tempfile = tempfile();
@@ -115,7 +120,10 @@ fn drop_off_runtime() {
         File::open(tempfile.path()).await.unwrap()
     });
 
+    #[cfg(unix)]
     let fd = file.as_raw_fd();
+    #[cfg(windows)]
+    let fd = file.as_raw_handle();
     drop(file);
 
     assert_invalid_fd(fd);
@@ -153,8 +161,10 @@ async fn poll_once(future: impl std::future::Future) {
 
 fn assert_invalid_fd(fd: RawFd) {
     use std::fs::File;
-
+    #[cfg(unix)]
     let mut f = unsafe { File::from_raw_fd(fd) };
+    #[cfg(windows)]
+    let mut f = unsafe { File::from_raw_handle(fd) };
     let mut buf = vec![];
 
     assert!(f.read_to_end(&mut buf).is_err());

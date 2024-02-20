@@ -1,11 +1,13 @@
 //! Example for using h2 directly.
 //! Example code is modified from https://github.com/hyperium/h2/blob/master/examples/server.rs.
 
+#[cfg(unix)]
 use monoio::{
     io::IntoPollIo,
     net::{TcpListener, TcpStream},
 };
 
+#[cfg(unix)]
 async fn serve(io: TcpStream) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let io = io.into_poll_io()?;
     let mut connection = h2::server::handshake(io).await?;
@@ -24,6 +26,7 @@ async fn serve(io: TcpStream) -> Result<(), Box<dyn std::error::Error + Send + S
     Ok(())
 }
 
+#[cfg(unix)]
 async fn handle_request(
     mut request: http::Request<h2::RecvStream>,
     mut respond: h2::server::SendResponse<bytes::Bytes>,

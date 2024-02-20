@@ -1,6 +1,6 @@
 //! A example to show how to use UnixStream.
-
 use local_sync::oneshot::channel;
+#[cfg(unix)]
 use monoio::{
     io::{AsyncReadRent, AsyncWriteRentExt},
     net::{UnixListener, UnixStream},

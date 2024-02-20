@@ -2,20 +2,22 @@
 //!
 //! After running this example, you can open http://localhost:23300
 //! and http://localhost:23300/monoio in your browser or curl it.
+#[cfg(unix)]
+use {
+    bytes::Bytes,
+    futures::Future,
+    http_body_util::Full,
+    hyper::{server::conn::http1, service::service_fn, Method, Request, Response, StatusCode},
+    monoio::{io::IntoPollIo, net::TcpListener},
+};
 
-use std::net::SocketAddr;
-
-use bytes::Bytes;
-use futures::Future;
-use hyper::{server::conn::http1, service::service_fn};
-use monoio::{io::IntoPollIo, net::TcpListener};
-
+#[cfg(unix)]
 pub(crate) async fn serve_http<S, F, E, A>(addr: A, service: S) -> std::io::Result<()>
 where
     S: Copy + Fn(Request<hyper::body::Incoming>) -> F + 'static,
     F: Future<Output = Result<Response<Full<Bytes>>, E>> + 'static,
     E: std::error::Error + 'static + Send + Sync,
-    A: Into<SocketAddr>,
+    A: Into<std::net::SocketAddr>,
 {
     let listener = TcpListener::bind(addr.into())?;
     loop {
@@ -35,9 +37,7 @@ where
     }
 }
 
-use http_body_util::Full;
-use hyper::{Method, Request, Response, StatusCode};
-
+#[cfg(unix)]
 async fn hyper_handler(
     req: Request<hyper::body::Incoming>,
 ) -> Result<Response<Full<Bytes>>, std::convert::Infallible> {

@@ -13,6 +13,7 @@ async fn main() {
     println!("monoio::join two tasks");
 }
 
+#[cfg(unix)]
 async fn ready_now() -> u8 {
     7
 }

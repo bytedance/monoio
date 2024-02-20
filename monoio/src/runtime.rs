@@ -239,11 +239,7 @@ where
     }
 }
 
-#[cfg(all(
-    unix,
-    feature = "legacy",
-    not(all(target_os = "linux", feature = "iouring"))
-))]
+#[cfg(all(feature = "legacy", not(all(target_os = "linux", feature = "iouring"))))]
 impl<R> FusionRuntime<R>
 where
     R: Driver,

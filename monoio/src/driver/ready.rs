@@ -45,56 +45,6 @@ impl Ready {
     pub(crate) const READ_ALL: Ready = Ready(READABLE | READ_CLOSED | READ_CANCELED);
     pub(crate) const WRITE_ALL: Ready = Ready(WRITABLE | WRITE_CLOSED | WRITE_CANCELED);
 
-    #[cfg(windows)]
-    pub(crate) fn from_mio(event: &polling::Event) -> Ready {
-        let mut ready = Ready::EMPTY;
-
-        if event.readable {
-            ready |= Ready::READABLE;
-        }
-
-        if event.writable {
-            ready |= Ready::WRITABLE;
-        }
-
-        ready
-    }
-
-    #[cfg(unix)]
-    // Must remain crate-private to avoid adding a public dependency on Mio.
-    pub(crate) fn from_mio(event: &mio::event::Event) -> Ready {
-        let mut ready = Ready::EMPTY;
-
-        #[cfg(all(target_os = "freebsd", feature = "net"))]
-        {
-            if event.is_aio() {
-                ready |= Ready::READABLE;
-            }
-
-            if event.is_lio() {
-                ready |= Ready::READABLE;
-            }
-        }
-
-        if event.is_readable() {
-            ready |= Ready::READABLE;
-        }
-
-        if event.is_writable() {
-            ready |= Ready::WRITABLE;
-        }
-
-        if event.is_read_closed() {
-            ready |= Ready::READ_CLOSED;
-        }
-
-        if event.is_write_closed() {
-            ready |= Ready::WRITE_CLOSED;
-        }
-
-        ready
-    }
-
     /// Returns true if `Ready` is the empty set.
     pub(crate) fn is_empty(self) -> bool {
         self == Ready::EMPTY
@@ -216,6 +166,59 @@ impl fmt::Debug for Ready {
             .field("is_read_closed", &self.is_read_closed())
             .field("is_write_closed", &self.is_write_closed())
             .finish()
+    }
+}
+
+// Must remain crate-private to avoid adding a public dependency on Mio.
+impl From<&mio::event::Event> for Ready {
+    fn from(event: &mio::event::Event) -> Self {
+        let mut ready = Ready::EMPTY;
+
+        #[cfg(all(target_os = "freebsd", feature = "net"))]
+        {
+            if event.is_aio() {
+                ready |= Ready::READABLE;
+            }
+
+            if event.is_lio() {
+                ready |= Ready::READABLE;
+            }
+        }
+
+        if event.is_readable() {
+            ready |= Ready::READABLE;
+        }
+
+        if event.is_writable() {
+            ready |= Ready::WRITABLE;
+        }
+
+        if event.is_read_closed() {
+            ready |= Ready::READ_CLOSED;
+        }
+
+        if event.is_write_closed() {
+            ready |= Ready::WRITE_CLOSED;
+        }
+
+        ready
+    }
+}
+
+#[cfg(windows)]
+impl From<&polling::Event> for Ready {
+    fn from(event: &polling::Event) -> Self {
+        let mut ready = Ready::EMPTY;
+
+        if event.readable {
+            ready |= Ready::READABLE;
+        }
+
+        if event.writable {
+            ready |= Ready::WRITABLE;
+        }
+
+        ready
     }
 }
 

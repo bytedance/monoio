@@ -1,9 +1,10 @@
 //! An example to illustrate selecting by macro or manually.
-
-use std::{future::Future, pin::pin};
-
-use monoio::{io::Canceller, net::TcpListener, time::Duration};
-use pin_project_lite::pin_project;
+#[cfg(unix)]
+use {
+    monoio::{io::Canceller, net::TcpListener, time::Duration},
+    pin_project_lite::pin_project,
+    std::{future::Future, pin::pin},
+};
 
 #[monoio::main(enable_timer = true)]
 async fn main() {
@@ -65,6 +66,7 @@ async fn main() {
     }
 }
 
+#[cfg(unix)]
 pin_project! {
     struct DualSelect<F> {
         #[pin]
@@ -74,6 +76,7 @@ pin_project! {
     }
 }
 
+#[cfg(unix)]
 impl<F> Future for DualSelect<F>
 where
     F: Future<Output = ()>,

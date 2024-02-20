@@ -2,7 +2,7 @@
 //!
 //! Run the example and `nc 127.0.0.1 50002` in another shell.
 //! All your input will be echoed out.
-
+#[cfg(unix)]
 use monoio::{
     io::{
         poll_io::{AsyncReadExt, AsyncWriteExt},
@@ -30,6 +30,7 @@ async fn main() {
     }
 }
 
+#[cfg(unix)]
 async fn echo(stream: TcpStream) -> std::io::Result<()> {
     // Convert completion-based io to poll-based io(which impl tokio::io)
     let mut stream = stream.into_poll_io()?;

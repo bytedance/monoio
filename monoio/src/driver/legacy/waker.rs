@@ -2,14 +2,12 @@ use crate::driver::unpark::Unpark;
 
 pub(crate) struct EventWaker {
     // raw waker
-    #[cfg(unix)]
     waker: mio::Waker,
     // Atomic awake status
     pub(crate) awake: std::sync::atomic::AtomicBool,
 }
 
 impl EventWaker {
-    #[cfg(unix)]
     pub(crate) fn new(waker: mio::Waker) -> Self {
         Self {
             waker,

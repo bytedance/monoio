@@ -192,7 +192,7 @@ impl RuntimeBuilder<FusionDriver> {
     }
 
     /// Build the runtime.
-    #[cfg(all(unix, not(all(target_os = "linux", feature = "iouring"))))]
+    #[cfg(not(all(target_os = "linux", feature = "iouring")))]
     pub fn build(self) -> io::Result<crate::FusionRuntime<LegacyDriver>> {
         let builder = RuntimeBuilder::<LegacyDriver> {
             entries: self.entries,
@@ -248,7 +248,7 @@ impl RuntimeBuilder<TimeDriver<FusionDriver>> {
     }
 
     /// Build the runtime.
-    #[cfg(all(unix, not(all(target_os = "linux", feature = "iouring"))))]
+    #[cfg(not(all(target_os = "linux", feature = "iouring")))]
     pub fn build(self) -> io::Result<crate::FusionRuntime<TimeDriver<LegacyDriver>>> {
         let builder = RuntimeBuilder::<TimeDriver<LegacyDriver>> {
             entries: self.entries,

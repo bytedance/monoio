@@ -352,13 +352,13 @@ fn parse_knobs(mut input: syn::ItemFn, is_test: bool, config: FinalConfig) -> To
     let cfg_attr = if is_test {
         match config.driver {
             DriverType::Legacy => quote! {
-                #[cfg(feature = "legacy")]
+                #[cfg(all(feature = "legacy", not(all(windows, feature = "sync"))))]
             },
             DriverType::Uring => quote! {
                 #[cfg(all(target_os = "linux", feature = "iouring"))]
             },
             DriverType::Fusion => quote! {
-                #[cfg(any(feature = "legacy", feature = "iouring"))]
+                #[cfg(all(any(feature = "legacy", feature = "iouring"), not(all(windows, feature = "sync"))))]
             },
         }
     } else {

@@ -1,5 +1,5 @@
 //! An example TCP proxy.
-
+#[cfg(unix)]
 use monoio::{
     io::{AsyncReadRent, AsyncWriteRent, AsyncWriteRentExt, Splitable},
     net::{TcpListener, TcpStream},
@@ -35,6 +35,7 @@ async fn main() {
     }
 }
 
+#[cfg(unix)]
 async fn copy_one_direction<FROM: AsyncReadRent, TO: AsyncWriteRent>(
     mut from: FROM,
     to: &mut TO,

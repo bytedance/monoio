@@ -2,17 +2,20 @@
 //!
 //! It will try to fetch http://httpbin.org/ip and print the
 //! response.
+#[cfg(unix)]
+use {
+    bytes::Bytes,
+    http_body_util::{BodyExt, Empty},
+    hyper::Request,
+    monoio::{io::IntoPollIo, net::TcpStream},
+    monoio_compat::hyper::MonoioIo,
+    std::io::Write,
+};
 
-use std::io::Write;
-
-use bytes::Bytes;
-use http_body_util::{BodyExt, Empty};
-use hyper::Request;
-use monoio::{io::IntoPollIo, net::TcpStream};
-use monoio_compat::hyper::MonoioIo;
-
+#[cfg(unix)]
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
 
+#[cfg(unix)]
 async fn fetch_url(url: hyper::Uri) -> Result<()> {
     let host = url.host().expect("uri has no host");
     let port = url.port_u16().unwrap_or(80);

@@ -3,6 +3,7 @@
 //! Run the example and `nc 127.0.0.1 50002` in another shell.
 //! All your input will be echoed out.
 
+#[cfg(unix)]
 use monoio::{
     io::{AsyncReadRent, AsyncWriteRentExt},
     net::{TcpListener, TcpStream},
@@ -28,6 +29,7 @@ async fn main() {
     }
 }
 
+#[cfg(unix)]
 async fn echo(mut stream: TcpStream) -> std::io::Result<()> {
     let mut buf: Vec<u8> = Vec::with_capacity(8 * 1024);
     let mut res;

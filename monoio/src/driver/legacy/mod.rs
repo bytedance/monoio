@@ -172,11 +172,11 @@ impl LegacyDriver {
 
             #[cfg(feature = "sync")]
             if token != TOKEN_WAKEUP {
-                inner.dispatch(token, Ready::from_mio(event));
+                inner.dispatch(token, Ready::from(event));
             }
 
             #[cfg(not(feature = "sync"))]
-            inner.dispatch(token, Ready::from_mio(event));
+            inner.dispatch(token, Ready::from(event));
         }
         Ok(())
     }

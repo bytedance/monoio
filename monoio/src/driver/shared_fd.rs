@@ -1,10 +1,8 @@
 #[cfg(unix)]
 use std::os::unix::io::{AsRawFd, FromRawFd, RawFd};
 #[cfg(windows)]
-use std::os::windows::io::RawSocket as RawFd;
-#[cfg(windows)]
 use std::os::windows::io::{
-    AsRawHandle, AsRawSocket, FromRawSocket, OwnedSocket, RawHandle, RawSocket,
+    AsRawHandle, AsRawSocket, FromRawSocket, OwnedSocket, RawHandle, RawSocket as RawFd, RawSocket,
 };
 use std::{cell::UnsafeCell, io, rc::Rc};
 
@@ -318,7 +316,7 @@ impl SharedFd {
 
     #[cfg(windows)]
     pub(crate) fn raw_handle(&self) -> RawHandle {
-        unimplemented!()
+        self.inner.fd as usize as _
     }
 
     #[cfg(unix)]
@@ -589,5 +587,5 @@ fn drop_uring_legacy(fd: RawFd, idx: Option<usize>) {
     #[cfg(unix)]
     let _ = unsafe { std::fs::File::from_raw_fd(fd) };
     #[cfg(windows)]
-    let _ = unsafe { OwnedSocket::from_raw_socket(fd.socket) };
+    let _ = unsafe { OwnedSocket::from_raw_socket(fd) };
 }
