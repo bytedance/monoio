@@ -1,9 +1,6 @@
 use std::future::Future;
 
-#[cfg(all(
-    unix,
-    any(all(target_os = "linux", feature = "iouring"), feature = "legacy")
-))]
+#[cfg(all(any(all(target_os = "linux", feature = "iouring"), feature = "legacy")))]
 use crate::time::TimeDriver;
 #[cfg(all(target_os = "linux", feature = "iouring"))]
 use crate::IoUringDriver;
