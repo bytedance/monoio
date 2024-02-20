@@ -3,6 +3,7 @@ use monoio::{
     net::{TcpListener, TcpStream},
 };
 
+#[cfg(not(windows))]
 #[monoio::test_all]
 async fn ensure_buf_writter_write_properly() {
     let srv = TcpListener::bind("127.0.0.1:0").unwrap();
