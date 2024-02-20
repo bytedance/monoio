@@ -108,10 +108,7 @@ impl Inner {
                 not(all(target_os = "linux", feature = "iouring"))
             ))]
             _ => {
-                #[cfg(unix)]
                 util::feature_panic();
-                #[cfg(windows)]
-                unimplemented!();
             }
         }
     }
@@ -124,8 +121,6 @@ impl Inner {
         cx: &mut Context<'_>,
     ) -> Poll<CompletionMeta> {
         match self {
-            #[cfg(windows)]
-            _ => unimplemented!(),
             #[cfg(all(target_os = "linux", feature = "iouring"))]
             Inner::Uring(this) => UringInner::poll_op(this, index, cx),
             #[cfg(feature = "legacy")]
@@ -147,8 +142,6 @@ impl Inner {
         cx: &mut Context<'_>,
     ) -> Poll<CompletionMeta> {
         match self {
-            #[cfg(windows)]
-            _ => unimplemented!(),
             #[cfg(all(target_os = "linux", feature = "iouring"))]
             Inner::Uring(this) => UringInner::poll_legacy_op(this, data, cx),
             #[cfg(feature = "legacy")]
@@ -183,8 +176,6 @@ impl Inner {
     #[allow(unused)]
     pub(super) unsafe fn cancel_op(&self, op_canceller: &op::OpCanceller) {
         match self {
-            #[cfg(windows)]
-            _ => unimplemented!(),
             #[cfg(all(target_os = "linux", feature = "iouring"))]
             Inner::Uring(this) => UringInner::cancel_op(this, op_canceller.index),
             #[cfg(feature = "legacy")]
