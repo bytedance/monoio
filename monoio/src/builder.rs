@@ -4,7 +4,7 @@ use std::{io, marker::PhantomData};
 use crate::driver::IoUringDriver;
 #[cfg(feature = "legacy")]
 use crate::driver::LegacyDriver;
-#[cfg(all(unix, any(feature = "legacy", feature = "iouring")))]
+#[cfg(any(feature = "legacy", feature = "iouring"))]
 use crate::utils::thread_id::gen_id;
 use crate::{
     driver::Driver,
