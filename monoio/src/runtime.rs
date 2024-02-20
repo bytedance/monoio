@@ -315,11 +315,7 @@ impl From<Runtime<TimeDriver<LegacyDriver>>>
 }
 
 // R -> Fusion<R>
-#[cfg(all(
-    unix,
-    feature = "legacy",
-    not(all(target_os = "linux", feature = "iouring"))
-))]
+#[cfg(all(feature = "legacy", not(all(target_os = "linux", feature = "iouring"))))]
 impl From<Runtime<LegacyDriver>> for FusionRuntime<LegacyDriver> {
     fn from(r: Runtime<LegacyDriver>) -> Self {
         Self::Legacy(r)
@@ -327,11 +323,7 @@ impl From<Runtime<LegacyDriver>> for FusionRuntime<LegacyDriver> {
 }
 
 // TR -> Fusion<TR>
-#[cfg(all(
-    unix,
-    feature = "legacy",
-    not(all(target_os = "linux", feature = "iouring"))
-))]
+#[cfg(all(feature = "legacy", not(all(target_os = "linux", feature = "iouring"))))]
 impl From<Runtime<TimeDriver<LegacyDriver>>> for FusionRuntime<TimeDriver<LegacyDriver>> {
     fn from(r: Runtime<TimeDriver<LegacyDriver>>) -> Self {
         Self::Legacy(r)
