@@ -39,7 +39,7 @@ pub(crate) struct LegacyInner {
     #[cfg(windows)]
     events: Vec<Event>,
     #[cfg(windows)]
-    poll: Poller,
+    poll: std::sync::Arc<Poller>,
 
     #[cfg(feature = "sync")]
     shared_waker: std::sync::Arc<waker::EventWaker>,
@@ -74,15 +74,13 @@ impl LegacyDriver {
         #[cfg(unix)]
         let poll = mio::Poll::new()?;
         #[cfg(windows)]
-        let poll = Poller::new()?;
+        let poll = std::sync::Arc::new(Poller::new()?);
 
         #[cfg(all(unix, feature = "sync"))]
-        let shared_waker = std::sync::Arc::new(waker::EventWaker::new(mio::Waker::new(
-            poll.registry(),
-            TOKEN_WAKEUP,
-        )?));
+        let shared_waker =
+            std::sync::Arc::new(waker::EventWaker::new(poll.registry(), TOKEN_WAKEUP)?);
         #[cfg(all(windows, feature = "sync"))]
-        let shared_waker = unimplemented!();
+        let shared_waker = std::sync::Arc::new(waker::EventWaker::new(poll.clone(), TOKEN_WAKEUP)?);
         #[cfg(feature = "sync")]
         let (waker_sender, waker_receiver) = flume::unbounded::<std::task::Waker>();
         #[cfg(feature = "sync")]
