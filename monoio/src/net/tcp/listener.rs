@@ -34,7 +34,7 @@ impl TcpListener {
         #[cfg(unix)]
         let sys_listener = unsafe { std::net::TcpListener::from_raw_fd(fd.raw_fd()) };
         #[cfg(windows)]
-        let sys_listener = unsafe { std::net::TcpListener::from_raw_socket(todo!()) };
+        let sys_listener = unsafe { std::net::TcpListener::from_raw_socket(fd.raw_socket()) };
         Self {
             fd,
             sys_listener: Some(sys_listener),
