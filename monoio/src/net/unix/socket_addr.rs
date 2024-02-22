@@ -36,6 +36,7 @@ impl SocketAddr {
             return AddressKind::Unnamed;
         }
         let len = self.socklen as usize - offset;
+        #[allow(clippy::unnecessary_cast)]
         let path = unsafe { &*(&self.sockaddr.sun_path as *const [libc::c_char] as *const [u8]) };
 
         // macOS seems to return a len of 16 and a zeroed sun_path for unnamed addresses

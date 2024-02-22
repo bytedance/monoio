@@ -39,7 +39,7 @@ once_cell = { version = "1.19.0", optional = true }
 
 # windows dependencies(will be added when windows support finished)
 [target.'cfg(windows)'.dependencies]
-windows-sys = { version = "0.48.0", features = [
+windows-sys = { version = "0.52.0", features = [
     "Win32_Foundation",
     "Win32_Networking_WinSock",
     "Win32_System_IO",
@@ -79,7 +79,7 @@ utils = ["nix"]
 # enable debug if you want to know what runtime does
 debug = ["tracing"]
 # enable legacy driver support(will make monoio available for older kernel and macOS)
-legacy = ["mio", "polling"]
+legacy = ["mio", "polling", "once_cell"]
 # iouring support
 iouring = ["io-uring"]
 # tokio-compatible(only have effect when legacy is enabled and iouring is not)

@@ -64,19 +64,13 @@
 //! seconds.
 //!
 //! ```
-//! #[cfg(windows)]
-//! fn main() {}
-//!
-//! #[cfg(unix)]
 //! use monoio::time;
 //!
-//! #[cfg(unix)]
 //! async fn task_that_takes_a_second() {
 //!     println!("hello");
 //!     time::sleep(time::Duration::from_secs(1)).await
 //! }
 //!
-//! #[cfg(unix)]
 //! #[monoio::main(timer_enabled = true)]
 //! async fn main() {
 //!     let mut interval = time::interval(time::Duration::from_secs(2));
