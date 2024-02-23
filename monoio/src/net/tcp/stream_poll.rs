@@ -1,6 +1,17 @@
 //! This module provide a poll-io style interface for TcpStream.
 
-use std::{io, net::SocketAddr, os::fd::AsRawFd, time::Duration};
+use std::{io, net::SocketAddr, time::Duration};
+
+#[cfg(unix)]
+use {
+    libc::{shutdown, SHUT_WR},
+    std::os::fd::AsRawFd,
+};
+#[cfg(windows)]
+use {
+    std::os::windows::io::AsRawSocket,
+    windows_sys::Win32::Networking::WinSock::{shutdown, SD_SEND as SHUT_WR},
+};
 
 use super::TcpStream;
 use crate::driver::op::Op;
@@ -101,8 +112,11 @@ impl tokio::io::AsyncWrite for TcpStreamPoll {
         self: std::pin::Pin<&mut Self>,
         _cx: &mut std::task::Context<'_>,
     ) -> std::task::Poll<Result<(), io::Error>> {
+        #[cfg(unix)]
         let fd = self.0.as_raw_fd();
-        let res = match unsafe { libc::shutdown(fd, libc::SHUT_WR) } {
+        #[cfg(windows)]
+        let fd = self.0.as_raw_socket() as _;
+        let res = match unsafe { shutdown(fd, SHUT_WR) } {
             -1 => Err(io::Error::last_os_error()),
             _ => Ok(()),
         };
@@ -116,8 +130,7 @@ impl tokio::io::AsyncWrite for TcpStreamPoll {
         bufs: &[std::io::IoSlice<'_>],
     ) -> std::task::Poll<Result<usize, io::Error>> {
         unsafe {
-            let raw_buf =
-                crate::buf::RawBufVectored::new(bufs.as_ptr() as *const libc::iovec, bufs.len());
+            let raw_buf = crate::buf::RawBufVectored::new(bufs.as_ptr() as _, bufs.len());
             let mut writev = Op::writev_raw(&self.0.fd, raw_buf);
             let ret = ready!(crate::driver::op::PollLegacy::poll_io(&mut writev, cx));
 
@@ -168,9 +181,17 @@ impl TcpStreamPoll {
     }
 }
 
+#[cfg(unix)]
 impl AsRawFd for TcpStreamPoll {
     #[inline]
     fn as_raw_fd(&self) -> std::os::unix::io::RawFd {
         self.0.as_raw_fd()
+    }
+}
+
+#[cfg(windows)]
+impl AsRawSocket for TcpStreamPoll {
+    fn as_raw_socket(&self) -> std::os::windows::io::RawSocket {
+        self.0.as_raw_socket()
     }
 }

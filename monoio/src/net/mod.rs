@@ -82,13 +82,13 @@ pub(crate) fn new_socket(
 
 #[cfg(windows)]
 pub(crate) fn new_socket(
-    domain: libc::c_int,
+    domain: windows_sys::Win32::Networking::WinSock::ADDRESS_FAMILY,
     socket_type: libc::c_int,
 ) -> std::io::Result<RawSocket> {
     let socket = socket2::Socket::new(
         socket2::Domain::from(Into::<i32>::into(domain)),
         socket2::Type::from(socket_type),
-        None,
+        Some(socket2::Protocol::TCP),
     )?;
     let raw_socket = socket.as_raw_socket();
     socket.set_nonblocking(true).map_err(|e| {

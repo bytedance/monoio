@@ -2,9 +2,9 @@ use std::{io, marker::PhantomData};
 
 #[cfg(all(target_os = "linux", feature = "iouring"))]
 use crate::driver::IoUringDriver;
-#[cfg(all(unix, feature = "legacy"))]
+#[cfg(feature = "legacy")]
 use crate::driver::LegacyDriver;
-#[cfg(all(unix, any(feature = "legacy", feature = "iouring")))]
+#[cfg(any(feature = "legacy", feature = "iouring"))]
 use crate::utils::thread_id::gen_id;
 use crate::{
     driver::Driver,
@@ -80,14 +80,14 @@ macro_rules! direct_build {
 direct_build!(IoUringDriver);
 #[cfg(all(target_os = "linux", feature = "iouring"))]
 direct_build!(TimeDriver<IoUringDriver>);
-#[cfg(all(unix, feature = "legacy"))]
+#[cfg(feature = "legacy")]
 direct_build!(LegacyDriver);
-#[cfg(all(unix, feature = "legacy"))]
+#[cfg(feature = "legacy")]
 direct_build!(TimeDriver<LegacyDriver>);
 
 // ===== builder impl =====
 
-#[cfg(all(unix, feature = "legacy"))]
+#[cfg(feature = "legacy")]
 impl Buildable for LegacyDriver {
     fn build(this: RuntimeBuilder<Self>) -> io::Result<Runtime<LegacyDriver>> {
         let thread_id = gen_id();
@@ -192,7 +192,7 @@ impl RuntimeBuilder<FusionDriver> {
     }
 
     /// Build the runtime.
-    #[cfg(all(unix, not(all(target_os = "linux", feature = "iouring"))))]
+    #[cfg(not(all(target_os = "linux", feature = "iouring")))]
     pub fn build(self) -> io::Result<crate::FusionRuntime<LegacyDriver>> {
         let builder = RuntimeBuilder::<LegacyDriver> {
             entries: self.entries,
@@ -248,7 +248,7 @@ impl RuntimeBuilder<TimeDriver<FusionDriver>> {
     }
 
     /// Build the runtime.
-    #[cfg(all(unix, not(all(target_os = "linux", feature = "iouring"))))]
+    #[cfg(not(all(target_os = "linux", feature = "iouring")))]
     pub fn build(self) -> io::Result<crate::FusionRuntime<TimeDriver<LegacyDriver>>> {
         let builder = RuntimeBuilder::<TimeDriver<LegacyDriver>> {
             entries: self.entries,
@@ -280,7 +280,7 @@ mod time_wrap {
 
 #[cfg(all(target_os = "linux", feature = "iouring"))]
 impl time_wrap::TimeWrapable for IoUringDriver {}
-#[cfg(all(unix, feature = "legacy"))]
+#[cfg(feature = "legacy")]
 impl time_wrap::TimeWrapable for LegacyDriver {}
 #[cfg(any(all(target_os = "linux", feature = "iouring"), feature = "legacy"))]
 impl time_wrap::TimeWrapable for FusionDriver {}

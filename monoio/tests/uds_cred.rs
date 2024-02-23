@@ -1,3 +1,4 @@
+#![cfg(unix)]
 use libc::{getegid, geteuid};
 use monoio::net::UnixStream;
 

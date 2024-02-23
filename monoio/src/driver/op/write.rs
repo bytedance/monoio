@@ -2,15 +2,18 @@ use std::io;
 
 #[cfg(all(target_os = "linux", feature = "iouring"))]
 use io_uring::{opcode, types};
-#[cfg(all(windows, any(feature = "legacy", feature = "poll-io")))]
-use {
-    crate::syscall,
-    std::ffi::c_void,
-    std::os::windows::io::AsRawSocket,
-    windows_sys::Win32::Networking::WinSock::{send, WSAGetLastError, WSASend, SOCKET_ERROR},
-};
 #[cfg(all(unix, any(feature = "legacy", feature = "poll-io")))]
 use {crate::syscall_u32, std::os::unix::prelude::AsRawFd};
+#[cfg(all(windows, any(feature = "legacy", feature = "poll-io")))]
+use {
+    std::os::windows::io::AsRawSocket,
+    windows_sys::Win32::{
+        Foundation::TRUE,
+        Networking::WinSock::{WSAGetLastError, WSASend, SOCKET_ERROR},
+        Storage::FileSystem::WriteFile,
+        System::IO::OVERLAPPED,
+    },
+};
 
 use super::{super::shared_fd::SharedFd, Op, OpAble};
 #[cfg(any(feature = "legacy", feature = "poll-io"))]
@@ -92,17 +95,25 @@ impl<T: IoBuf> OpAble for Write<T> {
         let fd = self.fd.as_raw_socket();
         let seek_offset = libc::off_t::try_from(self.offset)
             .map_err(|_| io::Error::new(io::ErrorKind::Other, "offset too big"))?;
-        syscall!(
-            send(
+        let mut bytes_write = 0;
+        let ret = unsafe {
+            let mut overlapped: OVERLAPPED = std::mem::zeroed();
+            overlapped.Anonymous.Anonymous.Offset = (seek_offset as i64 & 0xFFFFFFFF) as u32;
+            overlapped.Anonymous.Anonymous.OffsetHigh =
+                ((seek_offset as i64 >> 32) & 0xFFFFFFFF) as u32;
+            WriteFile(
                 fd as _,
-                (self.buf.read_ptr().cast::<c_void>() as usize + seek_offset as usize)
-                    as *mut c_void as *mut _,
-                self.buf.bytes_init() as i32 - seek_offset,
-                0
-            ),
-            PartialOrd::ge,
-            0
-        )
+                self.buf.read_ptr(),
+                self.buf.bytes_init() as u32,
+                &mut bytes_write,
+                &mut overlapped,
+            )
+        };
+        if TRUE == ret {
+            Ok(bytes_write)
+        } else {
+            Err(io::Error::last_os_error())
+        }
     }
 }
 

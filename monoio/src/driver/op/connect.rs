@@ -116,17 +116,16 @@ impl OpAble for Connect {
     }
 }
 
+#[cfg(unix)]
 pub(crate) struct ConnectUnix {
     /// Holds a strong ref to the FD, preventing the file from being closed
     /// while the operation is in-flight.
     pub(crate) fd: SharedFd,
-    #[cfg(unix)]
     socket_addr: Box<(libc::sockaddr_un, libc::socklen_t)>,
 }
 
+#[cfg(unix)]
 impl Op<ConnectUnix> {
-    #[cfg(unix)]
-
     /// Submit a request to connect.
     pub(crate) fn connect_unix(
         socket: SharedFd,
@@ -140,6 +139,7 @@ impl Op<ConnectUnix> {
     }
 }
 
+#[cfg(unix)]
 impl OpAble for ConnectUnix {
     #[cfg(all(target_os = "linux", feature = "iouring"))]
     fn uring_op(&mut self) -> io_uring::squeue::Entry {
@@ -157,7 +157,7 @@ impl OpAble for ConnectUnix {
         None
     }
 
-    #[cfg(all(any(feature = "legacy", feature = "poll-io"), unix))]
+    #[cfg(any(feature = "legacy", feature = "poll-io"))]
     fn legacy_call(&mut self) -> io::Result<u32> {
         match crate::syscall_u32!(connect(
             self.fd.raw_fd(),
@@ -167,11 +167,6 @@ impl OpAble for ConnectUnix {
             Err(err) if err.raw_os_error() != Some(libc::EINPROGRESS) => Err(err),
             _ => Ok(self.fd.raw_fd() as u32),
         }
-    }
-
-    #[cfg(all(any(feature = "legacy", feature = "poll-io"), windows))]
-    fn legacy_call(&mut self) -> io::Result<u32> {
-        unimplemented!()
     }
 }
 

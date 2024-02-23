@@ -39,15 +39,12 @@ pub use builder::{Buildable, RuntimeBuilder};
 pub use driver::Driver;
 #[cfg(all(target_os = "linux", feature = "iouring"))]
 pub use driver::IoUringDriver;
-#[cfg(all(unix, feature = "legacy"))]
+#[cfg(feature = "legacy")]
 pub use driver::LegacyDriver;
 #[cfg(feature = "macros")]
 pub use monoio_macros::{main, test, test_all};
 pub use runtime::{spawn, Runtime};
-#[cfg(all(
-    unix,
-    any(all(target_os = "linux", feature = "iouring"), feature = "legacy")
-))]
+#[cfg(any(all(target_os = "linux", feature = "iouring"), feature = "legacy"))]
 pub use {builder::FusionDriver, runtime::FusionRuntime};
 
 /// Start a monoio runtime.

@@ -1,3 +1,4 @@
+#![cfg(unix)]
 use monoio::net::unix::UnixDatagram;
 
 #[monoio::test_all]

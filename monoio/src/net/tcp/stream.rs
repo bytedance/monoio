@@ -8,13 +8,15 @@ use std::{
 
 #[cfg(unix)]
 use {
-    libc::{AF_INET, AF_INET6, SOCK_STREAM},
+    libc::{shutdown, AF_INET, AF_INET6, SHUT_WR, SOCK_STREAM},
     std::os::unix::prelude::{AsRawFd, FromRawFd, IntoRawFd, RawFd},
 };
 #[cfg(windows)]
 use {
     std::os::windows::prelude::{AsRawSocket, FromRawSocket, IntoRawSocket, RawSocket},
-    windows_sys::Win32::Networking::WinSock::{AF_INET, AF_INET6, SOCK_STREAM},
+    windows_sys::Win32::Networking::WinSock::{
+        shutdown, AF_INET, AF_INET6, SD_SEND as SHUT_WR, SOCK_STREAM,
+    },
 };
 
 use crate::{
@@ -100,19 +102,12 @@ impl TcpStream {
         Self::connect_addr(addr).await
     }
 
-    #[cfg(unix)]
     /// Establish a connection to the specified `addr`.
     pub async fn connect_addr(addr: SocketAddr) -> io::Result<Self> {
         const DEFAULT_OPTS: TcpConnectOpts = TcpConnectOpts {
             tcp_fast_open: false,
         };
         Self::connect_addr_with_config(addr, &DEFAULT_OPTS).await
-    }
-
-    /// Establish a connection to the specified `addr`.
-    #[cfg(windows)]
-    pub async fn connect_addr(_addr: SocketAddr) -> io::Result<Self> {
-        unimplemented!()
     }
 
     /// Establish a connection to the specified `addr` with given config.
@@ -124,10 +119,7 @@ impl TcpStream {
             SocketAddr::V4(_) => AF_INET,
             SocketAddr::V6(_) => AF_INET6,
         };
-        #[cfg(unix)]
         let socket = crate::net::new_socket(domain, SOCK_STREAM)?;
-        #[cfg(windows)]
-        let socket = crate::net::new_socket(domain.into(), SOCK_STREAM)?;
         #[allow(unused_mut)]
         let mut tfo = opts.tcp_fast_open;
 
@@ -140,11 +132,7 @@ impl TcpStream {
                 tfo = false;
             }
         }
-        #[cfg(unix)]
-        let op = Op::connect(SharedFd::new::<false>(socket)?, addr, tfo)?;
-        #[cfg(windows)]
-        let op = Op::connect(SharedFd::new(socket)?, addr, tfo)?;
-        let completion = op.await;
+        let completion = Op::connect(SharedFd::new::<false>(socket)?, addr, tfo)?.await;
         completion.meta.result?;
 
         let stream = TcpStream::from_shared_fd(completion.data.fd);
@@ -225,22 +213,16 @@ impl TcpStream {
     }
 
     /// Creates new `TcpStream` from a `std::net::TcpStream`.
-    #[cfg(unix)]
     pub fn from_std(stream: std::net::TcpStream) -> io::Result<Self> {
-        match SharedFd::new::<false>(stream.as_raw_fd()) {
+        #[cfg(unix)]
+        let fd = stream.as_raw_fd();
+        #[cfg(windows)]
+        let fd = stream.as_raw_socket();
+        match SharedFd::new::<false>(fd) {
             Ok(shared) => {
+                #[cfg(unix)]
                 stream.into_raw_fd();
-                Ok(Self::from_shared_fd(shared))
-            }
-            Err(e) => Err(e),
-        }
-    }
-
-    /// Creates new `TcpStream` from a `std::net::TcpStream`.
-    #[cfg(windows)]
-    pub fn from_std(stream: std::net::TcpStream) -> io::Result<Self> {
-        match SharedFd::new(stream.as_raw_socket()) {
-            Ok(shared) => {
+                #[cfg(windows)]
                 stream.into_raw_socket();
                 Ok(Self::from_shared_fd(shared))
             }
@@ -354,21 +336,18 @@ impl AsyncWriteRent for TcpStream {
         Ok(())
     }
 
-    #[cfg(unix)]
     fn shutdown(&mut self) -> impl Future<Output = std::io::Result<()>> {
         // We could use shutdown op here, which requires kernel 5.11+.
         // However, for simplicity, we just close the socket using direct syscall.
+        #[cfg(unix)]
         let fd = self.as_raw_fd();
-        let res = match unsafe { libc::shutdown(fd, libc::SHUT_WR) } {
+        #[cfg(windows)]
+        let fd = self.as_raw_socket() as _;
+        let res = match unsafe { shutdown(fd, SHUT_WR) } {
             -1 => Err(io::Error::last_os_error()),
             _ => Ok(()),
         };
         async move { res }
-    }
-
-    #[cfg(windows)]
-    async fn shutdown(&mut self) -> std::io::Result<()> {
-        unimplemented!()
     }
 }
 
@@ -413,21 +392,18 @@ impl CancelableAsyncWriteRent for TcpStream {
         Ok(())
     }
 
-    #[cfg(unix)]
     fn cancelable_shutdown(&mut self, _c: CancelHandle) -> impl Future<Output = io::Result<()>> {
         // We could use shutdown op here, which requires kernel 5.11+.
         // However, for simplicity, we just close the socket using direct syscall.
+        #[cfg(unix)]
         let fd = self.as_raw_fd();
-        let res = match unsafe { libc::shutdown(fd, libc::SHUT_WR) } {
+        #[cfg(windows)]
+        let fd = self.as_raw_socket() as _;
+        let res = match unsafe { shutdown(fd, SHUT_WR) } {
             -1 => Err(io::Error::last_os_error()),
             _ => Ok(()),
         };
         async move { res }
-    }
-
-    #[cfg(windows)]
-    async fn cancelable_shutdown(&mut self, _c: CancelHandle) -> io::Result<()> {
-        unimplemented!()
     }
 }
 
@@ -582,8 +558,11 @@ impl StreamMeta {
     /// When operating files, we should use RawHandle;
     /// When operating sockets, we should use RawSocket;
     #[cfg(windows)]
-    fn new(_: RawSocket) -> Self {
-        unimplemented!()
+    fn new(fd: RawSocket) -> Self {
+        Self {
+            socket: unsafe { Some(socket2::Socket::from_raw_socket(fd)) },
+            meta: Default::default(),
+        }
     }
 
     fn local_addr(&self) -> io::Result<SocketAddr> {
@@ -670,9 +649,10 @@ impl StreamMeta {
 
 impl Drop for StreamMeta {
     fn drop(&mut self) {
+        let socket = self.socket.take().unwrap();
         #[cfg(unix)]
-        self.socket.take().unwrap().into_raw_fd();
+        socket.into_raw_fd();
         #[cfg(windows)]
-        unimplemented!()
+        socket.into_raw_socket();
     }
 }

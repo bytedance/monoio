@@ -1,4 +1,4 @@
-use std::{io, os::fd::AsRawFd, task::Context, time::Duration};
+use std::{io, task::Context, time::Duration};
 
 use super::{ready::Direction, scheduled_io::ScheduledIo};
 use crate::{driver::op::CompletionMeta, utils::slab::Slab};
@@ -100,7 +100,8 @@ impl Poll {
     }
 }
 
-impl AsRawFd for Poll {
+#[cfg(unix)]
+impl std::os::fd::AsRawFd for Poll {
     #[inline]
     fn as_raw_fd(&self) -> std::os::fd::RawFd {
         self.poll.as_raw_fd()
