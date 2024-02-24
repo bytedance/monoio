@@ -10,8 +10,7 @@ use {
     windows_sys::Win32::{
         Foundation::TRUE,
         Networking::WinSock::{WSAGetLastError, WSARecv, SOCKET_ERROR},
-        Storage::FileSystem::ReadFile,
-        System::IO::OVERLAPPED,
+        Storage::FileSystem::{ReadFile, SetFilePointer, FILE_CURRENT, INVALID_SET_FILE_POINTER},
     },
 };
 
@@ -105,22 +104,25 @@ impl<T: IoBufMut> OpAble for Read<T> {
 
     #[cfg(all(any(feature = "legacy", feature = "poll-io"), windows))]
     fn legacy_call(&mut self) -> io::Result<u32> {
-        let fd = self.fd.raw_handle();
+        let fd = self.fd.raw_handle() as _;
         let seek_offset = libc::off_t::try_from(self.offset)
             .map_err(|_| io::Error::new(io::ErrorKind::Other, "offset too big"))?;
         let mut bytes_read = 0;
         let ret = unsafe {
-            let mut overlapped: OVERLAPPED = std::mem::zeroed();
-            overlapped.Anonymous.Anonymous.Offset = (seek_offset as i64 & 0xFFFFFFFF) as u32;
-            overlapped.Anonymous.Anonymous.OffsetHigh =
-                ((seek_offset as i64 >> 32) & 0xFFFFFFFF) as u32;
+            // see https://learn.microsoft.com/zh-cn/windows/win32/api/fileapi/nf-fileapi-setfilepointer
+            if seek_offset != 0 {
+                let r = SetFilePointer(fd, seek_offset, std::ptr::null_mut(), FILE_CURRENT);
+                if INVALID_SET_FILE_POINTER == r {
+                    return Err(io::Error::last_os_error());
+                }
+            }
             // see https://learn.microsoft.com/zh-cn/windows/win32/api/fileapi/nf-fileapi-readfile
             ReadFile(
-                fd as _,
+                fd,
                 self.buf.write_ptr().cast::<c_void>(),
                 self.buf.bytes_total() as u32,
                 &mut bytes_read,
-                &mut overlapped,
+                std::ptr::null_mut(),
             )
         };
         if TRUE == ret {

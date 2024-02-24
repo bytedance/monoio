@@ -10,8 +10,7 @@ use {
     windows_sys::Win32::{
         Foundation::TRUE,
         Networking::WinSock::{WSAGetLastError, WSASend, SOCKET_ERROR},
-        Storage::FileSystem::WriteFile,
-        System::IO::OVERLAPPED,
+        Storage::FileSystem::{SetFilePointer, WriteFile, FILE_CURRENT, INVALID_SET_FILE_POINTER},
     },
 };
 
@@ -92,22 +91,25 @@ impl<T: IoBuf> OpAble for Write<T> {
 
     #[cfg(all(any(feature = "legacy", feature = "poll-io"), windows))]
     fn legacy_call(&mut self) -> io::Result<u32> {
-        let fd = self.fd.as_raw_socket();
+        let fd = self.fd.as_raw_socket() as _;
         let seek_offset = libc::off_t::try_from(self.offset)
             .map_err(|_| io::Error::new(io::ErrorKind::Other, "offset too big"))?;
         let mut bytes_write = 0;
         let ret = unsafe {
-            let mut overlapped: OVERLAPPED = std::mem::zeroed();
-            overlapped.Anonymous.Anonymous.Offset = (seek_offset as i64 & 0xFFFFFFFF) as u32;
-            overlapped.Anonymous.Anonymous.OffsetHigh =
-                ((seek_offset as i64 >> 32) & 0xFFFFFFFF) as u32;
+            // see https://learn.microsoft.com/zh-cn/windows/win32/api/fileapi/nf-fileapi-setfilepointer
+            if seek_offset != 0 {
+                let r = SetFilePointer(fd, seek_offset, std::ptr::null_mut(), FILE_CURRENT);
+                if INVALID_SET_FILE_POINTER == r {
+                    return Err(io::Error::last_os_error());
+                }
+            }
             // see https://learn.microsoft.com/zh-cn/windows/win32/api/fileapi/nf-fileapi-writefile
             WriteFile(
-                fd as _,
+                fd,
                 self.buf.read_ptr(),
                 self.buf.bytes_init() as u32,
                 &mut bytes_write,
-                &mut overlapped,
+                std::ptr::null_mut(),
             )
         };
         if TRUE == ret {
