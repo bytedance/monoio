@@ -114,6 +114,7 @@ impl<T: IoBufMut> OpAble for Read<T> {
             overlapped.Anonymous.Anonymous.Offset = (seek_offset as i64 & 0xFFFFFFFF) as u32;
             overlapped.Anonymous.Anonymous.OffsetHigh =
                 ((seek_offset as i64 >> 32) & 0xFFFFFFFF) as u32;
+            // see https://learn.microsoft.com/zh-cn/windows/win32/api/fileapi/nf-fileapi-readfile
             ReadFile(
                 fd as _,
                 self.buf.write_ptr().cast::<c_void>(),

@@ -101,6 +101,7 @@ impl<T: IoBuf> OpAble for Write<T> {
             overlapped.Anonymous.Anonymous.Offset = (seek_offset as i64 & 0xFFFFFFFF) as u32;
             overlapped.Anonymous.Anonymous.OffsetHigh =
                 ((seek_offset as i64 >> 32) & 0xFFFFFFFF) as u32;
+            // see https://learn.microsoft.com/zh-cn/windows/win32/api/fileapi/nf-fileapi-writefile
             WriteFile(
                 fd as _,
                 self.buf.read_ptr(),
