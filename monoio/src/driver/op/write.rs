@@ -2,17 +2,14 @@ use std::io;
 
 #[cfg(all(target_os = "linux", feature = "iouring"))]
 use io_uring::{opcode, types};
+#[cfg(all(windows, any(feature = "legacy", feature = "poll-io")))]
+use windows_sys::Win32::{
+    Foundation::TRUE,
+    Networking::WinSock::{WSAGetLastError, WSASend, SOCKET_ERROR},
+    Storage::FileSystem::{SetFilePointer, WriteFile, FILE_CURRENT, INVALID_SET_FILE_POINTER},
+};
 #[cfg(all(unix, any(feature = "legacy", feature = "poll-io")))]
 use {crate::syscall_u32, std::os::unix::prelude::AsRawFd};
-#[cfg(all(windows, any(feature = "legacy", feature = "poll-io")))]
-use {
-    std::os::windows::io::AsRawSocket,
-    windows_sys::Win32::{
-        Foundation::TRUE,
-        Networking::WinSock::{WSAGetLastError, WSASend, SOCKET_ERROR},
-        Storage::FileSystem::{SetFilePointer, WriteFile, FILE_CURRENT, INVALID_SET_FILE_POINTER},
-    },
-};
 
 use super::{super::shared_fd::SharedFd, Op, OpAble};
 #[cfg(any(feature = "legacy", feature = "poll-io"))]
@@ -91,7 +88,7 @@ impl<T: IoBuf> OpAble for Write<T> {
 
     #[cfg(all(any(feature = "legacy", feature = "poll-io"), windows))]
     fn legacy_call(&mut self) -> io::Result<u32> {
-        let fd = self.fd.as_raw_socket() as _;
+        let fd = self.fd.raw_handle() as _;
         let seek_offset = libc::off_t::try_from(self.offset)
             .map_err(|_| io::Error::new(io::ErrorKind::Other, "offset too big"))?;
         let mut bytes_write = 0;

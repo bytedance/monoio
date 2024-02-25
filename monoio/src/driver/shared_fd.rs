@@ -320,7 +320,7 @@ impl SharedFd {
 
     #[cfg(windows)]
     pub(crate) fn raw_handle(&self) -> RawHandle {
-        unimplemented!()
+        self.inner.fd.socket as _
     }
 
     #[cfg(unix)]
