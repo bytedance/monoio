@@ -1,7 +1,7 @@
 #[cfg(windows)]
 use {std::ops::Add, windows_sys::Win32::Networking::WinSock::WSABUF};
 
-use super::{IoVecBuf, IoVecBufMut};
+use super::{IoBuf, IoBufMut, IoVecBuf, IoVecBufMut};
 
 pub(crate) struct IoVecMeta {
     #[cfg(unix)]
@@ -203,6 +203,44 @@ unsafe impl IoVecBufMut for IoVecMeta {
 
     unsafe fn set_init(&mut self, pos: usize) {
         self.consume(pos)
+    }
+}
+
+impl<'t, T: IoBuf> From<&'t T> for IoVecMeta {
+    fn from(buf: &'t T) -> Self {
+        let ptr = buf.read_ptr() as *const _ as *mut _;
+        let len = buf.bytes_init() as _;
+        #[cfg(unix)]
+        let item = libc::iovec {
+            iov_base: ptr,
+            iov_len: len,
+        };
+        #[cfg(windows)]
+        let item = WSABUF { buf: ptr, len };
+        Self {
+            data: vec![item],
+            offset: 0,
+            len: 1,
+        }
+    }
+}
+
+impl<'t, T: IoBufMut> From<&'t mut T> for IoVecMeta {
+    fn from(buf: &'t mut T) -> Self {
+        let ptr = buf.write_ptr() as *mut _;
+        let len = buf.bytes_total() as _;
+        #[cfg(unix)]
+        let item = libc::iovec {
+            iov_base: ptr,
+            iov_len: len,
+        };
+        #[cfg(windows)]
+        let item = WSABUF { buf: ptr, len };
+        Self {
+            data: vec![item],
+            offset: 0,
+            len: 1,
+        }
     }
 }
 

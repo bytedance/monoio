@@ -377,33 +377,32 @@ impl SharedFd {
     /// Try unwrap Rc, then deregister if registered and return rawfd.
     /// Note: this action will consume self and return rawfd without closing it.
     pub(crate) fn try_unwrap(self) -> Result<RawSocket, Self> {
-        // let mut fd = self.inner.fd;
-        // match Rc::try_unwrap(self.inner) {
-        //     Ok(_inner) => {
-        //         let state = unsafe { &*_inner.state.get() };
-        //
-        //         #[allow(irrefutable_let_patterns)]
-        //         if let State::Legacy(idx) = state {
-        //             if CURRENT.is_set() {
-        //                 CURRENT.with(|inner| {
-        //                     match inner {
-        //                         super::Inner::Legacy(inner) => {
-        //                             // deregister it from driver(Poll and slab) and close fd
-        //                             if let Some(idx) = idx {
-        //                                 let _ = super::legacy::LegacyDriver::deregister(
-        //                                     inner, *idx, &mut fd,
-        //                                 );
-        //                             }
-        //                         }
-        //                     }
-        //                 })
-        //             }
-        //         }
-        //         Ok(fd.socket)
-        //     }
-        //     Err(inner) => Err(Self { inner }),
-        // }
-        unimplemented!()
+        match Rc::try_unwrap(self.inner) {
+            Ok(_inner) => {
+                let mut fd = _inner.fd;
+                let state = unsafe { &*_inner.state.get() };
+
+                #[allow(irrefutable_let_patterns)]
+                if let State::Legacy(idx) = state {
+                    if CURRENT.is_set() {
+                        CURRENT.with(|inner| {
+                            match inner {
+                                super::Inner::Legacy(inner) => {
+                                    // deregister it from driver(Poll and slab) and close fd
+                                    if let Some(idx) = idx {
+                                        let _ = super::legacy::LegacyDriver::deregister(
+                                            inner, *idx, &mut fd,
+                                        );
+                                    }
+                                }
+                            }
+                        })
+                    }
+                }
+                Ok(fd.socket)
+            }
+            Err(inner) => Err(Self { inner }),
+        }
     }
 
     #[allow(unused)]
@@ -456,14 +455,22 @@ impl SharedFd {
     #[inline]
     pub(crate) fn cvt_poll(&mut self) -> io::Result<()> {
         let state = unsafe { &mut *self.inner.state.get() };
-        state.cvt_uring_poll(self.inner.fd)
+        #[cfg(unix)]
+        let r = state.cvt_uring_poll(self.inner.fd);
+        #[cfg(windows)]
+        let r = Ok(());
+        r
     }
 
     #[cfg(feature = "poll-io")]
     #[inline]
     pub(crate) fn cvt_comp(&mut self) -> io::Result<()> {
         let state = unsafe { &mut *self.inner.state.get() };
-        state.cvt_comp(self.inner.fd)
+        #[cfg(unix)]
+        let r = state.cvt_comp(self.inner.fd);
+        #[cfg(windows)]
+        let r = Ok(());
+        r
     }
 }
 
