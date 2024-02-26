@@ -1,13 +1,10 @@
 use std::future::Future;
 
-#[cfg(all(
-    unix,
-    any(all(target_os = "linux", feature = "iouring"), feature = "legacy")
-))]
+#[cfg(any(all(target_os = "linux", feature = "iouring"), feature = "legacy"))]
 use crate::time::TimeDriver;
 #[cfg(all(target_os = "linux", feature = "iouring"))]
 use crate::IoUringDriver;
-#[cfg(all(unix, feature = "legacy"))]
+#[cfg(feature = "legacy")]
 use crate::LegacyDriver;
 use crate::{
     driver::Driver,
@@ -201,7 +198,7 @@ impl<D> Runtime<D> {
 
 /// Fusion Runtime is a wrapper of io_uring driver or legacy driver based
 /// runtime.
-#[cfg(all(unix, feature = "legacy"))]
+#[cfg(feature = "legacy")]
 pub enum FusionRuntime<#[cfg(all(target_os = "linux", feature = "iouring"))] L, R> {
     /// Uring driver based runtime.
     #[cfg(all(target_os = "linux", feature = "iouring"))]
@@ -242,11 +239,7 @@ where
     }
 }
 
-#[cfg(all(
-    unix,
-    feature = "legacy",
-    not(all(target_os = "linux", feature = "iouring"))
-))]
+#[cfg(all(feature = "legacy", not(all(target_os = "linux", feature = "iouring"))))]
 impl<R> FusionRuntime<R>
 where
     R: Driver,
@@ -315,11 +308,7 @@ impl From<Runtime<TimeDriver<LegacyDriver>>>
 }
 
 // R -> Fusion<R>
-#[cfg(all(
-    unix,
-    feature = "legacy",
-    not(all(target_os = "linux", feature = "iouring"))
-))]
+#[cfg(all(feature = "legacy", not(all(target_os = "linux", feature = "iouring"))))]
 impl From<Runtime<LegacyDriver>> for FusionRuntime<LegacyDriver> {
     fn from(r: Runtime<LegacyDriver>) -> Self {
         Self::Legacy(r)
@@ -327,11 +316,7 @@ impl From<Runtime<LegacyDriver>> for FusionRuntime<LegacyDriver> {
 }
 
 // TR -> Fusion<TR>
-#[cfg(all(
-    unix,
-    feature = "legacy",
-    not(all(target_os = "linux", feature = "iouring"))
-))]
+#[cfg(all(feature = "legacy", not(all(target_os = "linux", feature = "iouring"))))]
 impl From<Runtime<TimeDriver<LegacyDriver>>> for FusionRuntime<TimeDriver<LegacyDriver>> {
     fn from(r: Runtime<TimeDriver<LegacyDriver>>) -> Self {
         Self::Legacy(r)

@@ -2,15 +2,17 @@ use std::io;
 
 #[cfg(all(target_os = "linux", feature = "iouring"))]
 use io_uring::{opcode, types};
-#[cfg(all(windows, any(feature = "legacy", feature = "poll-io")))]
-use {
-    crate::syscall,
-    std::ffi::c_void,
-    std::os::windows::io::AsRawSocket,
-    windows_sys::Win32::Networking::WinSock::{recv, WSAGetLastError, WSARecv, SOCKET_ERROR},
-};
 #[cfg(all(unix, any(feature = "legacy", feature = "poll-io")))]
 use {crate::syscall_u32, std::os::unix::prelude::AsRawFd};
+#[cfg(all(windows, any(feature = "legacy", feature = "poll-io")))]
+use {
+    std::ffi::c_void,
+    windows_sys::Win32::{
+        Foundation::TRUE,
+        Networking::WinSock::{WSAGetLastError, WSARecv, SOCKET_ERROR},
+        Storage::FileSystem::{ReadFile, SetFilePointer, FILE_CURRENT, INVALID_SET_FILE_POINTER},
+    },
+};
 
 use super::{super::shared_fd::SharedFd, Op, OpAble};
 #[cfg(any(feature = "legacy", feature = "poll-io"))]
@@ -102,20 +104,32 @@ impl<T: IoBufMut> OpAble for Read<T> {
 
     #[cfg(all(any(feature = "legacy", feature = "poll-io"), windows))]
     fn legacy_call(&mut self) -> io::Result<u32> {
-        let fd = self.fd.as_raw_socket();
+        let fd = self.fd.raw_handle() as _;
         let seek_offset = libc::off_t::try_from(self.offset)
             .map_err(|_| io::Error::new(io::ErrorKind::Other, "offset too big"))?;
-        syscall!(
-            recv(
-                fd as _,
-                (self.buf.write_ptr().cast::<c_void>() as usize + seek_offset as usize)
-                    as *mut c_void as *mut _,
-                self.buf.bytes_total() as i32 - seek_offset,
-                0
-            ),
-            PartialOrd::ge,
-            0
-        )
+        let mut bytes_read = 0;
+        let ret = unsafe {
+            // see https://learn.microsoft.com/zh-cn/windows/win32/api/fileapi/nf-fileapi-setfilepointer
+            if seek_offset != 0 {
+                let r = SetFilePointer(fd, seek_offset, std::ptr::null_mut(), FILE_CURRENT);
+                if INVALID_SET_FILE_POINTER == r {
+                    return Err(io::Error::last_os_error());
+                }
+            }
+            // see https://learn.microsoft.com/zh-cn/windows/win32/api/fileapi/nf-fileapi-readfile
+            ReadFile(
+                fd,
+                self.buf.write_ptr().cast::<c_void>(),
+                self.buf.bytes_total() as u32,
+                &mut bytes_read,
+                std::ptr::null_mut(),
+            )
+        };
+        if TRUE == ret {
+            Ok(bytes_read)
+        } else {
+            Err(io::Error::last_os_error())
+        }
     }
 }
 

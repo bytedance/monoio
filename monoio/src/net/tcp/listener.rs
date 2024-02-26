@@ -1,23 +1,26 @@
-#[cfg(windows)]
-use std::os::windows::prelude::{AsRawSocket, FromRawSocket, IntoRawSocket, RawSocket};
 use std::{
     cell::UnsafeCell,
     io,
-    net::{SocketAddr, ToSocketAddrs},
+    net::{Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6, ToSocketAddrs},
 };
 
 #[cfg(unix)]
 use {
-    std::net::{Ipv4Addr, Ipv6Addr, SocketAddrV4, SocketAddrV6},
+    libc::{sockaddr_in, sockaddr_in6, AF_INET, AF_INET6},
     std::os::unix::prelude::{AsRawFd, FromRawFd, IntoRawFd, RawFd},
+};
+#[cfg(windows)]
+use {
+    std::os::windows::prelude::{AsRawSocket, FromRawSocket, IntoRawSocket, RawSocket},
+    windows_sys::Win32::Networking::WinSock::{
+        AF_INET, AF_INET6, SOCKADDR_IN as sockaddr_in, SOCKADDR_IN6 as sockaddr_in6,
+    },
 };
 
 use super::stream::TcpStream;
-#[cfg(unix)]
-use crate::io::CancelHandle;
 use crate::{
     driver::{op::Op, shared_fd::SharedFd},
-    io::stream::Stream,
+    io::{stream::Stream, CancelHandle},
     net::ListenerOpts,
 };
 
@@ -34,7 +37,7 @@ impl TcpListener {
         #[cfg(unix)]
         let sys_listener = unsafe { std::net::TcpListener::from_raw_fd(fd.raw_fd()) };
         #[cfg(windows)]
-        let sys_listener = unsafe { std::net::TcpListener::from_raw_socket(todo!()) };
+        let sys_listener = unsafe { std::net::TcpListener::from_raw_socket(fd.raw_socket()) };
         Self {
             fd,
             sys_listener: Some(sys_listener),
@@ -57,7 +60,7 @@ impl TcpListener {
         let sys_listener =
             socket2::Socket::new(domain, socket2::Type::STREAM, Some(socket2::Protocol::TCP))?;
 
-        #[cfg(all(unix, feature = "legacy"))]
+        #[cfg(feature = "legacy")]
         Self::set_non_blocking(&sys_listener)?;
 
         let addr = socket2::SockAddr::from(addr);
@@ -89,12 +92,12 @@ impl TcpListener {
         }
 
         #[cfg(unix)]
-        let fd = SharedFd::new::<false>(sys_listener.into_raw_fd())?;
+        let fd = sys_listener.into_raw_fd();
 
         #[cfg(windows)]
-        let fd = SharedFd::new(sys_listener.into_raw_socket())?;
+        let fd = sys_listener.into_raw_socket();
 
-        Ok(Self::from_shared_fd(fd))
+        Ok(Self::from_shared_fd(SharedFd::new::<false>(fd)?))
     }
 
     /// Bind to address
@@ -103,7 +106,6 @@ impl TcpListener {
         Self::bind_with_config(addr, &DEFAULT_CFG)
     }
 
-    #[cfg(unix)]
     /// Accept
     pub async fn accept(&self) -> io::Result<(TcpStream, SocketAddr)> {
         let op = Op::accept(&self.fd)?;
@@ -120,26 +122,31 @@ impl TcpListener {
         // Construct SocketAddr
         let storage = completion.data.addr.0.as_ptr();
         let addr = unsafe {
-            match (*storage).ss_family as libc::c_int {
-                libc::AF_INET => {
+            match (*storage).ss_family as _ {
+                AF_INET => {
                     // Safety: if the ss_family field is AF_INET then storage must be a sockaddr_in.
-                    let addr: &libc::sockaddr_in = &*(storage as *const libc::sockaddr_in);
+                    let addr: &sockaddr_in = &*(storage as *const sockaddr_in);
+                    #[cfg(unix)]
                     let ip = Ipv4Addr::from(addr.sin_addr.s_addr.to_ne_bytes());
+                    #[cfg(windows)]
+                    let ip = Ipv4Addr::from(addr.sin_addr.S_un.S_addr.to_ne_bytes());
                     let port = u16::from_be(addr.sin_port);
                     SocketAddr::V4(SocketAddrV4::new(ip, port))
                 }
-                libc::AF_INET6 => {
+                AF_INET6 => {
                     // Safety: if the ss_family field is AF_INET6 then storage must be a
                     // sockaddr_in6.
-                    let addr: &libc::sockaddr_in6 = &*(storage as *const libc::sockaddr_in6);
+                    let addr: &sockaddr_in6 = &*(storage as *const sockaddr_in6);
+                    #[cfg(unix)]
                     let ip = Ipv6Addr::from(addr.sin6_addr.s6_addr);
+                    #[cfg(windows)]
+                    let ip = Ipv6Addr::from(addr.sin6_addr.u.Byte);
                     let port = u16::from_be(addr.sin6_port);
-                    SocketAddr::V6(SocketAddrV6::new(
-                        ip,
-                        port,
-                        addr.sin6_flowinfo,
-                        addr.sin6_scope_id,
-                    ))
+                    #[cfg(unix)]
+                    let scope_id = addr.sin6_scope_id;
+                    #[cfg(windows)]
+                    let scope_id = addr.Anonymous.sin6_scope_id;
+                    SocketAddr::V6(SocketAddrV6::new(ip, port, addr.sin6_flowinfo, scope_id))
                 }
                 _ => {
                     return Err(io::ErrorKind::InvalidInput.into());
@@ -150,7 +157,6 @@ impl TcpListener {
         Ok((stream, addr))
     }
 
-    #[cfg(unix)]
     /// Cancelable accept
     pub async fn cancelable_accept(&self, c: CancelHandle) -> io::Result<(TcpStream, SocketAddr)> {
         use crate::io::operation_canceled;
@@ -173,26 +179,31 @@ impl TcpListener {
         // Construct SocketAddr
         let storage = completion.data.addr.0.as_ptr();
         let addr = unsafe {
-            match (*storage).ss_family as libc::c_int {
-                libc::AF_INET => {
+            match (*storage).ss_family as _ {
+                AF_INET => {
                     // Safety: if the ss_family field is AF_INET then storage must be a sockaddr_in.
-                    let addr: &libc::sockaddr_in = &*(storage as *const libc::sockaddr_in);
+                    let addr: &sockaddr_in = &*(storage as *const sockaddr_in);
+                    #[cfg(unix)]
                     let ip = Ipv4Addr::from(addr.sin_addr.s_addr.to_ne_bytes());
+                    #[cfg(windows)]
+                    let ip = Ipv4Addr::from(addr.sin_addr.S_un.S_addr.to_ne_bytes());
                     let port = u16::from_be(addr.sin_port);
                     SocketAddr::V4(SocketAddrV4::new(ip, port))
                 }
-                libc::AF_INET6 => {
+                AF_INET6 => {
                     // Safety: if the ss_family field is AF_INET6 then storage must be a
                     // sockaddr_in6.
-                    let addr: &libc::sockaddr_in6 = &*(storage as *const libc::sockaddr_in6);
+                    let addr: &sockaddr_in6 = &*(storage as *const sockaddr_in6);
+                    #[cfg(unix)]
                     let ip = Ipv6Addr::from(addr.sin6_addr.s6_addr);
+                    #[cfg(windows)]
+                    let ip = Ipv6Addr::from(addr.sin6_addr.u.Byte);
                     let port = u16::from_be(addr.sin6_port);
-                    SocketAddr::V6(SocketAddrV6::new(
-                        ip,
-                        port,
-                        addr.sin6_flowinfo,
-                        addr.sin6_scope_id,
-                    ))
+                    #[cfg(unix)]
+                    let scope_id = addr.sin6_scope_id;
+                    #[cfg(windows)]
+                    let scope_id = addr.Anonymous.sin6_scope_id;
+                    SocketAddr::V6(SocketAddrV6::new(ip, port, addr.sin6_flowinfo, scope_id))
                 }
                 _ => {
                     return Err(io::ErrorKind::InvalidInput.into());
@@ -201,12 +212,6 @@ impl TcpListener {
         };
 
         Ok((stream, addr))
-    }
-
-    #[cfg(windows)]
-    /// Accept
-    pub async fn accept(&self) -> io::Result<(TcpStream, SocketAddr)> {
-        unimplemented!()
     }
 
     /// Returns the local address that this listener is bound to.
@@ -225,7 +230,7 @@ impl TcpListener {
             })
     }
 
-    #[cfg(all(unix, feature = "legacy"))]
+    #[cfg(feature = "legacy")]
     fn set_non_blocking(_socket: &socket2::Socket) -> io::Result<()> {
         crate::driver::CURRENT.with(|x| match x {
             // TODO: windows ioring support
@@ -251,22 +256,16 @@ impl TcpListener {
     }
 
     /// Creates new `TcpListener` from a `std::net::TcpListener`.
-    #[cfg(unix)]
     pub fn from_std(stdl: std::net::TcpListener) -> io::Result<Self> {
-        match SharedFd::new::<false>(stdl.as_raw_fd()) {
+        #[cfg(unix)]
+        let fd = stdl.as_raw_fd();
+        #[cfg(windows)]
+        let fd = stdl.as_raw_socket();
+        match SharedFd::new::<false>(fd) {
             Ok(shared) => {
+                #[cfg(unix)]
                 stdl.into_raw_fd();
-                Ok(Self::from_shared_fd(shared))
-            }
-            Err(e) => Err(e),
-        }
-    }
-
-    /// Creates new `TcpListener` from a `std::net::TcpListener`.
-    #[cfg(windows)]
-    pub fn from_std(stdl: std::net::TcpListener) -> io::Result<Self> {
-        match SharedFd::new(stdl.as_raw_socket()) {
-            Ok(shared) => {
+                #[cfg(windows)]
                 stdl.into_raw_socket();
                 Ok(Self::from_shared_fd(shared))
             }
@@ -309,10 +308,11 @@ impl AsRawSocket for TcpListener {
 impl Drop for TcpListener {
     #[inline]
     fn drop(&mut self) {
+        let listener = self.sys_listener.take().unwrap();
         #[cfg(unix)]
-        self.sys_listener.take().unwrap().into_raw_fd();
+        listener.into_raw_fd();
         #[cfg(windows)]
-        unimplemented!()
+        listener.into_raw_socket();
     }
 }
 

@@ -1,9 +1,12 @@
 //! A example to show how to use UnixStream.
 
-use local_sync::oneshot::channel;
-use monoio::{
-    io::{AsyncReadRent, AsyncWriteRentExt},
-    net::{UnixListener, UnixStream},
+#[cfg(unix)]
+use {
+    local_sync::oneshot::channel,
+    monoio::{
+        io::{AsyncReadRent, AsyncWriteRentExt},
+        net::{UnixListener, UnixStream},
+    },
 };
 
 const ADDRESS: &str = "/tmp/monoio-unix-test.sock";

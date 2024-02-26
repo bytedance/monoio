@@ -37,7 +37,7 @@ impl UdpSocket {
         Self { fd }
     }
 
-    #[cfg(all(unix, feature = "legacy"))]
+    #[cfg(feature = "legacy")]
     fn set_non_blocking(_socket: &socket2::Socket) -> io::Result<()> {
         crate::driver::CURRENT.with(|x| match x {
             // TODO: windows ioring support
@@ -60,18 +60,18 @@ impl UdpSocket {
         };
         let socket =
             socket2::Socket::new(domain, socket2::Type::DGRAM, Some(socket2::Protocol::UDP))?;
-        #[cfg(all(unix, feature = "legacy"))]
+        #[cfg(feature = "legacy")]
         Self::set_non_blocking(&socket)?;
 
         let addr = socket2::SockAddr::from(addr);
         socket.bind(&addr)?;
 
         #[cfg(unix)]
-        let fd = SharedFd::new::<false>(socket.into_raw_fd())?;
+        let fd = socket.into_raw_fd();
         #[cfg(windows)]
-        let fd = SharedFd::new(socket.into_raw_socket())?;
+        let fd = socket.into_raw_socket();
 
-        Ok(Self::from_shared_fd(fd))
+        Ok(Self::from_shared_fd(SharedFd::new::<false>(fd)?))
     }
 
     /// Receives a single datagram message on the socket. On success, returns the number
@@ -148,22 +148,16 @@ impl UdpSocket {
     }
 
     /// Creates new `UdpSocket` from a `std::net::UdpSocket`.
-    #[cfg(unix)]
     pub fn from_std(socket: std::net::UdpSocket) -> io::Result<Self> {
-        match SharedFd::new::<false>(socket.as_raw_fd()) {
+        #[cfg(unix)]
+        let fd = socket.as_raw_fd();
+        #[cfg(windows)]
+        let fd = socket.as_raw_socket();
+        match SharedFd::new::<false>(fd) {
             Ok(shared) => {
+                #[cfg(unix)]
                 socket.into_raw_fd();
-                Ok(Self::from_shared_fd(shared))
-            }
-            Err(e) => Err(e),
-        }
-    }
-
-    /// Creates new `UdpSocket` from a `std::net::UdpSocket`.
-    #[cfg(windows)]
-    pub fn from_std(socket: std::net::UdpSocket) -> io::Result<Self> {
-        match SharedFd::new(socket.as_raw_socket()) {
-            Ok(shared) => {
+                #[cfg(windows)]
                 socket.into_raw_socket();
                 Ok(Self::from_shared_fd(shared))
             }
