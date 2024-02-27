@@ -583,6 +583,8 @@ impl Drop for IoUringDriver {
 
 impl Drop for UringInner {
     fn drop(&mut self) {
+        // no need to wait for completion, as the kernel will clean up the ring asynchronically.
+        let _ = self.uring.submitter().submit();
         unsafe {
             ManuallyDrop::drop(&mut self.uring);
         }

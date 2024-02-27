@@ -24,6 +24,7 @@ async fn read_hello(file: &File) {
 async fn basic_read() {
     let mut tempfile = tempfile();
     tempfile.write_all(HELLO).unwrap();
+    tempfile.as_file_mut().sync_data().unwrap();
 
     let file = File::open(tempfile.path()).await.unwrap();
     read_hello(&file).await;
@@ -33,6 +34,7 @@ async fn basic_read() {
 async fn basic_read_exact() {
     let mut tempfile = tempfile();
     tempfile.write_all(HELLO).unwrap();
+    tempfile.as_file_mut().sync_data().unwrap();
 
     let file = File::open(tempfile.path()).await.unwrap();
     let buf = Vec::with_capacity(HELLO.len());
@@ -51,6 +53,7 @@ async fn basic_write() {
 
     let file = File::create(tempfile.path()).await.unwrap();
     file.write_at(HELLO, 0).await.0.unwrap();
+    file.sync_all().await.unwrap();
 
     let file = std::fs::read(tempfile.path()).unwrap();
     assert_eq!(file, HELLO);
@@ -62,6 +65,7 @@ async fn basic_write_all() {
 
     let file = File::create(tempfile.path()).await.unwrap();
     file.write_all_at(HELLO, 0).await.0.unwrap();
+    file.sync_all().await.unwrap();
 
     let file = std::fs::read(tempfile.path()).unwrap();
     assert_eq!(file, HELLO);
@@ -71,6 +75,7 @@ async fn basic_write_all() {
 async fn cancel_read() {
     let mut tempfile = tempfile();
     tempfile.write_all(HELLO).unwrap();
+    tempfile.as_file_mut().sync_data().unwrap();
 
     let file = File::open(tempfile.path()).await.unwrap();
 
@@ -84,6 +89,7 @@ async fn cancel_read() {
 async fn explicit_close() {
     let mut tempfile = tempfile();
     tempfile.write_all(HELLO).unwrap();
+    tempfile.as_file_mut().sync_data().unwrap();
 
     let file = File::open(tempfile.path()).await.unwrap();
     #[cfg(unix)]
@@ -93,7 +99,7 @@ async fn explicit_close() {
 
     file.close().await.unwrap();
 
-    assert_invalid_fd(fd);
+    assert_invalid_fd(fd, tempfile.as_file().metadata().unwrap());
 }
 
 #[monoio::test_all]
@@ -103,6 +109,7 @@ async fn drop_open() {
     // Do something else
     let file_w = File::create(tempfile.path()).await.unwrap();
     file_w.write_at(HELLO, 0).await.0.unwrap();
+    file_w.sync_all().await.unwrap();
 
     let file = std::fs::read(tempfile.path()).unwrap();
     assert_eq!(file, HELLO);
@@ -127,7 +134,7 @@ fn drop_off_runtime() {
     let fd = file.as_raw_handle();
     drop(file);
 
-    assert_invalid_fd(fd);
+    assert_invalid_fd(fd, tempfile.as_file().metadata().unwrap());
 }
 
 #[monoio::test_all]
@@ -160,13 +167,29 @@ async fn poll_once(future: impl std::future::Future) {
     .await;
 }
 
-fn assert_invalid_fd(fd: RawFd) {
+fn assert_invalid_fd(fd: RawFd, base: std::fs::Metadata) {
     use std::fs::File;
     #[cfg(unix)]
-    let mut f = unsafe { File::from_raw_fd(fd) };
+    let f = unsafe { File::from_raw_fd(fd) };
     #[cfg(windows)]
-    let mut f = unsafe { File::from_raw_handle(fd) };
-    let mut buf = vec![];
+    let f = unsafe { File::from_raw_handle(fd) };
 
-    assert!(f.read_to_end(&mut buf).is_err());
+    let meta = f.metadata();
+    std::mem::forget(f);
+
+    if let Ok(meta) = meta {
+        if !meta.is_file() {
+            return;
+        }
+
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::MetadataExt;
+            let inode = meta.ino();
+            let actual = base.ino();
+            if inode == actual {
+                panic!();
+            }
+        }
+    }
 }
