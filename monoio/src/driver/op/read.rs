@@ -9,7 +9,7 @@ use {
     std::ffi::c_void,
     windows_sys::Win32::{
         Foundation::TRUE,
-        Networking::WinSock::{WSAGetLastError, WSARecv, SOCKET_ERROR},
+        Networking::WinSock::{WSAGetLastError, WSARecv},
         Storage::FileSystem::{ReadFile, SetFilePointer, FILE_CURRENT, INVALID_SET_FILE_POINTER},
     },
 };
@@ -155,9 +155,7 @@ impl<T: IoVecBufMut> Op<ReadVec<T>> {
 
         if let Ok(n) = res {
             // Safety: the kernel wrote `n` bytes to the buffer.
-            unsafe {
-                buf_vec.set_init(n);
-            }
+            unsafe { buf_vec.set_init(n) };
         }
         (res, buf_vec)
     }
@@ -193,7 +191,7 @@ impl<T: IoVecBufMut> OpAble for ReadVec<T> {
             WSARecv(
                 self.fd.raw_socket() as _,
                 self.buf_vec.write_wsabuf_ptr(),
-                self.buf_vec.write_wsabuf_len() as _,
+                self.buf_vec.write_wsabuf_len().min(u32::MAX as usize) as _,
                 &mut bytes_recved,
                 std::ptr::null_mut(),
                 std::ptr::null_mut(),
@@ -201,13 +199,11 @@ impl<T: IoVecBufMut> OpAble for ReadVec<T> {
             )
         };
         match ret {
-            0 => return Err(std::io::ErrorKind::WouldBlock.into()),
-            SOCKET_ERROR => {
+            0 => Ok(bytes_recved),
+            _ => {
                 let error = unsafe { WSAGetLastError() };
-                return Err(std::io::Error::from_raw_os_error(error));
+                Err(io::Error::from_raw_os_error(error))
             }
-            _ => (),
         }
-        Ok(bytes_recved)
     }
 }

@@ -5,7 +5,7 @@ use io_uring::{opcode, types};
 #[cfg(all(windows, any(feature = "legacy", feature = "poll-io")))]
 use windows_sys::Win32::{
     Foundation::TRUE,
-    Networking::WinSock::{WSAGetLastError, WSASend, SOCKET_ERROR},
+    Networking::WinSock::{WSAGetLastError, WSASend},
     Storage::FileSystem::{SetFilePointer, WriteFile, FILE_CURRENT, INVALID_SET_FILE_POINTER},
 };
 #[cfg(all(unix, any(feature = "legacy", feature = "poll-io")))]
@@ -188,13 +188,11 @@ impl<T: IoVecBuf> OpAble for WriteVec<T> {
             )
         };
         match ret {
-            0 => return Err(std::io::ErrorKind::WouldBlock.into()),
-            SOCKET_ERROR => {
+            0 => Ok(bytes_sent),
+            _ => {
                 let error = unsafe { WSAGetLastError() };
-                return Err(std::io::Error::from_raw_os_error(error));
+                Err(io::Error::from_raw_os_error(error))
             }
-            _ => (),
         }
-        Ok(bytes_sent)
     }
 }
