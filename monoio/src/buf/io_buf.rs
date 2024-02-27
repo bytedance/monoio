@@ -1,4 +1,4 @@
-use std::ops;
+use std::{ops, rc::Rc, sync::Arc};
 
 use super::Slice;
 use crate::buf::slice::SliceMut;
@@ -171,6 +171,36 @@ unsafe impl IoBuf for bytes::BytesMut {
     #[inline]
     fn bytes_init(&self) -> usize {
         self.len()
+    }
+}
+
+unsafe impl<T> IoBuf for Rc<T>
+where
+    T: IoBuf,
+{
+    #[inline]
+    fn read_ptr(&self) -> *const u8 {
+        <T as IoBuf>::read_ptr(self)
+    }
+
+    #[inline]
+    fn bytes_init(&self) -> usize {
+        <T as IoBuf>::bytes_init(self)
+    }
+}
+
+unsafe impl<T> IoBuf for Arc<T>
+where
+    T: IoBuf,
+{
+    #[inline]
+    fn read_ptr(&self) -> *const u8 {
+        <T as IoBuf>::read_ptr(self)
+    }
+
+    #[inline]
+    fn bytes_init(&self) -> usize {
+        <T as IoBuf>::bytes_init(self)
     }
 }
 
@@ -419,6 +449,24 @@ mod tests {
     }
 
     #[test]
+    fn io_buf_rc_str() {
+        let s = Rc::new("hello world");
+        let ptr = s.as_ptr();
+
+        assert_eq!(s.read_ptr(), ptr);
+        assert_eq!(s.bytes_init(), 11);
+    }
+
+    #[test]
+    fn io_buf_arc_str() {
+        let s = Arc::new("hello world");
+        let ptr = s.as_ptr();
+
+        assert_eq!(s.read_ptr(), ptr);
+        assert_eq!(s.bytes_init(), 11);
+    }
+
+    #[test]
     fn io_buf_slice_ref() {
         let s: &[u8] = &[1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
         let ptr = s.as_ptr();
@@ -442,6 +490,27 @@ mod tests {
         let mut slice = buf.slice_mut(1..8);
         assert_eq!((slice.begin(), slice.end()), (1, 8));
         assert_eq!(slice.write_ptr(), unsafe { ptr.add(1) });
+        assert_eq!(slice.bytes_total(), 7);
+        unsafe { slice.set_init(5) };
+        assert_eq!(slice.bytes_init(), 5);
+        assert_eq!(slice.into_inner().len(), 6);
+    }
+
+    #[test]
+    fn io_buf_arc_slice() {
+        let mut buf = Vec::with_capacity(10);
+        buf.extend_from_slice(b"0123");
+        let buf = Arc::new(buf);
+        let ptr = buf.as_ptr();
+
+        let slice = buf.slice(1..3);
+        assert_eq!((slice.begin(), slice.end()), (1, 3));
+        assert_eq!(slice.read_ptr(), unsafe { ptr.add(1) });
+        assert_eq!(slice.bytes_init(), 2);
+        let buf = Arc::into_inner(slice.into_inner()).unwrap();
+
+        let mut slice = buf.slice_mut(1..8);
+        assert_eq!((slice.begin(), slice.end()), (1, 8));
         assert_eq!(slice.bytes_total(), 7);
         unsafe { slice.set_init(5) };
         assert_eq!(slice.bytes_init(), 5);
