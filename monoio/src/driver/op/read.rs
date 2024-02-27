@@ -186,20 +186,20 @@ impl<T: IoVecBufMut> OpAble for ReadVec<T> {
 
     #[cfg(all(any(feature = "legacy", feature = "poll-io"), windows))]
     fn legacy_call(&mut self) -> io::Result<u32> {
-        let mut bytes_recved = 0;
+        let mut bytes_received = 0;
         let ret = unsafe {
             WSARecv(
                 self.fd.raw_socket() as _,
                 self.buf_vec.write_wsabuf_ptr(),
                 self.buf_vec.write_wsabuf_len().min(u32::MAX as usize) as _,
-                &mut bytes_recved,
-                std::ptr::null_mut(),
+                &mut bytes_received,
+                &mut 0,
                 std::ptr::null_mut(),
                 None,
             )
         };
         match ret {
-            0 => Ok(bytes_recved),
+            0 => Ok(bytes_received),
             _ => {
                 let error = unsafe { WSAGetLastError() };
                 Err(io::Error::from_raw_os_error(error))
