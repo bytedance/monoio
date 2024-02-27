@@ -2,12 +2,12 @@ use std::{io, net::SocketAddr};
 
 #[cfg(all(target_os = "linux", feature = "iouring"))]
 use io_uring::{opcode, types};
-#[cfg(unix)]
-use {crate::net::unix::SocketAddr as UnixSocketAddr, socket2::SockAddr};
+use socket2::SockAddr;
 #[cfg(all(windows, any(feature = "legacy", feature = "poll-io")))]
 use {
-    crate::syscall, std::os::windows::io::AsRawSocket,
-    windows_sys::Win32::Networking::WinSock::send,
+    crate::syscall,
+    std::os::windows::io::AsRawSocket,
+    windows_sys::Win32::Networking::WinSock::{send, WSASendMsg, SOCKET_ERROR},
 };
 #[cfg(all(unix, any(feature = "legacy", feature = "poll-io")))]
 use {crate::syscall_u32, std::os::unix::prelude::AsRawFd};
@@ -15,7 +15,12 @@ use {crate::syscall_u32, std::os::unix::prelude::AsRawFd};
 use super::{super::shared_fd::SharedFd, Op, OpAble};
 #[cfg(any(feature = "legacy", feature = "poll-io"))]
 use crate::driver::ready::Direction;
-use crate::{buf::IoBuf, BufResult};
+#[cfg(unix)]
+use crate::net::unix::SocketAddr as UnixSocketAddr;
+use crate::{
+    buf::{IoBuf, IoVecBufMut, IoVecMeta, MsgMeta},
+    BufResult,
+};
 
 pub(crate) struct Send<T> {
     /// Holds a strong ref to the FD, preventing the file from being closed
@@ -109,7 +114,7 @@ impl<T: IoBuf> OpAble for Send<T> {
         let fd = self.fd.as_raw_socket();
         syscall!(
             send(fd as _, self.buf.read_ptr(), self.buf.bytes_init() as _, 0),
-            PartialOrd::ge,
+            PartialOrd::lt,
             0
         )
     }
@@ -123,37 +128,50 @@ pub(crate) struct SendMsg<T> {
 
     /// Reference to the in-flight buffer.
     pub(crate) buf: T,
-    #[cfg(unix)]
-    pub(crate) info: Box<(Option<SockAddr>, [libc::iovec; 1], libc::msghdr)>,
+    /// For multiple message send in the future
+    pub(crate) info: Box<(Option<SockAddr>, IoVecMeta, MsgMeta)>,
 }
 
-#[cfg(unix)]
 impl<T: IoBuf> Op<SendMsg<T>> {
     pub(crate) fn send_msg(
         fd: SharedFd,
         buf: T,
         socket_addr: Option<SocketAddr>,
     ) -> io::Result<Self> {
-        let iovec = [libc::iovec {
-            iov_base: buf.read_ptr() as *const _ as *mut _,
-            iov_len: buf.bytes_init(),
-        }];
-        let mut info: Box<(Option<SockAddr>, [libc::iovec; 1], libc::msghdr)> =
-            Box::new((socket_addr.map(Into::into), iovec, unsafe {
-                std::mem::zeroed()
-            }));
+        let mut info: Box<(Option<SockAddr>, IoVecMeta, MsgMeta)> = Box::new((
+            socket_addr.map(Into::into),
+            IoVecMeta::from(&buf),
+            unsafe { std::mem::zeroed() },
+        ));
 
-        info.2.msg_iov = info.1.as_mut_ptr();
-        info.2.msg_iovlen = 1;
-
-        match info.0.as_ref() {
-            Some(socket_addr) => {
-                info.2.msg_name = socket_addr.as_ptr() as *mut libc::c_void;
-                info.2.msg_namelen = socket_addr.len();
+        #[cfg(unix)]
+        {
+            info.2.msg_iov = info.1.write_iovec_ptr();
+            info.2.msg_iovlen = info.1.write_iovec_len() as _;
+            match info.0.as_ref() {
+                Some(socket_addr) => {
+                    info.2.msg_name = socket_addr.as_ptr() as *mut libc::c_void;
+                    info.2.msg_namelen = socket_addr.len();
+                }
+                None => {
+                    info.2.msg_name = std::ptr::null_mut();
+                    info.2.msg_namelen = 0;
+                }
             }
-            None => {
-                info.2.msg_name = std::ptr::null_mut();
-                info.2.msg_namelen = 0;
+        }
+        #[cfg(windows)]
+        {
+            info.2.lpBuffers = info.1.write_wsabuf_ptr();
+            info.2.dwBufferCount = info.1.write_wsabuf_len() as _;
+            match info.0.as_ref() {
+                Some(socket_addr) => {
+                    info.2.name = socket_addr.as_ptr() as *mut _;
+                    info.2.namelen = socket_addr.len();
+                }
+                None => {
+                    info.2.name = std::ptr::null_mut();
+                    info.2.namelen = 0;
+                }
             }
         }
 
@@ -168,28 +186,12 @@ impl<T: IoBuf> Op<SendMsg<T>> {
     }
 }
 
-#[cfg(windows)]
-impl<T: IoBuf> Op<SendMsg<T>> {
-    #[allow(unused_variables)]
-    pub(crate) fn send_msg(
-        fd: SharedFd,
-        buf: T,
-        socket_addr: Option<SocketAddr>,
-    ) -> io::Result<Self> {
-        unimplemented!()
-    }
-
-    pub(crate) async fn wait(self) -> BufResult<usize, T> {
-        unimplemented!()
-    }
-}
-
 impl<T: IoBuf> OpAble for SendMsg<T> {
     #[cfg(all(target_os = "linux", feature = "iouring"))]
     fn uring_op(&mut self) -> io_uring::squeue::Entry {
         #[allow(deprecated)]
         const FLAGS: u32 = libc::MSG_NOSIGNAL as u32;
-        opcode::SendMsg::new(types::Fd(self.fd.raw_fd()), &mut self.info.2 as *mut _)
+        opcode::SendMsg::new(types::Fd(self.fd.raw_fd()), &*self.info.2)
             .flags(FLAGS)
             .build()
     }
@@ -210,13 +212,28 @@ impl<T: IoBuf> OpAble for SendMsg<T> {
         #[cfg(not(target_os = "linux"))]
         const FLAGS: libc::c_int = 0;
         let fd = self.fd.as_raw_fd();
-        syscall_u32!(sendmsg(fd, &mut self.info.2 as *mut _, FLAGS))
+        syscall_u32!(sendmsg(fd, &*self.info.2, FLAGS))
     }
 
     #[cfg(all(any(feature = "legacy", feature = "poll-io"), windows))]
     fn legacy_call(&mut self) -> io::Result<u32> {
-        let _fd = self.fd.as_raw_socket();
-        unimplemented!();
+        let fd = self.fd.as_raw_socket();
+        let mut nsent = 0;
+        let ret = unsafe {
+            WSASendMsg(
+                fd as _,
+                &*self.info.2,
+                0,
+                &mut nsent,
+                std::ptr::null_mut(),
+                None,
+            )
+        };
+        if ret == SOCKET_ERROR {
+            Err(io::Error::last_os_error())
+        } else {
+            Ok(nsent)
+        }
     }
 }
 
@@ -229,7 +246,8 @@ pub(crate) struct SendMsgUnix<T> {
 
     /// Reference to the in-flight buffer.
     pub(crate) buf: T,
-    pub(crate) info: Box<(Option<UnixSocketAddr>, [libc::iovec; 1], libc::msghdr)>,
+    /// For multiple message send in the future
+    pub(crate) info: Box<(Option<UnixSocketAddr>, IoVecMeta, libc::msghdr)>,
 }
 
 #[cfg(unix)]
@@ -239,17 +257,14 @@ impl<T: IoBuf> Op<SendMsgUnix<T>> {
         buf: T,
         socket_addr: Option<UnixSocketAddr>,
     ) -> io::Result<Self> {
-        let iovec = [libc::iovec {
-            iov_base: buf.read_ptr() as *const _ as *mut _,
-            iov_len: buf.bytes_init(),
-        }];
-        let mut info: Box<(Option<UnixSocketAddr>, [libc::iovec; 1], libc::msghdr)> =
-            Box::new((socket_addr.map(Into::into), iovec, unsafe {
-                std::mem::zeroed()
-            }));
+        let mut info: Box<(Option<UnixSocketAddr>, IoVecMeta, libc::msghdr)> = Box::new((
+            socket_addr.map(Into::into),
+            IoVecMeta::from(&buf),
+            unsafe { std::mem::zeroed() },
+        ));
 
-        info.2.msg_iov = info.1.as_mut_ptr();
-        info.2.msg_iovlen = 1;
+        info.2.msg_iov = info.1.write_iovec_ptr();
+        info.2.msg_iovlen = info.1.write_iovec_len() as _;
 
         match info.0.as_ref() {
             Some(socket_addr) => {

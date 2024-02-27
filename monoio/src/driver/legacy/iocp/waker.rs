@@ -13,8 +13,7 @@ impl Waker {
     pub fn new(poller: &Poller, token: mio::Token) -> io::Result<Waker> {
         Ok(Waker {
             token,
-            // port: poller.cp.clone(),
-            port: unimplemented!(),
+            port: poller.cp.clone(),
         })
     }
 

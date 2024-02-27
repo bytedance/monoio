@@ -27,7 +27,7 @@ use windows_sys::Win32::{
 
 pub struct Poller {
     is_polling: AtomicBool,
-    cp: CompletionPort,
+    cp: Arc<CompletionPort>,
     update_queue: Mutex<VecDeque<Pin<Arc<Mutex<SockState>>>>>,
     afd: Mutex<Vec<Arc<Afd>>>,
 }
@@ -36,7 +36,7 @@ impl Poller {
     pub fn new() -> std::io::Result<Self> {
         Ok(Self {
             is_polling: AtomicBool::new(false),
-            cp: CompletionPort::new(0)?,
+            cp: Arc::new(CompletionPort::new(0)?),
             update_queue: Mutex::new(VecDeque::new()),
             afd: Mutex::new(Vec::new()),
         })

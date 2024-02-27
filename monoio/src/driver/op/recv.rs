@@ -1,18 +1,34 @@
-use std::{io, net::SocketAddr};
+use std::{
+    io,
+    mem::{transmute, MaybeUninit},
+    net::{Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6},
+};
 
 #[cfg(all(target_os = "linux", feature = "iouring"))]
 use io_uring::{opcode, types};
 #[cfg(unix)]
 use {
     crate::net::unix::SocketAddr as UnixSocketAddr,
-    libc::{socklen_t, AF_INET, AF_INET6},
-    std::mem::{transmute, MaybeUninit},
-    std::net::{Ipv4Addr, Ipv6Addr, SocketAddrV4, SocketAddrV6},
+    libc::{sockaddr_in, sockaddr_in6, sockaddr_storage, socklen_t, AF_INET, AF_INET6},
 };
 #[cfg(all(windows, any(feature = "legacy", feature = "poll-io")))]
 use {
-    crate::syscall, std::os::windows::io::AsRawSocket,
+    crate::syscall,
+    std::os::windows::io::AsRawSocket,
     windows_sys::Win32::Networking::WinSock::recv,
+    windows_sys::{
+        core::GUID,
+        Win32::{
+            Networking::WinSock::{
+                WSAGetLastError, WSAIoctl, AF_INET, AF_INET6, LPFN_WSARECVMSG,
+                LPWSAOVERLAPPED_COMPLETION_ROUTINE, SIO_GET_EXTENSION_FUNCTION_POINTER, SOCKADDR,
+                SOCKADDR_IN as sockaddr_in, SOCKADDR_IN6 as sockaddr_in6,
+                SOCKADDR_STORAGE as sockaddr_storage, SOCKET, SOCKET_ERROR, WSAID_WSARECVMSG,
+                WSAMSG,
+            },
+            System::IO::OVERLAPPED,
+        },
+    },
 };
 #[cfg(all(unix, any(feature = "legacy", feature = "poll-io")))]
 use {crate::syscall_u32, std::os::unix::prelude::AsRawFd};
@@ -20,7 +36,10 @@ use {crate::syscall_u32, std::os::unix::prelude::AsRawFd};
 use super::{super::shared_fd::SharedFd, Op, OpAble};
 #[cfg(any(feature = "legacy", feature = "poll-io"))]
 use crate::driver::ready::Direction;
-use crate::{buf::IoBufMut, BufResult};
+use crate::{
+    buf::{IoBufMut, IoVecBufMut, IoVecMeta, MsgMeta},
+    BufResult,
+};
 
 pub(crate) struct Recv<T> {
     /// Holds a strong ref to the FD, preventing the file from being closed
@@ -98,7 +117,7 @@ impl<T: IoBufMut> OpAble for Recv<T> {
                 self.buf.bytes_total() as _,
                 0
             ),
-            PartialOrd::ge,
+            PartialOrd::lt,
             0
         )
     }
@@ -112,31 +131,31 @@ pub(crate) struct RecvMsg<T> {
 
     /// Reference to the in-flight buffer.
     pub(crate) buf: T,
-    #[cfg(unix)]
-    pub(crate) info: Box<(
-        MaybeUninit<libc::sockaddr_storage>,
-        [libc::iovec; 1],
-        libc::msghdr,
-    )>,
+    /// For multiple message recv in the future
+    pub(crate) info: Box<(MaybeUninit<sockaddr_storage>, IoVecMeta, MsgMeta)>,
 }
 
-#[cfg(unix)]
 impl<T: IoBufMut> Op<RecvMsg<T>> {
     pub(crate) fn recv_msg(fd: SharedFd, mut buf: T) -> io::Result<Self> {
-        let iovec = [libc::iovec {
-            iov_base: buf.write_ptr() as *mut _,
-            iov_len: buf.bytes_total(),
-        }];
-        let mut info: Box<(
-            MaybeUninit<libc::sockaddr_storage>,
-            [libc::iovec; 1],
-            libc::msghdr,
-        )> = Box::new((MaybeUninit::uninit(), iovec, unsafe { std::mem::zeroed() }));
+        let mut info: Box<(MaybeUninit<sockaddr_storage>, IoVecMeta, MsgMeta)> =
+            Box::new((MaybeUninit::uninit(), IoVecMeta::from(&mut buf), unsafe {
+                std::mem::zeroed()
+            }));
 
-        info.2.msg_iov = info.1.as_mut_ptr();
-        info.2.msg_iovlen = 1;
-        info.2.msg_name = &mut info.0 as *mut _ as *mut libc::c_void;
-        info.2.msg_namelen = std::mem::size_of::<libc::sockaddr_storage>() as socklen_t;
+        #[cfg(unix)]
+        {
+            info.2.msg_iov = info.1.write_iovec_ptr();
+            info.2.msg_iovlen = info.1.write_iovec_len() as _;
+            info.2.msg_name = &mut info.0 as *mut _ as *mut libc::c_void;
+            info.2.msg_namelen = std::mem::size_of::<sockaddr_storage>() as socklen_t;
+        }
+        #[cfg(windows)]
+        {
+            info.2.lpBuffers = info.1.write_wsabuf_ptr();
+            info.2.dwBufferCount = info.1.write_wsabuf_len() as _;
+            info.2.name = &mut info.0 as *mut _ as *mut SOCKADDR;
+            info.2.namelen = std::mem::size_of::<sockaddr_storage>() as _;
+        }
 
         Op::submit_with(RecvMsg { fd, buf, info })
     }
@@ -150,27 +169,32 @@ impl<T: IoBufMut> Op<RecvMsg<T>> {
             let storage = unsafe { complete.data.info.0.assume_init() };
 
             let addr = unsafe {
-                match storage.ss_family as libc::c_int {
+                match storage.ss_family as _ {
                     AF_INET => {
                         // Safety: if the ss_family field is AF_INET then storage must be a
                         // sockaddr_in.
-                        let addr: &libc::sockaddr_in = transmute(&storage);
+                        let addr: &sockaddr_in = transmute(&storage);
+                        #[cfg(unix)]
                         let ip = Ipv4Addr::from(addr.sin_addr.s_addr.to_ne_bytes());
+                        #[cfg(windows)]
+                        let ip = Ipv4Addr::from(addr.sin_addr.S_un.S_addr.to_ne_bytes());
                         let port = u16::from_be(addr.sin_port);
                         SocketAddr::V4(SocketAddrV4::new(ip, port))
                     }
                     AF_INET6 => {
                         // Safety: if the ss_family field is AF_INET6 then storage must be a
                         // sockaddr_in6.
-                        let addr: &libc::sockaddr_in6 = transmute(&storage);
+                        let addr: &sockaddr_in6 = transmute(&storage);
+                        #[cfg(unix)]
                         let ip = Ipv6Addr::from(addr.sin6_addr.s6_addr);
+                        #[cfg(windows)]
+                        let ip = Ipv6Addr::from(addr.sin6_addr.u.Byte);
                         let port = u16::from_be(addr.sin6_port);
-                        SocketAddr::V6(SocketAddrV6::new(
-                            ip,
-                            port,
-                            addr.sin6_flowinfo,
-                            addr.sin6_scope_id,
-                        ))
+                        #[cfg(unix)]
+                        let scope_id = addr.sin6_scope_id;
+                        #[cfg(windows)]
+                        let scope_id = addr.Anonymous.sin6_scope_id;
+                        SocketAddr::V6(SocketAddrV6::new(ip, port, addr.sin6_flowinfo, scope_id))
                     }
                     _ => {
                         unreachable!()
@@ -179,9 +203,7 @@ impl<T: IoBufMut> Op<RecvMsg<T>> {
             };
 
             // Safety: the kernel wrote `n` bytes to the buffer.
-            unsafe {
-                buf.set_init(n);
-            }
+            unsafe { buf.set_init(n) };
 
             (n, addr)
         });
@@ -189,22 +211,22 @@ impl<T: IoBufMut> Op<RecvMsg<T>> {
     }
 }
 
-#[cfg(windows)]
-impl<T: IoBufMut> Op<RecvMsg<T>> {
-    #[allow(unused_mut, unused_variables)]
-    pub(crate) fn recv_msg(fd: SharedFd, mut buf: T) -> io::Result<Self> {
-        unimplemented!()
-    }
-
-    pub(crate) async fn wait(self) -> BufResult<(usize, SocketAddr), T> {
-        unimplemented!()
-    }
-}
+/// see https://github.com/microsoft/windows-rs/issues/2530
+#[cfg(all(any(feature = "legacy", feature = "poll-io"), windows))]
+static WSA_RECV_MSG: std::sync::OnceLock<
+    unsafe extern "system" fn(
+        SOCKET,
+        *mut WSAMSG,
+        *mut u32,
+        *mut OVERLAPPED,
+        LPWSAOVERLAPPED_COMPLETION_ROUTINE,
+    ) -> i32,
+> = std::sync::OnceLock::new();
 
 impl<T: IoBufMut> OpAble for RecvMsg<T> {
     #[cfg(all(target_os = "linux", feature = "iouring"))]
     fn uring_op(&mut self) -> io_uring::squeue::Entry {
-        opcode::RecvMsg::new(types::Fd(self.fd.raw_fd()), &mut self.info.2 as *mut _).build()
+        opcode::RecvMsg::new(types::Fd(self.fd.raw_fd()), &mut *self.info.2).build()
     }
 
     #[cfg(any(feature = "legacy", feature = "poll-io"))]
@@ -216,13 +238,51 @@ impl<T: IoBufMut> OpAble for RecvMsg<T> {
     #[cfg(all(any(feature = "legacy", feature = "poll-io"), unix))]
     fn legacy_call(&mut self) -> io::Result<u32> {
         let fd = self.fd.as_raw_fd();
-        syscall_u32!(recvmsg(fd, &mut self.info.2 as *mut _, 0))
+        syscall_u32!(recvmsg(fd, &mut *self.info.2, 0))
     }
 
     #[cfg(all(any(feature = "legacy", feature = "poll-io"), windows))]
     fn legacy_call(&mut self) -> io::Result<u32> {
-        let _fd = self.fd.as_raw_socket();
-        unimplemented!();
+        let fd = self.fd.as_raw_socket() as _;
+        let func_ptr = WSA_RECV_MSG.get_or_init(|| unsafe {
+            let mut wsa_recv_msg: LPFN_WSARECVMSG = None;
+            let mut dw_bytes = 0;
+            let r = WSAIoctl(
+                fd,
+                SIO_GET_EXTENSION_FUNCTION_POINTER,
+                &WSAID_WSARECVMSG as *const _ as *const std::ffi::c_void,
+                std::mem::size_of::<GUID> as usize as u32,
+                &mut wsa_recv_msg as *mut _ as *mut std::ffi::c_void,
+                std::mem::size_of::<LPFN_WSARECVMSG>() as _,
+                &mut dw_bytes,
+                std::ptr::null_mut(),
+                None,
+            );
+            if r == SOCKET_ERROR || wsa_recv_msg.is_none() {
+                panic!(
+                    "init WSARecvMsg failed with {}",
+                    io::Error::from_raw_os_error(WSAGetLastError())
+                )
+            } else {
+                assert_eq!(dw_bytes, std::mem::size_of::<LPFN_WSARECVMSG>() as _);
+                wsa_recv_msg.unwrap()
+            }
+        });
+        let mut recved = 0;
+        let r = unsafe {
+            (func_ptr)(
+                fd,
+                &mut *self.info.2,
+                &mut recved,
+                std::ptr::null_mut(),
+                None,
+            )
+        };
+        if r == SOCKET_ERROR {
+            unsafe { Err(io::Error::from_raw_os_error(WSAGetLastError())) }
+        } else {
+            Ok(recved)
+        }
     }
 }
 
@@ -235,30 +295,22 @@ pub(crate) struct RecvMsgUnix<T> {
 
     /// Reference to the in-flight buffer.
     pub(crate) buf: T,
-    pub(crate) info: Box<(
-        MaybeUninit<libc::sockaddr_storage>,
-        [libc::iovec; 1],
-        libc::msghdr,
-    )>,
+    /// For multiple message recv in the future
+    pub(crate) info: Box<(MaybeUninit<sockaddr_storage>, IoVecMeta, libc::msghdr)>,
 }
 
 #[cfg(unix)]
 impl<T: IoBufMut> Op<RecvMsgUnix<T>> {
     pub(crate) fn recv_msg_unix(fd: SharedFd, mut buf: T) -> io::Result<Self> {
-        let iovec = [libc::iovec {
-            iov_base: buf.write_ptr() as *mut _,
-            iov_len: buf.bytes_total(),
-        }];
-        let mut info: Box<(
-            MaybeUninit<libc::sockaddr_storage>,
-            [libc::iovec; 1],
-            libc::msghdr,
-        )> = Box::new((MaybeUninit::uninit(), iovec, unsafe { std::mem::zeroed() }));
+        let mut info: Box<(MaybeUninit<sockaddr_storage>, IoVecMeta, libc::msghdr)> =
+            Box::new((MaybeUninit::uninit(), IoVecMeta::from(&mut buf), unsafe {
+                std::mem::zeroed()
+            }));
 
-        info.2.msg_iov = info.1.as_mut_ptr();
-        info.2.msg_iovlen = 1;
+        info.2.msg_iov = info.1.write_iovec_ptr();
+        info.2.msg_iovlen = info.1.write_iovec_len() as _;
         info.2.msg_name = &mut info.0 as *mut _ as *mut libc::c_void;
-        info.2.msg_namelen = std::mem::size_of::<libc::sockaddr_storage>() as socklen_t;
+        info.2.msg_namelen = std::mem::size_of::<sockaddr_storage>() as socklen_t;
 
         Op::submit_with(RecvMsgUnix { fd, buf, info })
     }

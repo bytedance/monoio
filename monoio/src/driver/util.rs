@@ -8,7 +8,14 @@ pub(super) fn cstr(p: &Path) -> io::Result<CString> {
         Ok(CString::new(p.as_os_str().as_bytes())?)
     }
     #[cfg(windows)]
-    Ok(CString::new(p.as_os_str().as_encoded_bytes())?)
+    if let Some(s) = p.as_os_str().to_str() {
+        Ok(CString::new(s)?)
+    } else {
+        Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "invalid utf-8: corrupt contents",
+        ))
+    }
 }
 
 // Convert Duration to Timespec
@@ -41,7 +48,7 @@ macro_rules! syscall {
     ($fn: ident ( $($arg: expr),* $(,)* ), $err_test: path, $err_value: expr) => {{
         let res = unsafe { $fn($($arg, )*) };
         if $err_test(&res, &$err_value) {
-            Err(io::Error::last_os_error())
+            Err(std::io::Error::last_os_error())
         } else {
             Ok(res.try_into().unwrap())
         }
