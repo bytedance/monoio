@@ -244,7 +244,6 @@ impl<'t, T: IoBufMut> From<&'t mut T> for IoVecMeta {
     }
 }
 
-#[cfg(unix)]
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -256,9 +255,18 @@ mod tests {
         let meta = read_vec_meta(&iovec);
         assert_eq!(meta.len(), 60);
         assert_eq!(meta.data.len(), 3);
-        assert_eq!(meta.data[0].iov_len, 10);
-        assert_eq!(meta.data[1].iov_len, 20);
-        assert_eq!(meta.data[2].iov_len, 30);
+        #[cfg(unix)]
+        {
+            assert_eq!(meta.data[0].iov_len, 10);
+            assert_eq!(meta.data[1].iov_len, 20);
+            assert_eq!(meta.data[2].iov_len, 30);
+        }
+        #[cfg(windows)]
+        {
+            assert_eq!(meta.data[0].len, 10);
+            assert_eq!(meta.data[1].len, 20);
+            assert_eq!(meta.data[2].len, 30);
+        }
     }
 
     #[test]
@@ -267,8 +275,17 @@ mod tests {
         let meta = write_vec_meta(&mut iovec);
         assert_eq!(meta.len(), 60);
         assert_eq!(meta.data.len(), 3);
-        assert_eq!(meta.data[0].iov_len, 10);
-        assert_eq!(meta.data[1].iov_len, 20);
-        assert_eq!(meta.data[2].iov_len, 30);
+        #[cfg(unix)]
+        {
+            assert_eq!(meta.data[0].iov_len, 10);
+            assert_eq!(meta.data[1].iov_len, 20);
+            assert_eq!(meta.data[2].iov_len, 30);
+        }
+        #[cfg(windows)]
+        {
+            assert_eq!(meta.data[0].len, 10);
+            assert_eq!(meta.data[1].len, 20);
+            assert_eq!(meta.data[2].len, 30);
+        }
     }
 }
