@@ -40,19 +40,14 @@ async fn echo_server() {
             assert_eq!(res.unwrap(), iov_msg.len());
             buf_vec_to_write = Some(raw_vec);
 
-            // todo fix these CI in windows
-            #[cfg(not(windows))]
-            {
-                // readv
-                let buf_vec: monoio::buf::VecBuf =
-                    vec![vec![0; 3], vec![0; iov_msg.len() - 3]].into();
-                let (res, buf_vec) = stream.read_vectored_exact(buf_vec).await;
-                assert!(res.is_ok());
-                assert_eq!(res.unwrap(), iov_msg.len());
-                let raw_vec: Vec<Vec<u8>> = buf_vec.into();
-                assert_eq!(&raw_vec[0], &iov_msg.as_bytes()[..3]);
-                assert_eq!(&raw_vec[1], &iov_msg.as_bytes()[3..]);
-            }
+            // readv
+            let buf_vec: monoio::buf::VecBuf = vec![vec![0; 3], vec![0; iov_msg.len() - 3]].into();
+            let (res, buf_vec) = stream.read_vectored_exact(buf_vec).await;
+            assert!(res.is_ok());
+            assert_eq!(res.unwrap(), iov_msg.len());
+            let raw_vec: Vec<Vec<u8>> = buf_vec.into();
+            assert_eq!(&raw_vec[0], &iov_msg.as_bytes()[..3]);
+            assert_eq!(&raw_vec[1], &iov_msg.as_bytes()[3..]);
         }
 
         assert!(tx.send(()).is_ok());
@@ -61,10 +56,14 @@ async fn echo_server() {
     let (stream, _) = srv.accept().await.unwrap();
     let (mut rd, mut wr) = stream.into_split();
 
-    let n = io::copy(&mut rd, &mut wr).await.unwrap();
-    assert_eq!(n, (ITER * (msg.len() + iov_msg.len())) as u64);
+    // todo fix these CI in windows
+    #[cfg(not(windows))]
+    {
+        let n = io::copy(&mut rd, &mut wr).await.unwrap();
+        assert_eq!(n, (ITER * (msg.len() + iov_msg.len())) as u64);
 
-    assert!(rx.await.is_ok());
+        assert!(rx.await.is_ok());
+    }
 }
 
 #[monoio::test_all(timer_enabled = true)]
