@@ -59,6 +59,9 @@ macro_rules! syscall {
 #[macro_export]
 macro_rules! syscall_u32 {
     ($fn: ident ( $($arg: expr),* $(,)* ) ) => {{
+        #[cfg(windows)]
+        let res = unsafe { $fn($($arg, )*) };
+        #[cfg(unix)]
         let res = unsafe { libc::$fn($($arg, )*) };
         if res < 0 {
             Err(std::io::Error::last_os_error())

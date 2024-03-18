@@ -114,7 +114,7 @@ impl<T: IoBufMut> OpAble for Recv<T> {
             recv(
                 fd as _,
                 self.buf.write_ptr(),
-                self.buf.bytes_total() as _,
+                self.buf.bytes_total().min(i32::MAX as usize) as _,
                 0
             ),
             PartialOrd::lt,

@@ -495,7 +495,7 @@ impl Inner {
                     }
                     UringState::Waiting(Some(waker)) => {
                         if !waker.will_wake(cx.waker()) {
-                            *waker = cx.waker().clone();
+                            waker.clone_from(cx.waker());
                         }
 
                         Poll::Pending

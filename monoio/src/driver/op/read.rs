@@ -9,7 +9,7 @@ use {
     std::ffi::c_void,
     windows_sys::Win32::{
         Foundation::TRUE,
-        Networking::WinSock::{WSAGetLastError, WSARecv, SOCKET_ERROR},
+        Networking::WinSock::{WSAGetLastError, WSARecv, WSAESHUTDOWN},
         Storage::FileSystem::{ReadFile, SetFilePointer, FILE_CURRENT, INVALID_SET_FILE_POINTER},
     },
 };
@@ -155,9 +155,7 @@ impl<T: IoVecBufMut> Op<ReadVec<T>> {
 
         if let Ok(n) = res {
             // Safety: the kernel wrote `n` bytes to the buffer.
-            unsafe {
-                buf_vec.set_init(n);
-            }
+            unsafe { buf_vec.set_init(n) };
         }
         (res, buf_vec)
     }
@@ -188,26 +186,29 @@ impl<T: IoVecBufMut> OpAble for ReadVec<T> {
 
     #[cfg(all(any(feature = "legacy", feature = "poll-io"), windows))]
     fn legacy_call(&mut self) -> io::Result<u32> {
-        let mut bytes_recved = 0;
+        let mut nread = 0;
+        let mut flags = 0;
         let ret = unsafe {
             WSARecv(
                 self.fd.raw_socket() as _,
                 self.buf_vec.write_wsabuf_ptr(),
-                self.buf_vec.write_wsabuf_len() as _,
-                &mut bytes_recved,
-                std::ptr::null_mut(),
+                self.buf_vec.write_wsabuf_len().min(u32::MAX as usize) as _,
+                &mut nread,
+                &mut flags,
                 std::ptr::null_mut(),
                 None,
             )
         };
         match ret {
-            0 => return Err(std::io::ErrorKind::WouldBlock.into()),
-            SOCKET_ERROR => {
+            0 => Ok(nread),
+            _ => {
                 let error = unsafe { WSAGetLastError() };
-                return Err(std::io::Error::from_raw_os_error(error));
+                if error == WSAESHUTDOWN {
+                    Ok(0)
+                } else {
+                    Err(io::Error::from_raw_os_error(error))
+                }
             }
-            _ => (),
         }
-        Ok(bytes_recved)
     }
 }

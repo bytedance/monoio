@@ -3,8 +3,6 @@ use monoio::{
     net::{TcpListener, TcpStream},
 };
 
-// todo fix these CI in windows
-#[cfg(not(windows))]
 #[monoio::test_all]
 async fn echo_server() {
     const ITER: usize = 1024;
@@ -58,10 +56,14 @@ async fn echo_server() {
     let (stream, _) = srv.accept().await.unwrap();
     let (mut rd, mut wr) = stream.into_split();
 
-    let n = io::copy(&mut rd, &mut wr).await.unwrap();
-    assert_eq!(n, (ITER * (msg.len() + iov_msg.len())) as u64);
+    // todo fix these CI in windows
+    #[cfg(not(windows))]
+    {
+        let n = io::copy(&mut rd, &mut wr).await.unwrap();
+        assert_eq!(n, (ITER * (msg.len() + iov_msg.len())) as u64);
 
-    assert!(rx.await.is_ok());
+        assert!(rx.await.is_ok());
+    }
 }
 
 #[monoio::test_all(timer_enabled = true)]

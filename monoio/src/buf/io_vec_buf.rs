@@ -61,7 +61,6 @@ unsafe impl IoVecBuf for VecBuf {
 }
 
 #[cfg(unix)]
-
 unsafe impl IoVecBuf for Vec<libc::iovec> {
     fn read_iovec_ptr(&self) -> *const libc::iovec {
         self.as_ptr()

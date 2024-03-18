@@ -1,22 +1,22 @@
 use std::io;
+#[cfg(all(unix, any(feature = "legacy", feature = "poll-io")))]
+use std::os::unix::prelude::AsRawFd;
 
 #[cfg(all(target_os = "linux", feature = "iouring"))]
 use io_uring::{opcode, types};
 #[cfg(all(windows, any(feature = "legacy", feature = "poll-io")))]
 use windows_sys::Win32::{
     Foundation::TRUE,
-    Networking::WinSock::{WSAGetLastError, WSASend, SOCKET_ERROR},
+    Networking::WinSock::WSASend,
     Storage::FileSystem::{SetFilePointer, WriteFile, FILE_CURRENT, INVALID_SET_FILE_POINTER},
 };
-#[cfg(all(unix, any(feature = "legacy", feature = "poll-io")))]
-use {crate::syscall_u32, std::os::unix::prelude::AsRawFd};
 
 use super::{super::shared_fd::SharedFd, Op, OpAble};
 #[cfg(any(feature = "legacy", feature = "poll-io"))]
 use crate::driver::ready::Direction;
 use crate::{
     buf::{IoBuf, IoVecBuf},
-    BufResult,
+    syscall_u32, BufResult,
 };
 
 pub(crate) struct Write<T> {
@@ -176,25 +176,15 @@ impl<T: IoVecBuf> OpAble for WriteVec<T> {
     #[cfg(all(any(feature = "legacy", feature = "poll-io"), windows))]
     fn legacy_call(&mut self) -> io::Result<u32> {
         let mut bytes_sent = 0;
-        let ret = unsafe {
-            WSASend(
-                self.fd.raw_socket() as _,
-                self.buf_vec.read_wsabuf_ptr(),
-                self.buf_vec.read_wsabuf_len() as _,
-                &mut bytes_sent,
-                0,
-                std::ptr::null_mut(),
-                None,
-            )
-        };
-        match ret {
-            0 => return Err(std::io::ErrorKind::WouldBlock.into()),
-            SOCKET_ERROR => {
-                let error = unsafe { WSAGetLastError() };
-                return Err(std::io::Error::from_raw_os_error(error));
-            }
-            _ => (),
-        }
-        Ok(bytes_sent)
+        syscall_u32!(WSASend(
+            self.fd.raw_socket() as _,
+            self.buf_vec.read_wsabuf_ptr(),
+            self.buf_vec.read_wsabuf_len() as _,
+            &mut bytes_sent,
+            0,
+            std::ptr::null_mut(),
+            None,
+        ))
+        .map(|_| bytes_sent)
     }
 }
