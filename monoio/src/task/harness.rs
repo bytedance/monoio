@@ -180,7 +180,7 @@ where
                         ctx.unpark_thread(owner_id);
                     }
                     None => {
-                        crate::runtime::DEFAULT_CTX.with(|default_ctx| {
+                        let _ = crate::runtime::DEFAULT_CTX.try_with(|default_ctx| {
                             crate::runtime::CURRENT.set(default_ctx, || {
                                 crate::runtime::CURRENT.with(|ctx| {
                                     ctx.send_waker(owner_id, waker);
@@ -237,7 +237,7 @@ where
                         ctx.unpark_thread(owner_id);
                     }
                     None => {
-                        crate::runtime::DEFAULT_CTX.with(|default_ctx| {
+                        let _ = crate::runtime::DEFAULT_CTX.try_with(|default_ctx| {
                             crate::runtime::CURRENT.set(default_ctx, || {
                                 crate::runtime::CURRENT.with(|ctx| {
                                     ctx.send_waker(owner_id, waker);
