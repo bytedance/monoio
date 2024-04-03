@@ -36,7 +36,7 @@ pub(crate) struct Wheel {
     /// * ~ 4 min slots / ~ 4 hr range
     /// * ~ 4 hr slots / ~ 12 day range
     /// * ~ 12 day slots / ~ 2 yr range
-    levels: Vec<Level>,
+    levels: Box<[Level; NUM_LEVELS]>,
 
     /// Entries queued for firing
     pending: EntryList,
@@ -53,7 +53,14 @@ pub(super) const MAX_DURATION: u64 = (1 << (6 * NUM_LEVELS)) - 1;
 impl Wheel {
     /// Create a new timing wheel
     pub(crate) fn new() -> Wheel {
-        let levels = (0..NUM_LEVELS).map(Level::new).collect();
+        let levels = Box::new([
+            Level::new(0),
+            Level::new(1),
+            Level::new(2),
+            Level::new(3),
+            Level::new(4),
+            Level::new(5),
+        ]);
 
         Wheel {
             elapsed: 0,
@@ -103,11 +110,11 @@ impl Wheel {
         let level = self.level_for(when);
 
         unsafe {
-            self.levels[level].add_entry(item);
+            self.levels.get_unchecked_mut(level).add_entry(item);
         }
 
         debug_assert!({
-            self.levels[level]
+            unsafe { self.levels.get_unchecked(level) }
                 .next_expiration(self.elapsed)
                 .map(|e| e.deadline >= self.elapsed)
                 .unwrap_or(true)
@@ -132,7 +139,7 @@ impl Wheel {
 
                 let level = self.level_for(when);
 
-                self.levels[level].remove_entry(item);
+                self.levels.get_unchecked_mut(level).remove_entry(item);
             }
         }
     }
@@ -149,23 +156,13 @@ impl Wheel {
                 return Some(handle);
             }
 
-            // under what circumstances is poll.expiration Some vs. None?
-            let expiration = self.next_expiration().and_then(|expiration| {
-                if expiration.deadline > now {
-                    None
-                } else {
-                    Some(expiration)
-                }
-            });
-
-            match expiration {
-                Some(ref expiration) if expiration.deadline > now => return None,
-                Some(ref expiration) => {
+            match self.next_expiration() {
+                Some(ref expiration) if expiration.deadline <= now => {
                     self.process_expiration(expiration);
 
                     self.set_elapsed(expiration.deadline);
                 }
-                None => {
+                _ => {
                     // in this case the poll did not indicate an expiration
                     // _and_ we were not able to find a next expiration in
                     // the current list of timers.  advance to the poll's
@@ -257,7 +254,7 @@ impl Wheel {
                 Err(expiration_tick) => {
                     let level = level_for(expiration.deadline, expiration_tick);
                     unsafe {
-                        self.levels[level].add_entry(item);
+                        self.levels.get_unchecked_mut(level).add_entry(item);
                     }
                 }
             }
@@ -280,7 +277,7 @@ impl Wheel {
     /// Obtains the list of entries that need processing for the given
     /// expiration.
     fn take_entries(&mut self, expiration: &Expiration) -> EntryList {
-        self.levels[expiration.level].take_slot(expiration.slot)
+        unsafe { self.levels.get_unchecked_mut(expiration.level) }.take_slot(expiration.slot)
     }
 
     fn level_for(&self, when: u64) -> usize {
