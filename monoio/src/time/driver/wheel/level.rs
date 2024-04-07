@@ -5,6 +5,8 @@ use crate::time::driver::{EntryList, TimerHandle, TimerShared};
 /// Wheel for a single level in the timer. This wheel contains 64 slots.
 pub(crate) struct Level {
     level: usize,
+    slot_range: u64,
+    level_range: u64,
 
     /// Bit field tracking which slots currently contain entries.
     ///
@@ -56,6 +58,8 @@ impl Level {
 
         Level {
             level,
+            slot_range: slot_range(level),
+            level_range: level_range(level),
             occupied: 0,
             slot: [
                 ctor(),
@@ -139,12 +143,10 @@ impl Level {
         // From the slot index, calculate the `Instant` at which it needs to be
         // processed. This value *must* be in the future with respect to `now`.
 
-        let level_range = level_range(self.level);
-        let slot_range = slot_range(self.level);
-
-        // TODO: This can probably be simplified w/ power of 2 math
-        let level_start = now - (now % level_range);
-        let mut deadline = level_start + slot as u64 * slot_range;
+        // Compute the start date of the current level by masking the low bits
+        // of `now` (`level_range` is a power of 2).
+        let level_start = now & !(self.level_range - 1);
+        let mut deadline = level_start + slot as u64 * self.slot_range;
 
         if deadline <= now {
             // A timer is in a slot "prior" to the current time. This can occur
@@ -165,7 +167,7 @@ impl Level {
             // therefore means we're actually looking at a slot in the future.
             debug_assert_eq!(self.level, super::NUM_LEVELS - 1);
 
-            deadline += level_range;
+            deadline += self.level_range;
         }
 
         debug_assert!(
@@ -175,8 +177,8 @@ impl Level {
             deadline,
             now,
             self.level,
-            level_range,
-            slot_range,
+            self.level_range,
+            self.slot_range,
             slot,
             self.occupied
         );
@@ -194,7 +196,7 @@ impl Level {
         }
 
         // Get the slot for now using Maths
-        let now_slot = (now / slot_range(self.level)) as usize;
+        let now_slot = (now / self.slot_range) as usize;
         let occupied = self.occupied.rotate_right(now_slot as u32);
         let zeros = occupied.trailing_zeros() as usize;
         let slot = (zeros + now_slot) % 64;
