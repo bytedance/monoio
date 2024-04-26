@@ -59,7 +59,7 @@ pub trait CancelableAsyncReadRentExt {
     reader_trait!(ReadU16Future, u16, cancelable_read_u16);
     reader_trait!(ReadU32Future, u32, cancelable_read_u32);
     reader_trait!(ReadU64Future, u64, cancelable_read_u64);
-    reader_trait!(ReadU128Future, u16, cancelable_read_u128);
+    reader_trait!(ReadU128Future, u128, cancelable_read_u128);
     reader_trait!(ReadI8Future, i8, cancelable_read_i8);
     reader_trait!(ReadI16Future, i16, cancelable_read_i16);
     reader_trait!(ReadI32Future, i32, cancelable_read_i32);
@@ -72,7 +72,7 @@ pub trait CancelableAsyncReadRentExt {
     reader_trait!(ReadU16LEFuture, u16, cancelable_read_u16_le);
     reader_trait!(ReadU32LEFuture, u32, cancelable_read_u32_le);
     reader_trait!(ReadU64LEFuture, u64, cancelable_read_u64_le);
-    reader_trait!(ReadU128LEFuture, u16, cancelable_read_u128_le);
+    reader_trait!(ReadU128LEFuture, u128, cancelable_read_u128_le);
     reader_trait!(ReadI8LEFuture, i8, cancelable_read_i8_le);
     reader_trait!(ReadI16LEFuture, i16, cancelable_read_i16_le);
     reader_trait!(ReadI32LEFuture, i32, cancelable_read_i32_le);
@@ -152,7 +152,7 @@ where
     reader_be_impl!(ReadU16Future, u16, cancelable_read_u16);
     reader_be_impl!(ReadU32Future, u32, cancelable_read_u32);
     reader_be_impl!(ReadU64Future, u64, cancelable_read_u64);
-    reader_be_impl!(ReadU128Future, u16, cancelable_read_u128);
+    reader_be_impl!(ReadU128Future, u128, cancelable_read_u128);
     reader_be_impl!(ReadI8Future, i8, cancelable_read_i8);
     reader_be_impl!(ReadI16Future, i16, cancelable_read_i16);
     reader_be_impl!(ReadI32Future, i32, cancelable_read_i32);
@@ -165,7 +165,7 @@ where
     reader_le_impl!(ReadU16LEFuture, u16, cancelable_read_u16_le);
     reader_le_impl!(ReadU32LEFuture, u32, cancelable_read_u32_le);
     reader_le_impl!(ReadU64LEFuture, u64, cancelable_read_u64_le);
-    reader_le_impl!(ReadU128LEFuture, u16, cancelable_read_u128_le);
+    reader_le_impl!(ReadU128LEFuture, u128, cancelable_read_u128_le);
     reader_le_impl!(ReadI8LEFuture, i8, cancelable_read_i8_le);
     reader_le_impl!(ReadI16LEFuture, i16, cancelable_read_i16_le);
     reader_le_impl!(ReadI32LEFuture, i32, cancelable_read_i32_le);
