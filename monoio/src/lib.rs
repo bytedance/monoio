@@ -1,4 +1,5 @@
 #![doc = include_str!("../../README.md")]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![warn(missing_docs, unreachable_pub)]
 #![allow(stable_features)]
 #![cfg_attr(feature = "unstable", feature(io_error_more))]
