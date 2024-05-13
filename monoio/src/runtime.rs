@@ -347,7 +347,7 @@ impl From<Runtime<TimeDriver<IoUringDriver>>> for FusionRuntime<TimeDriver<IoUri
 /// lifecycle of that task.
 ///
 ///
-/// [`JoinHandle`]: monoio::task::JoinHandle
+/// [`JoinHandle`]: super::task::JoinHandle
 ///
 /// # Examples
 ///
