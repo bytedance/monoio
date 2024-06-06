@@ -8,13 +8,19 @@ pub use file::File;
 mod open_options;
 pub use open_options::OpenOptions;
 
+#[cfg(target_os = "linux")]
 mod metadata;
+#[cfg(target_os = "linux")]
 pub use metadata::{metadata, symlink_metadata, Metadata};
 
+#[cfg(target_os = "linux")]
 mod file_type;
+#[cfg(target_os = "linux")]
 pub use file_type::FileType;
 
+#[cfg(target_os = "linux")]
 mod permissions;
+#[cfg(target_os = "linux")]
 pub use permissions::Permissions;
 
 use crate::buf::IoBuf;

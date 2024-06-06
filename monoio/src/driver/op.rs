@@ -17,8 +17,10 @@ mod poll;
 mod read;
 mod recv;
 mod send;
-mod statx;
 mod write;
+
+#[cfg(target_os = "linux")]
+mod statx;
 
 #[cfg(all(target_os = "linux", feature = "splice"))]
 mod splice;

@@ -10,7 +10,7 @@ use std::{
 };
 use std::{io, path::Path};
 
-#[cfg(unix)]
+#[cfg(target_os = "linux")]
 use super::{metadata::FileAttr, Metadata};
 use crate::{
     buf::{IoBuf, IoBufMut},

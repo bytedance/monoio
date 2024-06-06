@@ -14,8 +14,14 @@ impl FilePermissions {
         self.mode & 0o222 == 0
     }
 
+    #[cfg(target_os = "linux")]
     fn mode(&self) -> u32 {
         self.mode
+    }
+
+    #[cfg(not(target_os = "linux"))]
+    fn mode(&self) -> u32 {
+        unimplemented!()
     }
 }
 
@@ -56,7 +62,9 @@ impl PermissionsExt for Permissions {
 
     /// Create a new instance of `Permissions` from the given mode bits.
     fn from_mode(mode: u32) -> Self {
-        Self(FilePermissions { mode })
+        Self(FilePermissions {
+            mode: mode as mode_t,
+        })
     }
 }
 

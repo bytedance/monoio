@@ -2,10 +2,9 @@
 use std::os::unix::fs::MetadataExt;
 use std::{path::Path, time::SystemTime};
 
-#[cfg(target_os = "linux")]
-use libc::statx;
 #[cfg(unix)]
-use libc::{mode_t, stat64};
+use libc::mode_t;
+use libc::{stat64, statx};
 
 use super::{
     file_type::FileType,
@@ -86,7 +85,7 @@ impl From<statx> for FileAttr {
 }
 
 /// Metadata information about a file.
-/// 
+///
 /// This structure is returned from the [`metadata`] or
 /// [`symlink_metadata`] function or method and represents known
 /// metadata about a file such as its permissions, size, modification
@@ -411,7 +410,7 @@ impl MetadataExt for Metadata {
 ///     Ok(())
 /// }
 /// ```
-#[cfg(target_os = "linux")]
+
 pub async fn metadata<P: AsRef<Path>>(path: P) -> std::io::Result<Metadata> {
     let flags = libc::AT_STATX_SYNC_AS_STAT;
 
@@ -447,7 +446,7 @@ pub async fn metadata<P: AsRef<Path>>(path: P) -> std::io::Result<Metadata> {
 ///     Ok(())
 /// }
 /// ```
-#[cfg(target_os = "linux")]
+
 pub async fn symlink_metadata<P: AsRef<Path>>(path: P) -> std::io::Result<Metadata> {
     let flags = libc::AT_STATX_SYNC_AS_STAT | libc::AT_SYMLINK_NOFOLLOW;
 

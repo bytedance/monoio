@@ -1,6 +1,8 @@
+#[allow(unused)]
 use std::io::Write;
 
 #[monoio::test_all]
+#[cfg(target_os = "linux")]
 async fn basic_file_metadata() {
     let mut file = tempfile::NamedTempFile::new().unwrap();
 
@@ -34,6 +36,7 @@ async fn basic_file_metadata() {
 }
 
 #[monoio::test_all]
+#[cfg(target_os = "linux")]
 async fn dir_metadata() {
     let dir = tempfile::tempdir().unwrap();
 
@@ -55,6 +58,7 @@ async fn dir_metadata() {
 }
 
 #[monoio::test_all]
+#[cfg(target_os = "linux")]
 async fn symlink_metadata() {
     let dir = tempfile::tempdir().unwrap();
     let link = dir.path().join("link");
