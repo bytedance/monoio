@@ -10,6 +10,8 @@ use std::{
 };
 use std::{io, path::Path};
 
+#[cfg(unix)]
+use super::{metadata::FileAttr, Metadata};
 use crate::{
     buf::{IoBuf, IoBufMut},
     driver::{op::Op, shared_fd::SharedFd},
@@ -497,6 +499,29 @@ impl File {
     pub async fn close(self) -> io::Result<()> {
         self.fd.close().await;
         Ok(())
+    }
+
+    /// Queries metadata about the underlying file.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use monoio::fs::File;
+    ///
+    /// #[monoio::main]
+    /// async fn main() -> std::io::Result<()> {
+    ///     let mut f = File::open("foo.txt").await?;
+    ///     let metadata = f.metadata().await?;
+    ///     Ok(())
+    /// }
+    /// ```
+    #[cfg(target_os = "linux")]
+    pub async fn metadata(&self) -> io::Result<Metadata> {
+        let flags = libc::AT_STATX_SYNC_AS_STAT | libc::AT_EMPTY_PATH;
+
+        let op = Op::statx_using_fd(&self.fd, flags).unwrap();
+
+        op.statx_result().await.map(FileAttr::from).map(Metadata)
     }
 }
 

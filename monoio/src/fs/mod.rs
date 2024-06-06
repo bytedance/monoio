@@ -8,6 +8,15 @@ pub use file::File;
 mod open_options;
 pub use open_options::OpenOptions;
 
+mod metadata;
+pub use metadata::{metadata, symlink_metadata, Metadata};
+
+mod file_type;
+pub use file_type::FileType;
+
+mod permissions;
+pub use permissions::Permissions;
+
 use crate::buf::IoBuf;
 
 /// Read the entire contents of a file into a bytes vector.
