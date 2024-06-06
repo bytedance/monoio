@@ -19,6 +19,14 @@ impl FilePermissions {
         self.mode
     }
 
+    fn set_readonly(&mut self, readonly: bool) {
+        if readonly {
+            self.mode &= !0o222;
+        } else {
+            self.mode |= 0o222;
+        }
+    }
+
     #[cfg(not(target_os = "linux"))]
     fn mode(&self) -> u32 {
         unimplemented!()
@@ -37,12 +45,12 @@ impl Permissions {
 
     /// Set the readonly flag for this set of permissions.
     ///
-    /// # NOTE
-    /// this function is unimplemented because current don't know how to sync the
-    /// mode bits to the file. So currently, it will not expose to the user.
+    /// This will not change the file's permissions, only the in-memory representation.
+    /// Same with the `std::fs`, if you want to change the file's permissions, you should use
+    /// `monoio::fs::set_permissions`(currently not support) or `std::fs::set_permissions`.
     #[allow(unused)]
-    pub(crate) fn set_readonly(&self, _read_only: bool) {
-        unimplemented!()
+    pub fn set_readonly(&mut self, readonly: bool) {
+        self.0.set_readonly(readonly)
     }
 }
 
@@ -54,10 +62,11 @@ impl PermissionsExt for Permissions {
 
     /// Set the mode bits for this set of permissions.
     ///
-    /// this function is unimplemented because current don't know how to sync the
-    /// mode bits to the file.
-    fn set_mode(&mut self, _mode: u32) {
-        unimplemented!()
+    /// This will not change the file's permissions, only the in-memory representation.
+    /// Same with the `std::fs`, if you want to change the file's permissions, you should use
+    /// `monoio::fs::set_permissions`(currently not support) or `std::fs::set_permissions`.
+    fn set_mode(&mut self, mode: u32) {
+        *self = Self::from_mode(mode);
     }
 
     /// Create a new instance of `Permissions` from the given mode bits.
