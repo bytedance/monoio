@@ -276,10 +276,10 @@ impl Metadata {
     /// # Examples
     ///
     /// ```no_run
-    /// use std::fs;
+    /// use monoio::fs;
     ///
     /// #[monoio::main]
-    /// fn main() -> std::io::Result<()> {
+    /// async fn main() -> std::io::Result<()> {
     ///     let metadata = fs::metadata("foo.txt").await?;
     ///
     ///     println!("{:?}", metadata.file_type());
@@ -311,7 +311,7 @@ impl std::fmt::Debug for Metadata {
     }
 }
 
-#[cfg(unix)]
+#[cfg(all(unix, not(target_pointer_width = "32")))]
 impl MetadataExt for Metadata {
     fn dev(&self) -> u64 {
         self.0.stat.st_dev
@@ -323,6 +323,14 @@ impl MetadataExt for Metadata {
 
     fn mode(&self) -> u32 {
         self.0.stat.st_mode
+    }
+
+    #[cfg(all(
+        target_os = "linux",
+        any(target_arch = "aarch64", target_arch = "riscv64")
+    ))]
+    fn nlink(&self) -> u64 {
+        self.0.stat.st_nlink.into()
     }
 
     fn nlink(&self) -> u64 {
@@ -367,6 +375,73 @@ impl MetadataExt for Metadata {
 
     fn ctime_nsec(&self) -> i64 {
         self.0.stat.st_ctime_nsec
+    }
+
+    fn blksize(&self) -> u64 {
+        self.0.stat.st_blksize as u64
+    }
+
+    fn blocks(&self) -> u64 {
+        self.0.stat.st_blocks as u64
+    }
+}
+
+#[cfg(all(unix, target_pointer_width = "32"))]
+impl MetadataExt for Metadata {
+    fn dev(&self) -> u64 {
+        self.0.stat.st_dev.into()
+    }
+
+    fn ino(&self) -> u64 {
+        self.0.stat.st_ino.into()
+    }
+
+    fn mode(&self) -> u32 {
+        self.0.stat.st_mode
+    }
+
+    fn nlink(&self) -> u64 {
+        self.0.stat.st_nlink.into()
+    }
+
+    fn uid(&self) -> u32 {
+        self.0.stat.st_uid
+    }
+
+    fn gid(&self) -> u32 {
+        self.0.stat.st_gid
+    }
+
+    fn rdev(&self) -> u64 {
+        self.0.stat.st_rdev.into()
+    }
+
+    fn size(&self) -> u64 {
+        self.0.stat.st_size as u64
+    }
+
+    fn atime(&self) -> i64 {
+        self.0.stat.st_atime.into()
+    }
+
+    fn atime_nsec(&self) -> i64 {
+        self.0.stat.st_atime_nsec.into()
+    }
+
+    fn mtime(&self) -> i64 {
+        self.0.stat.st_mtime.into()
+    }
+
+    fn mtime_nsec(&self) -> i64 {
+        self.0.stat.st_mtime_nsec.into()
+    }
+
+    fn ctime(&self) -> i64 {
+        self.0.stat.st_ctime.into()
+    }
+
+    fn ctime_nsec(&self) -> i64 {
+        self.0.stat.st_ctime_nsec.into()
     }
 
     fn blksize(&self) -> u64 {

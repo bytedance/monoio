@@ -1,4 +1,4 @@
-#[cfg(unix)]
+#[cfg(target_os = "linux")]
 use std::os::fd::AsRawFd;
 use std::{ffi::CString, mem::MaybeUninit, path::Path};
 
