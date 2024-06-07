@@ -2,6 +2,8 @@
 
 mod async_buf_read;
 mod async_buf_read_ext;
+#[cfg(all(unix, feature = "poll-io"))]
+mod async_fd;
 mod async_read_rent;
 mod async_read_rent_ext;
 mod async_rent_cancelable;
@@ -18,6 +20,8 @@ pub mod splice;
 
 pub use async_buf_read::AsyncBufRead;
 pub use async_buf_read_ext::AsyncBufReadExt;
+#[cfg(all(unix, feature = "poll-io"))]
+pub use async_fd::{AsyncFd, AsyncFdReadyGuard, Ready, TryIoError};
 pub use async_read_rent::{AsyncReadRent, AsyncReadRentAt};
 pub use async_read_rent_ext::AsyncReadRentExt;
 pub use async_rent_cancelable::{CancelableAsyncReadRent, CancelableAsyncWriteRent};

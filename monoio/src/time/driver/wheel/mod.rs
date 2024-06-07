@@ -303,7 +303,7 @@ fn level_for(elapsed: u64, when: u64) -> usize {
     significant / 6
 }
 
-#[cfg(all(test, not(loom)))]
+#[cfg(test)]
 mod test {
     use super::*;
 

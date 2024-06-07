@@ -13,7 +13,7 @@ mod accept;
 mod connect;
 mod fsync;
 mod open;
-mod poll;
+pub(crate) mod poll;
 mod read;
 mod recv;
 mod send;
