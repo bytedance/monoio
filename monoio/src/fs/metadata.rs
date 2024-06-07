@@ -330,6 +330,7 @@ impl MetadataExt for Metadata {
         self.0.stat.st_nlink.into()
     }
 
+    #[cfg(not(any(target_arch = "aarch64", target_arch = "riscv64")))]
     fn nlink(&self) -> u64 {
         self.0.stat.st_nlink
     }
@@ -518,7 +519,6 @@ pub async fn metadata<P: AsRef<Path>>(path: P) -> std::io::Result<Metadata> {
 ///     Ok(())
 /// }
 /// ```
-
 pub async fn symlink_metadata<P: AsRef<Path>>(path: P) -> std::io::Result<Metadata> {
     let flags = libc::AT_STATX_SYNC_AS_STAT | libc::AT_SYMLINK_NOFOLLOW;
 
