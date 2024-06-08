@@ -8,17 +8,17 @@ pub use file::File;
 mod open_options;
 pub use open_options::OpenOptions;
 
-#[cfg(target_os = "linux")]
+#[cfg(unix)]
 mod metadata;
-#[cfg(target_os = "linux")]
+#[cfg(unix)]
 pub use metadata::{metadata, symlink_metadata, Metadata};
 
-#[cfg(target_os = "linux")]
+#[cfg(unix)]
 mod file_type;
 #[cfg(target_os = "linux")]
 pub use file_type::FileType;
 
-#[cfg(target_os = "linux")]
+#[cfg(unix)]
 mod permissions;
 #[cfg(target_os = "linux")]
 pub use permissions::Permissions;

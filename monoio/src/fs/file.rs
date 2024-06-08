@@ -10,7 +10,7 @@ use std::{
 };
 use std::{io, path::Path};
 
-#[cfg(target_os = "linux")]
+#[cfg(unix)]
 use super::{metadata::FileAttr, Metadata};
 use crate::{
     buf::{IoBuf, IoBufMut},
@@ -515,11 +515,14 @@ impl File {
     ///     Ok(())
     /// }
     /// ```
-    #[cfg(target_os = "linux")]
+    #[cfg(unix)]
     pub async fn metadata(&self) -> io::Result<Metadata> {
+        #[cfg(target_os = "linux")]
         let flags = libc::AT_STATX_SYNC_AS_STAT | libc::AT_EMPTY_PATH;
-
+        #[cfg(target_os = "linux")]
         let op = Op::statx_using_fd(&self.fd, flags)?;
+        #[cfg(target_os = "macos")]
+        let op = Op::statx_using_fd(&self.fd, true)?;
 
         op.statx_result().await.map(FileAttr::from).map(Metadata)
     }

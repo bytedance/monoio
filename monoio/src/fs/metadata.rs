@@ -4,6 +4,7 @@ use std::{path::Path, time::SystemTime};
 
 #[cfg(unix)]
 use libc::mode_t;
+#[cfg(target_os = "linux")]
 use libc::{stat64, statx};
 
 use super::{
@@ -16,7 +17,10 @@ use crate::driver::op::Op;
 /// Current implementation is only for unix.
 #[cfg(unix)]
 pub(crate) struct FileAttr {
+    #[cfg(target_os = "linux")]
     stat: stat64,
+    #[cfg(target_os = "macos")]
+    stat: libc::stat,
     #[cfg(target_os = "linux")]
     statx_extra_fields: Option<StatxExtraFields>,
 }
@@ -81,6 +85,13 @@ impl From<statx> for FileAttr {
             stat,
             statx_extra_fields: Some(extra),
         }
+    }
+}
+
+#[cfg(target_os = "macos")]
+impl From<libc::stat> for FileAttr {
+    fn from(stat: libc::stat) -> Self {
+        Self { stat }
     }
 }
 
@@ -304,6 +315,7 @@ impl std::fmt::Debug for Metadata {
         if let Ok(accessed) = self.accessed() {
             debug.field("accessed", &accessed);
         }
+        #[cfg(target_os = "linux")]
         if let Ok(created) = self.created() {
             debug.field("created", &created);
         }
@@ -311,7 +323,7 @@ impl std::fmt::Debug for Metadata {
     }
 }
 
-#[cfg(all(unix, not(target_pointer_width = "32")))]
+#[cfg(all(target_os = "linux", not(target_pointer_width = "32")))]
 impl MetadataExt for Metadata {
     fn dev(&self) -> u64 {
         self.0.stat.st_dev
@@ -345,6 +357,79 @@ impl MetadataExt for Metadata {
 
     fn rdev(&self) -> u64 {
         self.0.stat.st_rdev
+    }
+
+    fn size(&self) -> u64 {
+        self.0.stat.st_size as u64
+    }
+
+    fn atime(&self) -> i64 {
+        self.0.stat.st_atime
+    }
+
+    fn atime_nsec(&self) -> i64 {
+        self.0.stat.st_atime_nsec
+    }
+
+    fn mtime(&self) -> i64 {
+        self.0.stat.st_mtime
+    }
+
+    fn mtime_nsec(&self) -> i64 {
+        self.0.stat.st_mtime_nsec
+    }
+
+    fn ctime(&self) -> i64 {
+        self.0.stat.st_ctime
+    }
+
+    fn ctime_nsec(&self) -> i64 {
+        self.0.stat.st_ctime_nsec
+    }
+
+    fn blksize(&self) -> u64 {
+        self.0.stat.st_blksize as u64
+    }
+
+    fn blocks(&self) -> u64 {
+        self.0.stat.st_blocks as u64
+    }
+}
+
+#[cfg(all(target_os = "macos", not(target_pointer_width = "32")))]
+impl MetadataExt for Metadata {
+    fn dev(&self) -> u64 {
+        self.0.stat.st_dev as u64
+    }
+
+    fn ino(&self) -> u64 {
+        self.0.stat.st_ino
+    }
+
+    fn mode(&self) -> u32 {
+        self.0.stat.st_mode as u32
+    }
+
+    #[cfg(any(target_arch = "aarch64", target_arch = "riscv64"))]
+    fn nlink(&self) -> u64 {
+        self.0.stat.st_nlink.into()
+    }
+
+    #[cfg(not(any(target_arch = "aarch64", target_arch = "riscv64")))]
+    fn nlink(&self) -> u64 {
+        self.0.stat.st_nlink
+    }
+
+    fn uid(&self) -> u32 {
+        self.0.stat.st_uid
+    }
+
+    fn gid(&self) -> u32 {
+        self.0.stat.st_gid
+    }
+
+    fn rdev(&self) -> u64 {
+        self.0.stat.st_rdev as u64
     }
 
     fn size(&self) -> u64 {
@@ -485,9 +570,14 @@ impl MetadataExt for Metadata {
 /// ```
 
 pub async fn metadata<P: AsRef<Path>>(path: P) -> std::io::Result<Metadata> {
+    #[cfg(target_os = "linux")]
     let flags = libc::AT_STATX_SYNC_AS_STAT;
 
+    #[cfg(target_os = "linux")]
     let op = Op::statx_using_path(path, flags)?;
+
+    #[cfg(target_os = "macos")]
+    let op = Op::statx_using_path(path, true)?;
 
     op.statx_result().await.map(FileAttr::from).map(Metadata)
 }
@@ -520,9 +610,14 @@ pub async fn metadata<P: AsRef<Path>>(path: P) -> std::io::Result<Metadata> {
 /// }
 /// ```
 pub async fn symlink_metadata<P: AsRef<Path>>(path: P) -> std::io::Result<Metadata> {
+    #[cfg(target_os = "linux")]
     let flags = libc::AT_STATX_SYNC_AS_STAT | libc::AT_SYMLINK_NOFOLLOW;
 
+    #[cfg(target_os = "linux")]
     let op = Op::statx_using_path(path, flags)?;
+
+    #[cfg(target_os = "macos")]
+    let op = Op::statx_using_path(path, false)?;
 
     op.statx_result().await.map(FileAttr::from).map(Metadata)
 }
