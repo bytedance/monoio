@@ -410,14 +410,8 @@ impl MetadataExt for Metadata {
         self.0.stat.st_mode as u32
     }
 
-    #[cfg(any(target_arch = "aarch64", target_arch = "riscv64"))]
     fn nlink(&self) -> u64 {
         self.0.stat.st_nlink.into()
-    }
-
-    #[cfg(not(any(target_arch = "aarch64", target_arch = "riscv64")))]
-    fn nlink(&self) -> u64 {
-        self.0.stat.st_nlink
     }
 
     fn uid(&self) -> u32 {
