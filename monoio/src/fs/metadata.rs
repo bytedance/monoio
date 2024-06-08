@@ -487,7 +487,7 @@ impl MetadataExt for Metadata {
 pub async fn metadata<P: AsRef<Path>>(path: P) -> std::io::Result<Metadata> {
     let flags = libc::AT_STATX_SYNC_AS_STAT;
 
-    let op = Op::statx_using_path(path, flags).unwrap();
+    let op = Op::statx_using_path(path, flags)?;
 
     op.statx_result().await.map(FileAttr::from).map(Metadata)
 }
@@ -522,7 +522,7 @@ pub async fn metadata<P: AsRef<Path>>(path: P) -> std::io::Result<Metadata> {
 pub async fn symlink_metadata<P: AsRef<Path>>(path: P) -> std::io::Result<Metadata> {
     let flags = libc::AT_STATX_SYNC_AS_STAT | libc::AT_SYMLINK_NOFOLLOW;
 
-    let op = Op::statx_using_path(path, flags).unwrap();
+    let op = Op::statx_using_path(path, flags)?;
 
     op.statx_result().await.map(FileAttr::from).map(Metadata)
 }

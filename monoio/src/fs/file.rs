@@ -519,7 +519,7 @@ impl File {
     pub async fn metadata(&self) -> io::Result<Metadata> {
         let flags = libc::AT_STATX_SYNC_AS_STAT | libc::AT_EMPTY_PATH;
 
-        let op = Op::statx_using_fd(&self.fd, flags).unwrap();
+        let op = Op::statx_using_fd(&self.fd, flags)?;
 
         op.statx_result().await.map(FileAttr::from).map(Metadata)
     }
