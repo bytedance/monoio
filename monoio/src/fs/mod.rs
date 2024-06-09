@@ -5,6 +5,16 @@ use std::{io, path::Path};
 
 pub use file::File;
 
+#[cfg(unix)]
+mod dir_builder;
+#[cfg(unix)]
+pub use dir_builder::DirBuilder;
+
+#[cfg(unix)]
+mod create_dir;
+#[cfg(unix)]
+pub use create_dir::*;
+
 mod open_options;
 pub use open_options::OpenOptions;
 
