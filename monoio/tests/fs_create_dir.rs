@@ -1,4 +1,4 @@
-#![cfg(unix)]
+#![cfg(all(unix, feature = "mkdirat"))]
 
 use monoio::fs;
 use tempfile::tempdir;
