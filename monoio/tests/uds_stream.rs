@@ -5,7 +5,7 @@ use monoio::{
     net::{UnixListener, UnixStream},
 };
 
-#[monoio::test_all]
+#[monoio::test_all(internal = true)]
 async fn accept_read_write() -> std::io::Result<()> {
     let dir = tempfile::Builder::new()
         .prefix("monoio-uds-tests")
@@ -42,7 +42,7 @@ async fn accept_read_write() -> std::io::Result<()> {
     Ok(())
 }
 
-#[monoio::test_all]
+#[monoio::test_all(internal = true)]
 async fn shutdown() -> std::io::Result<()> {
     let dir = tempfile::Builder::new()
         .prefix("monoio-uds-tests")

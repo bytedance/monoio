@@ -15,6 +15,7 @@ struct FinalConfig {
     timer_enabled: Option<bool>,
     threads: Option<u32>,
     driver: DriverType,
+    internal: Option<bool>,
 }
 
 /// Config used in case of the attribute not being able to build a valid config
@@ -23,6 +24,7 @@ const DEFAULT_ERROR_CONFIG: FinalConfig = FinalConfig {
     timer_enabled: None,
     threads: None,
     driver: DriverType::Fusion,
+    internal: None,
 };
 
 struct Configuration {
@@ -30,6 +32,7 @@ struct Configuration {
     timer_enabled: Option<(bool, Span)>,
     threads: Option<(u32, Span)>,
     driver: Option<(DriverType, Span)>,
+    internal: Option<(bool, Span)>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -46,6 +49,7 @@ impl Configuration {
             timer_enabled: None,
             threads: None,
             driver: None,
+            internal: None,
         }
     }
 
@@ -56,6 +60,16 @@ impl Configuration {
 
         let driver = parse_driver(driver, span, "driver")?;
         self.driver = Some((driver, span));
+        Ok(())
+    }
+
+    fn set_internal(&mut self, enabled: syn::Lit, span: Span) -> Result<(), syn::Error> {
+        if self.internal.is_some() {
+            return Err(syn::Error::new(span, "`internal` set multiple times."));
+        }
+
+        let enabled = parse_bool(enabled, span, "internal")?;
+        self.internal = Some((enabled, span));
         Ok(())
     }
 
@@ -98,6 +112,7 @@ impl Configuration {
             timer_enabled: self.timer_enabled.map(|(t, _)| t),
             threads: self.threads.map(|(t, _)| t),
             driver: self.driver.map(|(d, _)| d).unwrap_or(DriverType::Fusion),
+            internal: self.internal.map(|(t, _)| t),
         })
     }
 }
@@ -199,6 +214,10 @@ fn build_config(input: syn::ItemFn, args: AttributeArgs) -> Result<FinalConfig, 
                         }
                     }
                     "driver" => config.set_driver(lit.clone(), syn::spanned::Spanned::span(lit))?,
+                    "internal" => {
+                        config.set_internal(lit.clone(), syn::spanned::Spanned::span(lit))?
+                    }
+
                     name => {
                         let msg = format!(
                             "Unknown attribute {name} is specified; expected one of: \
@@ -349,7 +368,7 @@ fn parse_knobs(mut input: syn::ItemFn, is_test: bool, config: FinalConfig) -> To
     } else {
         quote! {}
     };
-    let cfg_attr = if is_test {
+    let cfg_attr = if is_test && config.internal == Some(true) {
         match config.driver {
             DriverType::Legacy => quote! {
                 #[cfg(feature = "legacy")]

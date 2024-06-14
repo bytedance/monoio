@@ -5,7 +5,7 @@ use monoio::net::{TcpListener, TcpStream};
 macro_rules! test_connect_ip {
     ($(($ident:ident, $target:expr, $addr_f:path),)*) => {
         $(
-            #[monoio::test_all]
+            #[monoio::test_all(internal = true)]
             async fn $ident() {
                 let listener = TcpListener::bind($target).unwrap();
                 let addr = listener.local_addr().unwrap();
@@ -50,7 +50,7 @@ test_connect_ip! {
 macro_rules! test_connect {
     ($(($ident:ident, $mapping:tt),)*) => {
         $(
-            #[monoio::test_all]
+            #[monoio::test_all(internal = true)]
             async fn $ident() {
                 let listener = TcpListener::bind("127.0.0.1:0").unwrap();
                 #[allow(clippy::redundant_closure_call)]
@@ -94,7 +94,7 @@ test_connect! {
     })),
 }
 
-#[monoio::test_all(timer_enabled = true)]
+#[monoio::test_all(timer_enabled = true, internal = true)]
 async fn connect_timeout_dst() {
     let drop_flag = DropFlag::default();
     let drop_flag_copy = drop_flag.clone();
@@ -113,12 +113,12 @@ async fn connect_timeout_dst() {
     drop_flag.assert_dropped();
 }
 
-#[monoio::test_all]
+#[monoio::test_all(internal = true)]
 async fn connect_invalid_dst() {
     assert!(TcpStream::connect("127.0.0.1:1").await.is_err());
 }
 
-#[monoio::test_all(timer_enabled = true)]
+#[monoio::test_all(timer_enabled = true, internal = true)]
 async fn cancel_read() {
     use monoio::io::CancelableAsyncReadRent;
 
@@ -135,7 +135,7 @@ async fn cancel_read() {
     assert!(res.is_err());
 }
 
-#[monoio::test_all(timer_enabled = true)]
+#[monoio::test_all(timer_enabled = true, internal = true)]
 async fn cancel_select() {
     use std::pin::pin;
 

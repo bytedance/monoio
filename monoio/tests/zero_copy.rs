@@ -1,5 +1,5 @@
 #[cfg(all(target_os = "linux", feature = "splice"))]
-#[monoio::test_all]
+#[monoio::test_all(internal = true)]
 async fn zero_copy_for_tcp() {
     use monoio::{
         buf::IoBufMut,
@@ -29,7 +29,7 @@ async fn zero_copy_for_tcp() {
 }
 
 #[cfg(all(target_os = "linux", feature = "splice"))]
-#[monoio::test_all]
+#[monoio::test_all(internal = true)]
 async fn zero_copy_for_uds() {
     use monoio::{
         buf::IoBufMut,

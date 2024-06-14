@@ -1,5 +1,5 @@
 #[cfg(feature = "signal")]
-#[monoio::test(driver = "uring")]
+#[monoio::test(driver = "uring", internal = true)]
 async fn test_ctrlc_uring() {
     use libc::{getpid, kill, SIGINT};
     use monoio::utils::CtrlC;
