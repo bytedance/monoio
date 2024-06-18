@@ -99,27 +99,31 @@ impl<T: IoBufMut> OpAble for Recv<T> {
     #[cfg(all(any(feature = "legacy", feature = "poll-io"), unix))]
     fn legacy_call(&mut self) -> io::Result<u32> {
         let fd = self.fd.as_raw_fd();
-        syscall_u32!(recv(
-            fd,
-            self.buf.write_ptr() as _,
-            self.buf.bytes_total().min(u32::MAX as usize),
-            0
-        ))
+        unsafe {
+            syscall_u32!(recv(
+                fd,
+                self.buf.write_ptr() as _,
+                self.buf.bytes_total().min(u32::MAX as usize),
+                0
+            ))
+        }
     }
 
     #[cfg(all(any(feature = "legacy", feature = "poll-io"), windows))]
     fn legacy_call(&mut self) -> io::Result<u32> {
         let fd = self.fd.as_raw_socket();
-        syscall!(
-            recv(
-                fd as _,
-                self.buf.write_ptr(),
-                self.buf.bytes_total().min(i32::MAX as usize) as _,
+        unsafe {
+            syscall!(
+                recv(
+                    fd as _,
+                    self.buf.write_ptr(),
+                    self.buf.bytes_total().min(i32::MAX as usize) as _,
+                    0
+                ),
+                PartialOrd::lt,
                 0
-            ),
-            PartialOrd::lt,
-            0
-        )
+            )
+        }
     }
 }
 
@@ -238,7 +242,7 @@ impl<T: IoBufMut> OpAble for RecvMsg<T> {
     #[cfg(all(any(feature = "legacy", feature = "poll-io"), unix))]
     fn legacy_call(&mut self) -> io::Result<u32> {
         let fd = self.fd.as_raw_fd();
-        syscall_u32!(recvmsg(fd, &mut *self.info.2, 0))
+        unsafe { syscall_u32!(recvmsg(fd, &mut *self.info.2, 0)) }
     }
 
     #[cfg(all(any(feature = "legacy", feature = "poll-io"), windows))]
@@ -356,6 +360,6 @@ impl<T: IoBufMut> OpAble for RecvMsgUnix<T> {
     #[cfg(any(feature = "legacy", feature = "poll-io"))]
     fn legacy_call(&mut self) -> io::Result<u32> {
         let fd = self.fd.as_raw_fd();
-        syscall_u32!(recvmsg(fd, &mut self.info.2 as *mut _, 0))
+        unsafe { syscall_u32!(recvmsg(fd, &mut self.info.2 as *mut _, 0)) }
     }
 }

@@ -3,7 +3,7 @@ use monoio::{
     net::{TcpListener, TcpStream},
 };
 
-#[monoio::test_all]
+#[monoio::test_all(internal = true)]
 async fn echo_server() {
     const ITER: usize = 1024;
 
@@ -66,7 +66,7 @@ async fn echo_server() {
     }
 }
 
-#[monoio::test_all(timer_enabled = true)]
+#[monoio::test_all(timer_enabled = true, internal = true)]
 async fn rw_able() {
     let listener = TcpListener::bind("127.0.0.1:0").unwrap();
     let listener_addr = listener.local_addr().unwrap();
@@ -100,7 +100,7 @@ async fn rw_able() {
     assert!(conn.readable(false).await.is_ok());
 }
 
-#[monoio::test_all]
+#[monoio::test_all(internal = true)]
 async fn echo_tfo() {
     use std::net::SocketAddr;
 

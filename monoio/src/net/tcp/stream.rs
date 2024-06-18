@@ -147,7 +147,7 @@ impl TcpStream {
                     crate::driver::Inner::Legacy(inner) => {
                         let idx = stream.fd.registered_index().unwrap();
                         if let Some(mut readiness) =
-                            unsafe { &mut *inner.get() }.io_dispatch.get(idx)
+                            unsafe { &mut *inner.get() }.poller.io_dispatch.get(idx)
                         {
                             readiness.set_writable();
                         }

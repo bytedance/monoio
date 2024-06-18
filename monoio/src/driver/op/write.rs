@@ -69,21 +69,23 @@ impl<T: IoBuf> OpAble for Write<T> {
         let fd = self.fd.as_raw_fd();
         let seek_offset = libc::off_t::try_from(self.offset)
             .map_err(|_| io::Error::new(io::ErrorKind::Other, "offset too big"))?;
-        #[cfg(not(target_os = "macos"))]
-        return syscall_u32!(pwrite64(
-            fd,
-            self.buf.read_ptr() as _,
-            self.buf.bytes_init(),
-            seek_offset as _
-        ));
+        unsafe {
+            #[cfg(not(target_os = "macos"))]
+            return syscall_u32!(pwrite64(
+                fd,
+                self.buf.read_ptr() as _,
+                self.buf.bytes_init(),
+                seek_offset as _
+            ));
 
-        #[cfg(target_os = "macos")]
-        return syscall_u32!(pwrite(
-            fd,
-            self.buf.read_ptr() as _,
-            self.buf.bytes_init(),
-            seek_offset
-        ));
+            #[cfg(target_os = "macos")]
+            return syscall_u32!(pwrite(
+                fd,
+                self.buf.read_ptr() as _,
+                self.buf.bytes_init(),
+                seek_offset
+            ));
+        }
     }
 
     #[cfg(all(any(feature = "legacy", feature = "poll-io"), windows))]
@@ -166,25 +168,29 @@ impl<T: IoVecBuf> OpAble for WriteVec<T> {
 
     #[cfg(all(any(feature = "legacy", feature = "poll-io"), unix))]
     fn legacy_call(&mut self) -> io::Result<u32> {
-        syscall_u32!(writev(
-            self.fd.raw_fd(),
-            self.buf_vec.read_iovec_ptr(),
-            self.buf_vec.read_iovec_len().min(i32::MAX as usize) as _
-        ))
+        unsafe {
+            syscall_u32!(writev(
+                self.fd.raw_fd(),
+                self.buf_vec.read_iovec_ptr(),
+                self.buf_vec.read_iovec_len().min(i32::MAX as usize) as _
+            ))
+        }
     }
 
     #[cfg(all(any(feature = "legacy", feature = "poll-io"), windows))]
     fn legacy_call(&mut self) -> io::Result<u32> {
         let mut bytes_sent = 0;
-        syscall_u32!(WSASend(
-            self.fd.raw_socket() as _,
-            self.buf_vec.read_wsabuf_ptr(),
-            self.buf_vec.read_wsabuf_len() as _,
-            &mut bytes_sent,
-            0,
-            std::ptr::null_mut(),
-            None,
-        ))
-        .map(|_| bytes_sent)
+        unsafe {
+            syscall_u32!(WSASend(
+                self.fd.raw_socket() as _,
+                self.buf_vec.read_wsabuf_ptr(),
+                self.buf_vec.read_wsabuf_len() as _,
+                &mut bytes_sent,
+                0,
+                std::ptr::null_mut(),
+                None,
+            ))
+            .map(|_| bytes_sent)
+        }
     }
 }

@@ -101,22 +101,26 @@ impl<T: IoBuf> OpAble for Send<T> {
         #[cfg(not(target_os = "linux"))]
         let flags = 0;
 
-        syscall_u32!(send(
-            fd,
-            self.buf.read_ptr() as _,
-            self.buf.bytes_init(),
-            flags
-        ))
+        unsafe {
+            syscall_u32!(send(
+                fd,
+                self.buf.read_ptr() as _,
+                self.buf.bytes_init(),
+                flags
+            ))
+        }
     }
 
     #[cfg(all(any(feature = "legacy", feature = "poll-io"), windows))]
     fn legacy_call(&mut self) -> io::Result<u32> {
         let fd = self.fd.as_raw_socket();
-        syscall!(
-            send(fd as _, self.buf.read_ptr(), self.buf.bytes_init() as _, 0),
-            PartialOrd::lt,
-            0
-        )
+        unsafe {
+            syscall!(
+                send(fd as _, self.buf.read_ptr(), self.buf.bytes_init() as _, 0),
+                PartialOrd::lt,
+                0
+            )
+        }
     }
 }
 
@@ -212,7 +216,7 @@ impl<T: IoBuf> OpAble for SendMsg<T> {
         #[cfg(not(target_os = "linux"))]
         const FLAGS: libc::c_int = 0;
         let fd = self.fd.as_raw_fd();
-        syscall_u32!(sendmsg(fd, &*self.info.2, FLAGS))
+        unsafe { syscall_u32!(sendmsg(fd, &*self.info.2, FLAGS)) }
     }
 
     #[cfg(all(any(feature = "legacy", feature = "poll-io"), windows))]
@@ -316,6 +320,6 @@ impl<T: IoBuf> OpAble for SendMsgUnix<T> {
         #[cfg(not(target_os = "linux"))]
         const FLAGS: libc::c_int = 0;
         let fd = self.fd.as_raw_fd();
-        syscall_u32!(sendmsg(fd, &mut self.info.2 as *mut _, FLAGS))
+        unsafe { syscall_u32!(sendmsg(fd, &mut self.info.2 as *mut _, FLAGS)) }
     }
 }

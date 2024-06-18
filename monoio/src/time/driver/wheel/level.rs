@@ -257,7 +257,7 @@ fn slot_for(duration: u64, level: usize) -> usize {
     ((duration >> (level * 6)) % LEVEL_MULT as u64) as usize
 }
 
-#[cfg(all(test, not(loom)))]
+#[cfg(test)]
 mod test {
     use super::*;
 

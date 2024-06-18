@@ -20,7 +20,7 @@ async fn read_hello(file: &File) {
     assert_eq!(&buf, &HELLO[..n]);
 }
 
-#[monoio::test_all]
+#[monoio::test_all(internal = true)]
 async fn basic_read() {
     let mut tempfile = tempfile();
     tempfile.write_all(HELLO).unwrap();
@@ -30,7 +30,7 @@ async fn basic_read() {
     read_hello(&file).await;
 }
 
-#[monoio::test_all]
+#[monoio::test_all(internal = true)]
 async fn basic_read_exact() {
     let mut tempfile = tempfile();
     tempfile.write_all(HELLO).unwrap();
@@ -47,7 +47,7 @@ async fn basic_read_exact() {
     assert_eq!(res.unwrap_err().kind(), std::io::ErrorKind::UnexpectedEof);
 }
 
-#[monoio::test_all]
+#[monoio::test_all(internal = true)]
 async fn basic_write() {
     let tempfile = tempfile();
 
@@ -59,7 +59,7 @@ async fn basic_write() {
     assert_eq!(file, HELLO);
 }
 
-#[monoio::test_all]
+#[monoio::test_all(internal = true)]
 async fn basic_write_all() {
     let tempfile = tempfile();
 
@@ -71,7 +71,7 @@ async fn basic_write_all() {
     assert_eq!(file, HELLO);
 }
 
-#[monoio::test(driver = "uring")]
+#[monoio::test(driver = "uring", internal = true)]
 async fn cancel_read() {
     let mut tempfile = tempfile();
     tempfile.write_all(HELLO).unwrap();
@@ -85,7 +85,7 @@ async fn cancel_read() {
     read_hello(&file).await;
 }
 
-#[monoio::test_all]
+#[monoio::test_all(internal = true)]
 async fn explicit_close() {
     let mut tempfile = tempfile();
     tempfile.write_all(HELLO).unwrap();
@@ -102,7 +102,7 @@ async fn explicit_close() {
     assert_invalid_fd(fd, tempfile.as_file().metadata().unwrap());
 }
 
-#[monoio::test_all]
+#[monoio::test_all(internal = true)]
 async fn drop_open() {
     let tempfile = tempfile();
 
@@ -137,7 +137,7 @@ fn drop_off_runtime() {
     assert_invalid_fd(fd, tempfile.as_file().metadata().unwrap());
 }
 
-#[monoio::test_all]
+#[monoio::test_all(internal = true)]
 async fn sync_doesnt_kill_anything() {
     let tempfile = tempfile();
 

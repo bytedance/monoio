@@ -1,5 +1,5 @@
 #[cfg(feature = "signal")]
-#[monoio::test(driver = "legacy")]
+#[monoio::test(driver = "legacy", internal = true)]
 async fn test_ctrlc_legacy() {
     use libc::{getpid, kill, SIGINT};
     use monoio::utils::CtrlC;

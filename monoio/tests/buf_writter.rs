@@ -3,7 +3,7 @@ use monoio::{
     net::{TcpListener, TcpStream},
 };
 
-#[monoio::test_all]
+#[monoio::test_all(internal = true)]
 async fn ensure_buf_writter_write_properly() {
     let srv = TcpListener::bind("127.0.0.1:0").unwrap();
     let addr = srv.local_addr().unwrap();

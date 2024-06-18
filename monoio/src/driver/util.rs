@@ -32,7 +32,7 @@ pub(super) fn timespec(duration: std::time::Duration) -> io_uring::types::Timesp
 #[macro_export]
 macro_rules! syscall {
     ($fn: ident ( $($arg: expr),* $(,)* ) ) => {{
-        let res = unsafe { libc::$fn($($arg, )*) };
+        let res = libc::$fn($($arg, )*);
         if res == -1 {
             Err(std::io::Error::last_os_error())
         } else {
@@ -46,7 +46,7 @@ macro_rules! syscall {
 #[macro_export]
 macro_rules! syscall {
     ($fn: ident ( $($arg: expr),* $(,)* ), $err_test: path, $err_value: expr) => {{
-        let res = unsafe { $fn($($arg, )*) };
+        let res = $fn($($arg, )*);
         if $err_test(&res, &$err_value) {
             Err(std::io::Error::last_os_error())
         } else {
@@ -60,9 +60,9 @@ macro_rules! syscall {
 macro_rules! syscall_u32 {
     ($fn: ident ( $($arg: expr),* $(,)* ) ) => {{
         #[cfg(windows)]
-        let res = unsafe { $fn($($arg, )*) };
+        let res = $fn($($arg, )*);
         #[cfg(unix)]
-        let res = unsafe { libc::$fn($($arg, )*) };
+        let res = libc::$fn($($arg, )*);
         if res < 0 {
             Err(std::io::Error::last_os_error())
         } else {

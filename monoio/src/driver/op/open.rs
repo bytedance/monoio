@@ -70,27 +70,31 @@ impl OpAble for Open {
 
     #[cfg(all(any(feature = "legacy", feature = "poll-io"), not(windows)))]
     fn legacy_call(&mut self) -> io::Result<u32> {
-        syscall_u32!(open(
-            self.path.as_c_str().as_ptr(),
-            self.flags,
-            self.mode as libc::c_int
-        ))
+        unsafe {
+            syscall_u32!(open(
+                self.path.as_c_str().as_ptr(),
+                self.flags,
+                self.mode as libc::c_int
+            ))
+        }
     }
 
     #[cfg(all(any(feature = "legacy", feature = "poll-io"), windows))]
     fn legacy_call(&mut self) -> io::Result<u32> {
-        syscall!(
-            CreateFileW(
-                self.path.as_c_str().as_ptr().cast(),
-                self.opts.access_mode()?,
-                self.opts.share_mode,
-                self.opts.security_attributes,
-                self.opts.creation_mode()?,
-                self.opts.get_flags_and_attributes(),
-                0,
-            ),
-            PartialEq::eq,
-            INVALID_HANDLE_VALUE
-        )
+        unsafe {
+            syscall!(
+                CreateFileW(
+                    self.path.as_c_str().as_ptr().cast(),
+                    self.opts.access_mode()?,
+                    self.opts.share_mode,
+                    self.opts.security_attributes,
+                    self.opts.creation_mode()?,
+                    self.opts.get_flags_and_attributes(),
+                    0,
+                ),
+                PartialEq::eq,
+                INVALID_HANDLE_VALUE
+            )
+        }
     }
 }

@@ -94,13 +94,15 @@ impl OpAble for Splice {
         let fd_out = self.fd_out.as_raw_fd();
         let off_in = std::ptr::null_mut::<libc::loff_t>();
         let off_out = std::ptr::null_mut::<libc::loff_t>();
-        syscall_u32!(splice(
-            fd_in,
-            off_in,
-            fd_out,
-            off_out,
-            self.len as usize,
-            FLAG
-        ))
+        unsafe {
+            syscall_u32!(splice(
+                fd_in,
+                off_in,
+                fd_out,
+                off_out,
+                self.len as usize,
+                FLAG
+            ))
+        }
     }
 }

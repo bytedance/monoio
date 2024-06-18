@@ -22,7 +22,7 @@ pub type UnixStreamCompat = StreamWrapper<monoio::net::UnixStream>;
 #[cfg(test)]
 mod tests {
 
-    #[monoio::test_all]
+    #[monoio::test_all(internal = true)]
     async fn test_rw() {
         let listener = monoio::net::TcpListener::bind("127.0.0.1:0").unwrap();
         let addr = listener.local_addr().unwrap();
@@ -48,7 +48,7 @@ mod tests {
         client.await;
     }
 
-    #[monoio::test_all]
+    #[monoio::test_all(internal = true)]
     async fn test_rw_unsafe() {
         let listener = monoio::net::TcpListener::bind("127.0.0.1:0").unwrap();
         let addr = listener.local_addr().unwrap();

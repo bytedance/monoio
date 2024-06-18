@@ -47,7 +47,7 @@ impl CompletionPort {
             GetQueuedCompletionStatusEx(
                 self.handle,
                 entries.as_mut_ptr(),
-                std::cmp::min(entries.len(), u32::max_value() as usize) as u32,
+                std::cmp::min(entries.len(), u32::MAX as usize) as u32,
                 &mut count,
                 duration_millis(timeout),
                 0,

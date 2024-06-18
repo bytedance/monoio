@@ -9,7 +9,7 @@ use monoio::{
     try_join,
 };
 
-#[monoio::test_all]
+#[monoio::test_all(internal = true)]
 async fn split() -> Result<()> {
     const MSG: &[u8] = b"split";
 
@@ -50,7 +50,7 @@ async fn split() -> Result<()> {
     Ok(())
 }
 
-#[monoio::test_all(enable_timer = true)]
+#[monoio::test_all(enable_timer = true, internal = true)]
 async fn reunite() -> Result<()> {
     let listener = net::TcpListener::bind("127.0.0.1:0")?;
     let addr = listener.local_addr()?;
@@ -78,7 +78,7 @@ async fn reunite() -> Result<()> {
 }
 
 /// Test that dropping the write half actually closes the stream.
-#[monoio::test_all(enable_timer = true, entries = 1024)]
+#[monoio::test_all(enable_timer = true, entries = 1024, internal = true)]
 async fn drop_write() -> Result<()> {
     const MSG: &[u8] = b"split";
 

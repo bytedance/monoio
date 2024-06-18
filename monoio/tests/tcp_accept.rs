@@ -5,7 +5,7 @@ use monoio::net::{TcpListener, TcpStream};
 macro_rules! test_accept {
     ($(($ident:ident, $target:expr),)*) => {
         $(
-            #[monoio::test_all]
+            #[monoio::test_all(internal = true)]
             async fn $ident() {
                 let listener = TcpListener::bind($target).unwrap();
                 let addr = listener.local_addr().unwrap();

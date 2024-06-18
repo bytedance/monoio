@@ -70,27 +70,31 @@ impl OpAble for Connect {
             endpoints.sae_dstaddr = self.socket_addr.as_ptr();
             endpoints.sae_dstaddrlen = self.socket_addr_len;
 
-            return match crate::syscall_u32!(connectx(
-                self.fd.raw_fd(),
-                &endpoints as *const _,
-                libc::SAE_ASSOCID_ANY,
-                libc::CONNECT_DATA_IDEMPOTENT | libc::CONNECT_RESUME_ON_READ_WRITE,
-                std::ptr::null(),
-                0,
-                std::ptr::null_mut(),
-                std::ptr::null_mut(),
-            )) {
+            return match unsafe {
+                crate::syscall_u32!(connectx(
+                    self.fd.raw_fd(),
+                    &endpoints as *const _,
+                    libc::SAE_ASSOCID_ANY,
+                    libc::CONNECT_DATA_IDEMPOTENT | libc::CONNECT_RESUME_ON_READ_WRITE,
+                    std::ptr::null(),
+                    0,
+                    std::ptr::null_mut(),
+                    std::ptr::null_mut(),
+                ))
+            } {
                 Err(err) if err.raw_os_error() != Some(libc::EINPROGRESS) => Err(err),
                 _ => Ok(self.fd.raw_fd() as u32),
             };
         }
 
         #[cfg(unix)]
-        match crate::syscall_u32!(connect(
-            self.fd.raw_fd(),
-            self.socket_addr.as_ptr(),
-            self.socket_addr_len,
-        )) {
+        match unsafe {
+            crate::syscall_u32!(connect(
+                self.fd.raw_fd(),
+                self.socket_addr.as_ptr(),
+                self.socket_addr_len,
+            ))
+        } {
             Err(err) if err.raw_os_error() != Some(libc::EINPROGRESS) => Err(err),
             _ => Ok(self.fd.raw_fd() as u32),
         }
@@ -159,11 +163,13 @@ impl OpAble for ConnectUnix {
 
     #[cfg(any(feature = "legacy", feature = "poll-io"))]
     fn legacy_call(&mut self) -> io::Result<u32> {
-        match crate::syscall_u32!(connect(
-            self.fd.raw_fd(),
-            &self.socket_addr.0 as *const _ as *const _,
-            self.socket_addr.1
-        )) {
+        match unsafe {
+            crate::syscall_u32!(connect(
+                self.fd.raw_fd(),
+                &self.socket_addr.0 as *const _ as *const _,
+                self.socket_addr.1
+            ))
+        } {
             Err(err) if err.raw_os_error() != Some(libc::EINPROGRESS) => Err(err),
             _ => Ok(self.fd.raw_fd() as u32),
         }

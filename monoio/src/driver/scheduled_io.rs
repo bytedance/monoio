@@ -6,9 +6,11 @@ pub(crate) struct ScheduledIo {
     readiness: Ready,
 
     /// Waker used for AsyncRead.
-    reader: Option<Waker>,
+    r_waiter: Option<Waker>,
     /// Waker used for AsyncWrite.
-    writer: Option<Waker>,
+    w_waiter: Option<Waker>,
+    /// Waker requires read or write.
+    rw_waiter: Option<Waker>,
 }
 
 impl Default for ScheduledIo {
@@ -22,8 +24,9 @@ impl ScheduledIo {
     pub(crate) const fn new() -> Self {
         Self {
             readiness: Ready::EMPTY,
-            reader: None,
-            writer: None,
+            r_waiter: None,
+            w_waiter: None,
+            rw_waiter: None,
         }
     }
 
@@ -40,15 +43,28 @@ impl ScheduledIo {
 
     #[inline]
     pub(crate) fn wake(&mut self, ready: Ready) {
-        if ready.is_readable() {
-            if let Some(waker) = self.reader.take() {
-                waker.wake();
-            }
+        macro_rules! try_wake {
+            ($w: expr) => {
+                if let Some(waker) = $w.take() {
+                    waker.wake();
+                }
+            };
         }
-        if ready.is_writable() {
-            if let Some(waker) = self.writer.take() {
-                waker.wake();
+        match (ready.is_readable(), ready.is_writable()) {
+            (true, true) => {
+                try_wake!(self.r_waiter);
+                try_wake!(self.w_waiter);
+                try_wake!(self.rw_waiter);
             }
+            (true, false) => {
+                try_wake!(self.r_waiter);
+                try_wake!(self.rw_waiter);
+            }
+            (false, true) => {
+                try_wake!(self.w_waiter);
+                try_wake!(self.rw_waiter);
+            }
+            _ => (),
         }
     }
 
@@ -74,19 +90,19 @@ impl ScheduledIo {
 
     #[inline]
     pub(crate) fn set_waker(&mut self, cx: &mut Context<'_>, direction: Direction) {
-        let slot = match direction {
-            Direction::Read => &mut self.reader,
-            Direction::Write => &mut self.writer,
-        };
-        match slot {
-            Some(existing) => {
-                if !existing.will_wake(cx.waker()) {
+        macro_rules! set_waker_slot {
+            ($slot: expr) => {
+                if let Some(existing) = $slot {
                     existing.clone_from(cx.waker());
+                } else {
+                    *$slot = Some(cx.waker().clone());
                 }
-            }
-            None => {
-                *slot = Some(cx.waker().clone());
-            }
+            };
         }
+        match direction {
+            Direction::Read => set_waker_slot!(&mut self.r_waiter),
+            Direction::Write => set_waker_slot!(&mut self.w_waiter),
+            Direction::ReadOrWrite => set_waker_slot!(&mut self.rw_waiter),
+        };
     }
 }

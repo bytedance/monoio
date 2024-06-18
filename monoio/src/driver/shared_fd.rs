@@ -24,6 +24,8 @@ struct Inner {
 
     // Waker to notify when the close operation completes.
     state: UnsafeCell<State>,
+
+    close_on_drop: UnsafeCell<bool>,
 }
 
 enum State {
@@ -45,7 +47,7 @@ impl State {
         // TODO: only Init state can convert?
         if matches!(state, UringState::Init) {
             let mut source = mio::unix::SourceFd(&fd);
-            crate::syscall!(fcntl(fd, libc::F_SETFL, libc::O_NONBLOCK))?;
+            unsafe { crate::syscall!(fcntl(fd, libc::F_SETFL, libc::O_NONBLOCK))? };
             let reg = CURRENT
                 .with(|inner| match inner {
                     #[cfg(all(target_os = "linux", feature = "iouring"))]
@@ -58,7 +60,7 @@ impl State {
                     crate::driver::Inner::Legacy(_) => panic!("unexpected legacy runtime"),
                 })
                 .map_err(|e| {
-                    let _ = crate::syscall!(fcntl(fd, libc::F_SETFL, 0));
+                    let _ = unsafe { crate::syscall!(fcntl(fd, libc::F_SETFL, 0)) };
                     e
                 })?;
             *state = UringState::Legacy(Some(reg));
@@ -87,7 +89,7 @@ impl State {
             return Err(io::Error::new(io::ErrorKind::Other, "empty token"));
         };
         let mut source = mio::unix::SourceFd(&fd);
-        crate::syscall!(fcntl(fd, libc::F_SETFL, 0))?;
+        unsafe { crate::syscall!(fcntl(fd, libc::F_SETFL, 0))? };
         CURRENT
             .with(|inner| match inner {
                 #[cfg(all(target_os = "linux", feature = "iouring"))]
@@ -98,7 +100,7 @@ impl State {
                 crate::driver::Inner::Legacy(_) => panic!("unexpected legacy runtime"),
             })
             .map_err(|e| {
-                let _ = crate::syscall!(fcntl(fd, libc::F_SETFL, libc::O_NONBLOCK));
+                let _ = unsafe { crate::syscall!(fcntl(fd, libc::F_SETFL, libc::O_NONBLOCK)) };
                 e
             })?;
         *self = State::Uring(UringState::Init);
@@ -161,7 +163,7 @@ impl AsRawHandle for SharedFd {
 impl SharedFd {
     #[cfg(unix)]
     #[allow(unreachable_code, unused)]
-    pub(crate) fn new<const FORCE_LEGACY: bool>(fd: RawFd) -> io::Result<SharedFd> {
+    pub(crate) fn new<const PREFER_LEGACY: bool>(fd: RawFd) -> io::Result<SharedFd> {
         enum Reg {
             Uring,
             #[cfg(feature = "poll-io")]
@@ -171,7 +173,7 @@ impl SharedFd {
 
         #[cfg(all(target_os = "linux", feature = "iouring", feature = "legacy"))]
         let state = match CURRENT.with(|inner| match inner {
-            super::Inner::Uring(inner) => match FORCE_LEGACY {
+            super::Inner::Uring(inner) => match PREFER_LEGACY {
                 false => Reg::Uring,
                 true => {
                     #[cfg(feature = "poll-io")]
@@ -237,12 +239,13 @@ impl SharedFd {
             inner: Rc::new(Inner {
                 fd,
                 state: UnsafeCell::new(state),
+                close_on_drop: UnsafeCell::new(true),
             }),
         })
     }
 
     #[cfg(windows)]
-    pub(crate) fn new<const FORCE_LEGACY: bool>(fd: RawSocket) -> io::Result<SharedFd> {
+    pub(crate) fn new<const PREFER_LEGACY: bool>(fd: RawSocket) -> io::Result<SharedFd> {
         const RW_INTERESTS: mio::Interest = mio::Interest::READABLE.add(mio::Interest::WRITABLE);
 
         let mut fd = RawFd::new(fd);
@@ -262,6 +265,7 @@ impl SharedFd {
             inner: Rc::new(Inner {
                 fd,
                 state: UnsafeCell::new(state),
+                close_on_drop: UnsafeCell::new(true),
             }),
         })
     }
@@ -287,7 +291,14 @@ impl SharedFd {
             inner: Rc::new(Inner {
                 fd,
                 state: UnsafeCell::new(state),
+                close_on_drop: UnsafeCell::new(true),
             }),
+        }
+    }
+
+    pub(crate) fn set_close_on_drop(&self, close: bool) {
+        unsafe {
+            *self.inner.close_on_drop.get() = close;
         }
     }
 
@@ -302,6 +313,7 @@ impl SharedFd {
             inner: Rc::new(Inner {
                 fd: RawFd::new(fd),
                 state: UnsafeCell::new(state),
+                close_on_drop: UnsafeCell::new(true),
             }),
         }
     }
@@ -454,23 +466,26 @@ impl SharedFd {
     #[cfg(feature = "poll-io")]
     #[inline]
     pub(crate) fn cvt_poll(&mut self) -> io::Result<()> {
-        let state = unsafe { &mut *self.inner.state.get() };
         #[cfg(unix)]
-        let r = state.cvt_uring_poll(self.inner.fd);
+        {
+            let state = unsafe { &mut *self.inner.state.get() };
+            state.cvt_uring_poll(self.inner.fd)
+        }
+
         #[cfg(windows)]
-        let r = Ok(());
-        r
+        Ok(())
     }
 
     #[cfg(feature = "poll-io")]
     #[inline]
     pub(crate) fn cvt_comp(&mut self) -> io::Result<()> {
-        let state = unsafe { &mut *self.inner.state.get() };
         #[cfg(unix)]
-        let r = state.cvt_comp(self.inner.fd);
+        {
+            let state = unsafe { &mut *self.inner.state.get() };
+            state.cvt_comp(self.inner.fd)
+        }
         #[cfg(windows)]
-        let r = Ok(());
-        r
+        Ok(())
     }
 }
 
@@ -526,18 +541,22 @@ impl Drop for Inner {
     fn drop(&mut self) {
         let fd = self.fd;
         let state = unsafe { &mut *self.state.get() };
+        let close_on_drop = unsafe { *self.close_on_drop.get() };
         #[allow(unreachable_patterns)]
         match state {
             #[cfg(all(target_os = "linux", feature = "iouring"))]
             State::Uring(UringState::Init) | State::Uring(UringState::Waiting(..)) => {
+                if !close_on_drop {
+                    return;
+                }
                 if super::op::Op::close(fd).is_err() {
                     let _ = unsafe { std::fs::File::from_raw_fd(fd) };
                 };
             }
             #[cfg(feature = "legacy")]
-            State::Legacy(idx) => drop_legacy(fd, *idx),
+            State::Legacy(idx) => drop_legacy(fd, *idx, close_on_drop),
             #[cfg(all(target_os = "linux", feature = "iouring", feature = "poll-io"))]
-            State::Uring(UringState::Legacy(idx)) => drop_uring_legacy(fd, *idx),
+            State::Uring(UringState::Legacy(idx)) => drop_uring_legacy(fd, *idx, close_on_drop),
             _ => {}
         }
     }
@@ -545,7 +564,7 @@ impl Drop for Inner {
 
 #[allow(unused_mut)]
 #[cfg(feature = "legacy")]
-fn drop_legacy(mut fd: RawFd, idx: Option<usize>) {
+fn drop_legacy(mut fd: RawFd, idx: Option<usize>, close_on_drop: bool) {
     if CURRENT.is_set() {
         CURRENT.with(|inner| {
             #[cfg(any(all(target_os = "linux", feature = "iouring"), feature = "legacy"))]
@@ -569,6 +588,9 @@ fn drop_legacy(mut fd: RawFd, idx: Option<usize>) {
             }
         })
     }
+    if !close_on_drop {
+        return;
+    }
     #[cfg(all(unix, feature = "legacy"))]
     let _ = unsafe { std::fs::File::from_raw_fd(fd) };
     #[cfg(all(windows, feature = "legacy"))]
@@ -576,7 +598,7 @@ fn drop_legacy(mut fd: RawFd, idx: Option<usize>) {
 }
 
 #[cfg(feature = "poll-io")]
-fn drop_uring_legacy(fd: RawFd, idx: Option<usize>) {
+fn drop_uring_legacy(fd: RawFd, _idx: Option<usize>, close_on_drop: bool) {
     if CURRENT.is_set() {
         CURRENT.with(|inner| {
             match inner {
@@ -587,13 +609,16 @@ fn drop_uring_legacy(fd: RawFd, idx: Option<usize>) {
                 #[cfg(all(target_os = "linux", feature = "iouring"))]
                 super::Inner::Uring(inner) => {
                     // deregister it from driver(Poll and slab) and close fd
-                    if let Some(idx) = idx {
+                    if let Some(idx) = _idx {
                         let mut source = mio::unix::SourceFd(&fd);
                         let _ = super::IoUringDriver::deregister_poll_io(inner, &mut source, idx);
                     }
                 }
             }
         })
+    }
+    if !close_on_drop {
+        return;
     }
     #[cfg(unix)]
     let _ = unsafe { std::fs::File::from_raw_fd(fd) };

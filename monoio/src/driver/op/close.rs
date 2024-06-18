@@ -47,9 +47,9 @@ impl OpAble for Close {
     #[cfg(any(feature = "legacy", feature = "poll-io"))]
     fn legacy_call(&mut self) -> io::Result<u32> {
         #[cfg(unix)]
-        return crate::syscall_u32!(close(self.fd));
+        return unsafe { crate::syscall_u32!(close(self.fd)) };
 
         #[cfg(windows)]
-        return syscall!(closesocket(self.fd as _), PartialEq::ne, 0);
+        return unsafe { syscall!(closesocket(self.fd as _), PartialEq::ne, 0) };
     }
 }

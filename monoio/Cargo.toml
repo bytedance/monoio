@@ -8,7 +8,7 @@ license = "MIT OR Apache-2.0"
 name = "monoio"
 readme = "../README.md"
 repository = "https://github.com/bytedance/monoio"
-version = "0.2.3"
+version = "0.2.4"
 
 # common dependencies
 [dependencies]
@@ -44,7 +44,7 @@ windows-sys = { version = "0.48.0", features = [
     "Win32_Networking_WinSock",
     "Win32_System_IO",
     "Win32_Storage_FileSystem",
-    "Win32_Security"
+    "Win32_Security",
 ] }
 
 # unix dependencies
@@ -89,4 +89,12 @@ poll-io = ["tokio", "mio"]
 signal = ["ctrlc", "sync"]
 signal-termination = ["signal", "ctrlc/termination"]
 # by default both iouring and legacy are enabled
-default = ["async-cancel", "bytes", "iouring", "legacy", "macros", "utils"]
+default = [
+    "async-cancel",
+    "bytes",
+    "iouring",
+    "legacy",
+    "macros",
+    "utils",
+    "poll-io",
+]
