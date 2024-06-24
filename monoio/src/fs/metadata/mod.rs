@@ -1,99 +1,101 @@
-#[cfg(unix)]
-use std::os::unix::fs::MetadataExt;
-use std::{path::Path, time::SystemTime};
+mod unix;
+mod windows;
 
-#[cfg(unix)]
-use libc::mode_t;
-#[cfg(target_os = "linux")]
-use libc::{stat64, statx};
-
-use super::{
-    file_type::FileType,
-    permissions::{FilePermissions, Permissions},
-};
 use crate::driver::op::Op;
 
-/// File attributes, not platform-specific.
-/// Current implementation is only for unix.
-#[cfg(unix)]
-pub(crate) struct FileAttr {
+use super::file_type::FileType;
+use super::permissions::Permissions;
+use std::os::unix::fs::MetadataExt;
+use std::path::Path;
+use std::time::SystemTime;
+
+/// Given a path, query the file system to get information about a file,
+/// directory, etc.
+///
+/// This function will traverse symbolic links to query information about the
+/// destination file.
+///
+/// # Platform-specific behavior
+///
+/// current implementation is only for Linux.
+///
+/// # Errors
+///
+/// This function will return an error in the following situations, but is not
+/// limited to just these cases:
+///
+/// * The user lacks permissions to perform `metadata` call on `path`.
+///     * execute(search) permission is required on all of the directories in path that lead to the
+///       file.
+/// * `path` does not exist.
+///
+/// # Examples
+///
+/// ```rust,no_run
+/// use monoio::fs;
+///
+/// #[monoio::main]
+/// async fn main() -> std::io::Result<()> {
+///     let attr = fs::metadata("/some/file/path.txt").await?;
+///     // inspect attr ...
+///     Ok(())
+/// }
+/// ```
+pub async fn metadata<P: AsRef<Path>>(path: P) -> std::io::Result<Metadata> {
     #[cfg(target_os = "linux")]
-    stat: stat64,
+    let flags = libc::AT_STATX_SYNC_AS_STAT;
+
+    #[cfg(target_os = "linux")]
+    let op = Op::statx_using_path(path, flags)?;
+
     #[cfg(target_os = "macos")]
-    stat: libc::stat,
+    let op = Op::statx_using_path(path, true)?;
+
+    op.statx_result().await.map(FileAttr::from).map(Metadata)
+}
+
+/// Query the metadata about a file without following symlinks.
+///
+/// # Platform-specific behavior
+///
+/// This function currently corresponds to the `lstat` function on linux
+///
+/// # Errors
+///
+/// This function will return an error in the following situations, but is not
+/// limited to just these cases:
+///
+/// * The user lacks permissions to perform `metadata` call on `path`.
+///     * execute(search) permission is required on all of the directories in path that lead to the
+///       file.
+/// * `path` does not exist.
+///
+/// # Examples
+/// ```rust,no_run
+/// use monoio::fs;
+///
+/// #[monoio::main]
+/// async fn main() -> std::io::Result<()> {
+///     let attr = fs::symlink_metadata("/some/file/path.txt").await?;
+///     // inspect attr ...
+///     Ok(())
+/// }
+/// ```
+pub async fn symlink_metadata<P: AsRef<Path>>(path: P) -> std::io::Result<Metadata> {
     #[cfg(target_os = "linux")]
-    statx_extra_fields: Option<StatxExtraFields>,
+    let flags = libc::AT_STATX_SYNC_AS_STAT | libc::AT_SYMLINK_NOFOLLOW;
+
+    #[cfg(target_os = "linux")]
+    let op = Op::statx_using_path(path, flags)?;
+
+    #[cfg(target_os = "macos")]
+    let op = Op::statx_using_path(path, false)?;
+
+    op.statx_result().await.map(FileAttr::from).map(Metadata)
 }
 
 #[cfg(unix)]
-impl FileAttr {
-    fn size(&self) -> u64 {
-        self.stat.st_size as u64
-    }
-
-    fn perm(&self) -> FilePermissions {
-        FilePermissions {
-            mode: (self.stat.st_mode as mode_t),
-        }
-    }
-
-    fn file_type(&self) -> FileType {
-        FileType {
-            mode: self.stat.st_mode as mode_t,
-        }
-    }
-}
-
-/// Extra fields that are available in `statx` struct.
-#[cfg(target_os = "linux")]
-pub(crate) struct StatxExtraFields {
-    stx_mask: u32,
-    stx_btime: libc::statx_timestamp,
-}
-
-/// Convert a `statx` struct to not platform-specific `FileAttr`.
-/// Current implementation is only for Linux.
-#[cfg(target_os = "linux")]
-impl From<statx> for FileAttr {
-    fn from(buf: statx) -> Self {
-        let mut stat: stat64 = unsafe { std::mem::zeroed() };
-
-        stat.st_dev = libc::makedev(buf.stx_dev_major, buf.stx_dev_minor) as _;
-        stat.st_ino = buf.stx_ino as libc::ino64_t;
-        stat.st_nlink = buf.stx_nlink as libc::nlink_t;
-        stat.st_mode = buf.stx_mode as libc::mode_t;
-        stat.st_uid = buf.stx_uid as libc::uid_t;
-        stat.st_gid = buf.stx_gid as libc::gid_t;
-        stat.st_rdev = libc::makedev(buf.stx_rdev_major, buf.stx_rdev_minor) as _;
-        stat.st_size = buf.stx_size as libc::off64_t;
-        stat.st_blksize = buf.stx_blksize as libc::blksize_t;
-        stat.st_blocks = buf.stx_blocks as libc::blkcnt64_t;
-        stat.st_atime = buf.stx_atime.tv_sec as libc::time_t;
-        // `i64` on gnu-x86_64-x32, `c_ulong` otherwise.
-        stat.st_atime_nsec = buf.stx_atime.tv_nsec as _;
-        stat.st_mtime = buf.stx_mtime.tv_sec as libc::time_t;
-        stat.st_mtime_nsec = buf.stx_mtime.tv_nsec as _;
-        stat.st_ctime = buf.stx_ctime.tv_sec as libc::time_t;
-        stat.st_ctime_nsec = buf.stx_ctime.tv_nsec as _;
-
-        let extra = StatxExtraFields {
-            stx_mask: buf.stx_mask,
-            stx_btime: buf.stx_btime,
-        };
-
-        Self {
-            stat,
-            statx_extra_fields: Some(extra),
-        }
-    }
-}
-
-#[cfg(target_os = "macos")]
-impl From<libc::stat> for FileAttr {
-    fn from(stat: libc::stat) -> Self {
-        Self { stat }
-    }
-}
+pub(crate) use unix::FileAttr;
 
 /// Metadata information about a file.
 ///
@@ -279,6 +281,8 @@ impl Metadata {
     /// ```
     #[cfg(unix)]
     pub fn permissions(&self) -> Permissions {
+        use super::permissions::Permissions;
+
         Permissions(self.0.perm())
     }
 
@@ -528,90 +532,4 @@ impl MetadataExt for Metadata {
     fn blocks(&self) -> u64 {
         self.0.stat.st_blocks as u64
     }
-}
-
-/// Given a path, query the file system to get information about a file,
-/// directory, etc.
-///
-/// This function will traverse symbolic links to query information about the
-/// destination file.
-///
-/// # Platform-specific behavior
-///
-/// current implementation is only for Linux.
-///
-/// # Errors
-///
-/// This function will return an error in the following situations, but is not
-/// limited to just these cases:
-///
-/// * The user lacks permissions to perform `metadata` call on `path`.
-///     * execute(search) permission is required on all of the directories in path that lead to the
-///       file.
-/// * `path` does not exist.
-///
-/// # Examples
-///
-/// ```rust,no_run
-/// use monoio::fs;
-///
-/// #[monoio::main]
-/// async fn main() -> std::io::Result<()> {
-///     let attr = fs::metadata("/some/file/path.txt").await?;
-///     // inspect attr ...
-///     Ok(())
-/// }
-/// ```
-
-pub async fn metadata<P: AsRef<Path>>(path: P) -> std::io::Result<Metadata> {
-    #[cfg(target_os = "linux")]
-    let flags = libc::AT_STATX_SYNC_AS_STAT;
-
-    #[cfg(target_os = "linux")]
-    let op = Op::statx_using_path(path, flags)?;
-
-    #[cfg(target_os = "macos")]
-    let op = Op::statx_using_path(path, true)?;
-
-    op.statx_result().await.map(FileAttr::from).map(Metadata)
-}
-
-/// Query the metadata about a file without following symlinks.
-///
-/// # Platform-specific behavior
-///
-/// This function currently corresponds to the `lstat` function on linux
-///
-/// # Errors
-///
-/// This function will return an error in the following situations, but is not
-/// limited to just these cases:
-///
-/// * The user lacks permissions to perform `metadata` call on `path`.
-///     * execute(search) permission is required on all of the directories in path that lead to the
-///       file.
-/// * `path` does not exist.
-///
-/// # Examples
-/// ```rust,no_run
-/// use monoio::fs;
-///
-/// #[monoio::main]
-/// async fn main() -> std::io::Result<()> {
-///     let attr = fs::symlink_metadata("/some/file/path.txt").await?;
-///     // inspect attr ...
-///     Ok(())
-/// }
-/// ```
-pub async fn symlink_metadata<P: AsRef<Path>>(path: P) -> std::io::Result<Metadata> {
-    #[cfg(target_os = "linux")]
-    let flags = libc::AT_STATX_SYNC_AS_STAT | libc::AT_SYMLINK_NOFOLLOW;
-
-    #[cfg(target_os = "linux")]
-    let op = Op::statx_using_path(path, flags)?;
-
-    #[cfg(target_os = "macos")]
-    let op = Op::statx_using_path(path, false)?;
-
-    op.statx_result().await.map(FileAttr::from).map(Metadata)
 }
