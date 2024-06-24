@@ -8,6 +8,21 @@ pub use file::File;
 mod open_options;
 pub use open_options::OpenOptions;
 
+#[cfg(unix)]
+mod metadata;
+#[cfg(unix)]
+pub use metadata::{metadata, symlink_metadata, Metadata};
+
+#[cfg(unix)]
+mod file_type;
+#[cfg(target_os = "linux")]
+pub use file_type::FileType;
+
+#[cfg(unix)]
+mod permissions;
+#[cfg(target_os = "linux")]
+pub use permissions::Permissions;
+
 use crate::buf::IoBuf;
 
 /// Read the entire contents of a file into a bytes vector.

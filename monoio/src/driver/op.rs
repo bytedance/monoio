@@ -19,6 +19,9 @@ mod recv;
 mod send;
 mod write;
 
+#[cfg(unix)]
+mod statx;
+
 #[cfg(all(target_os = "linux", feature = "splice"))]
 mod splice;
 
