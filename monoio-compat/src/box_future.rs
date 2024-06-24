@@ -1,7 +1,7 @@
 use std::{future::Future, io};
 
 use monoio::BufResult;
-use reusable_box_future::ReusableLocalBoxFuture;
+use reusable_box_future::{ReusableLocalBoxFuture, ReusableBoxFuture};
 
 use crate::buf::{Buf, RawBuf};
 
@@ -79,6 +79,43 @@ impl Default for MaybeArmedBoxFuture<io::Result<()>> {
     fn default() -> Self {
         Self {
             slot: ReusableLocalBoxFuture::new(async { Ok(()) }),
+            armed: false,
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct SendableMaybeArmedBoxFuture<T> {
+    slot: ReusableBoxFuture<T>,
+    armed: bool,
+}
+
+impl<T> SendableMaybeArmedBoxFuture<T> {
+    pub fn armed(&self) -> bool {
+        self.armed
+    }
+    pub fn arm_future<F>(&mut self, f: F)
+    where
+        F: Future<Output = T> + 'static + Send,
+    {
+        self.armed = true;
+        self.slot.set(f);
+    }
+    pub fn poll(&mut self, cx: &mut std::task::Context<'_>) -> std::task::Poll<T> {
+        match self.slot.poll(cx) {
+            r @ std::task::Poll::Ready(_) => {
+                self.armed = false;
+                r
+            }
+            p => p,
+        }
+    }
+    pub fn new<F>(f: F) -> Self
+    where
+        F: Future<Output = T> + 'static + Send,
+    {
+        Self {
+            slot: ReusableBoxFuture::new(f),
             armed: false,
         }
     }
