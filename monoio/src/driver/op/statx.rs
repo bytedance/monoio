@@ -1,5 +1,3 @@
-#[cfg(target_os = "linux")]
-use std::os::fd::AsRawFd;
 use std::{ffi::CString, mem::MaybeUninit, path::Path};
 
 #[cfg(all(target_os = "linux", feature = "iouring"))]
@@ -67,6 +65,8 @@ impl Op<FdStatx> {
 impl OpAble for FdStatx {
     #[cfg(all(target_os = "linux", feature = "iouring"))]
     fn uring_op(&mut self) -> io_uring::squeue::Entry {
+        use std::os::fd::AsRawFd;
+
         let statxbuf = self.statx_buf.as_mut_ptr() as *mut _;
 
         opcode::Statx::new(types::Fd(self.inner.as_raw_fd()), c"".as_ptr(), statxbuf)

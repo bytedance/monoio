@@ -4,7 +4,7 @@ use crate::fs::{file_type::FileType, permissions::FilePermissions};
 
 pub(crate) struct FileAttr {
     #[cfg(target_os = "linux")]
-    pub(crate) stat: stat64,
+    pub(crate) stat: libc::stat64,
     #[cfg(target_os = "macos")]
     pub(crate) stat: libc::stat,
     #[cfg(target_os = "linux")]
@@ -33,16 +33,16 @@ impl FileAttr {
 /// Extra fields that are available in `statx` struct.
 #[cfg(target_os = "linux")]
 pub(crate) struct StatxExtraFields {
-    stx_mask: u32,
-    stx_btime: libc::statx_timestamp,
+    pub(crate) stx_mask: u32,
+    pub(crate) stx_btime: libc::statx_timestamp,
 }
 
 /// Convert a `statx` struct to not platform-specific `FileAttr`.
 /// Current implementation is only for Linux.
 #[cfg(target_os = "linux")]
-impl From<statx> for FileAttr {
-    fn from(buf: statx) -> Self {
-        let mut stat: stat64 = unsafe { std::mem::zeroed() };
+impl From<libc::statx> for FileAttr {
+    fn from(buf: libc::statx) -> Self {
+        let mut stat: libc::stat64 = unsafe { std::mem::zeroed() };
 
         stat.st_dev = libc::makedev(buf.stx_dev_major, buf.stx_dev_minor) as _;
         stat.st_ino = buf.stx_ino as libc::ino64_t;
