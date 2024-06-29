@@ -5,6 +5,16 @@ use std::{io, path::Path};
 
 pub use file::File;
 
+#[cfg(all(unix, feature = "mkdirat"))]
+mod dir_builder;
+#[cfg(all(unix, feature = "mkdirat"))]
+pub use dir_builder::DirBuilder;
+
+#[cfg(all(unix, feature = "mkdirat"))]
+mod create_dir;
+#[cfg(all(unix, feature = "mkdirat"))]
+pub use create_dir::*;
+
 mod open_options;
 pub use open_options::OpenOptions;
 

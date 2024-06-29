@@ -19,6 +19,9 @@ mod recv;
 mod send;
 mod write;
 
+#[cfg(all(unix, feature = "mkdirat"))]
+mod mkdir;
+
 #[cfg(all(target_os = "linux", feature = "splice"))]
 mod splice;
 
