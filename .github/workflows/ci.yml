@@ -31,20 +31,22 @@ jobs:
       - name: Cache
         uses: Swatinem/rust-cache@v1
       - name: Run cargo fmt
+        if: matrix.channel == 'nightly'
         uses: actions-rs/cargo@v1
         with:
           command: fmt
           args: --all -- --check
+      - name: Run cargo clippy
+        if: matrix.channel == 'nightly'
+        uses: actions-rs/cargo@v1
+        with:
+          command: clippy
+          args: -- -D warnings
       - name: Run cargo check with no default features
         uses: actions-rs/cargo@v1
         with:
           command: check
           args: --no-default-features
-      - name: Run cargo clippy
-        uses: actions-rs/cargo@v1
-        with:
-          command: clippy
-          args: -- -D warnings
       - env:
           CHANNEL: ${{ matrix.channel }}
           CROSS: ${{ !startsWith(matrix.target, 'x86_64') && contains(matrix.target, 'linux') && '1' || '0' }}
