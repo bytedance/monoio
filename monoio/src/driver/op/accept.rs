@@ -76,7 +76,7 @@ impl OpAble for Accept {
         let addr = self.addr.0.as_mut_ptr() as *mut _;
         let len = &mut self.addr.1;
 
-        syscall!(accept(fd as _, addr, len), PartialEq::eq, INVALID_SOCKET)
+        unsafe { syscall!(accept(fd as _, addr, len), PartialEq::eq, INVALID_SOCKET) }
     }
 
     #[cfg(all(any(feature = "legacy", feature = "poll-io"), unix))]
@@ -102,12 +102,14 @@ impl OpAble for Accept {
             target_os = "netbsd",
             target_os = "openbsd"
         ))]
-        return syscall_u32!(accept4(
-            fd,
-            addr,
-            len,
-            libc::SOCK_CLOEXEC | libc::SOCK_NONBLOCK,
-        ));
+        return unsafe {
+            syscall_u32!(accept4(
+                fd,
+                addr,
+                len,
+                libc::SOCK_CLOEXEC | libc::SOCK_NONBLOCK,
+            ))
+        };
 
         // But not all platforms have the `accept4(2)` call. Luckily BSD (derived)
         // OSes inherit the non-blocking flag from the listener, so we just have to
@@ -119,14 +121,16 @@ impl OpAble for Accept {
             target_os = "redox"
         ))]
         return {
-            let stream_fd = syscall_u32!(accept(fd, addr, len))? as i32;
-            syscall_u32!(fcntl(stream_fd, libc::F_SETFD, libc::FD_CLOEXEC))
-                .and_then(|_| syscall_u32!(fcntl(stream_fd, libc::F_SETFL, libc::O_NONBLOCK)))
-                .map_err(|e| {
-                    let _ = syscall_u32!(close(stream_fd));
-                    e
-                })?;
-            Ok(stream_fd as _)
+            unsafe {
+                let stream_fd = syscall_u32!(accept(fd, addr, len))? as i32;
+                syscall_u32!(fcntl(stream_fd, libc::F_SETFD, libc::FD_CLOEXEC))
+                    .and_then(|_| syscall_u32!(fcntl(stream_fd, libc::F_SETFL, libc::O_NONBLOCK)))
+                    .map_err(|e| {
+                        let _ = syscall_u32!(close(stream_fd));
+                        e
+                    })?;
+                Ok(stream_fd as _)
+            }
         };
     }
 }

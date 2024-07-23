@@ -2,7 +2,6 @@
 // in the future, this will change to the reverse. For now, suppress this
 // warning and generally stick with being explicit about unsafety.
 #![allow(unused_unsafe)]
-#![cfg_attr(not(feature = "rt"), allow(dead_code))]
 
 //! Time driver
 
@@ -179,6 +178,7 @@ where
     /// can either be created directly or the `Handle` instance can be passed to
     /// `with_default`, setting the timer as the default timer for the execution
     /// context.
+    #[allow(unused)]
     pub(crate) fn handle(&self) -> Handle {
         self.handle.clone()
     }

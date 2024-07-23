@@ -525,6 +525,7 @@ impl TimerHandle {
         unsafe { self.inner.as_ref().sync_when() }
     }
 
+    #[allow(unused)]
     pub(super) unsafe fn is_pending(&self) -> bool {
         unsafe { self.inner.as_ref().state.is_pending() }
     }

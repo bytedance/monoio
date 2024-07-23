@@ -1,7 +1,7 @@
 #![cfg(unix)]
 use monoio::net::unix::UnixDatagram;
 
-#[monoio::test_all]
+#[monoio::test_all(internal = true)]
 async fn accept_send_recv() -> std::io::Result<()> {
     let dir = tempfile::Builder::new()
         .prefix("monoio-unix-datagram-tests")
@@ -25,7 +25,7 @@ async fn accept_send_recv() -> std::io::Result<()> {
     Ok(())
 }
 
-#[monoio::test_all]
+#[monoio::test_all(internal = true)]
 async fn addr_type() -> std::io::Result<()> {
     let dir = tempfile::Builder::new()
         .prefix("monoio-unix-datagram-tests")

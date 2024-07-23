@@ -336,7 +336,7 @@ impl<T> Drop for Page<T> {
             } else {
                 // slow drop
                 to_drop.set_len(self.initialized);
-                std::mem::transmute::<_, Vec<Entry<T>>>(to_drop);
+                std::mem::transmute::<Vec<MaybeUninit<Entry<T>>>, Vec<Entry<T>>>(to_drop);
             }
         }
     }

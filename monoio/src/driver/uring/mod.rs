@@ -61,7 +61,7 @@ pub(crate) struct UringInner {
     ops: Ops,
 
     #[cfg(feature = "poll-io")]
-    poll: super::poll::Poll,
+    pub(crate) poller: super::poll::Poll,
     #[cfg(feature = "poll-io")]
     poller_installed: bool,
 
@@ -106,7 +106,7 @@ impl IoUringDriver {
 
         let inner = Rc::new(UnsafeCell::new(UringInner {
             #[cfg(feature = "poll-io")]
-            poll: super::poll::Poll::with_capacity(entries as usize)?,
+            poller: super::poll::Poll::with_capacity(entries as usize)?,
             #[cfg(feature = "poll-io")]
             poller_installed: false,
             ops: Ops::new(),
@@ -129,7 +129,7 @@ impl IoUringDriver {
 
         // Create eventfd and register it to the ring.
         let waker = {
-            let fd = crate::syscall!(eventfd(0, libc::EFD_CLOEXEC))?;
+            let fd = unsafe { crate::syscall!(eventfd(0, libc::EFD_CLOEXEC))? };
             unsafe {
                 use std::os::unix::io::FromRawFd;
                 std::fs::File::from_raw_fd(fd)
@@ -142,7 +142,7 @@ impl IoUringDriver {
             #[cfg(feature = "poll-io")]
             poller_installed: false,
             #[cfg(feature = "poll-io")]
-            poll: super::poll::Poll::with_capacity(entries as usize)?,
+            poller: super::poll::Poll::with_capacity(entries as usize)?,
             ops: Ops::new(),
             ext_arg: uring.params().is_feature_ext_arg(),
             uring,
@@ -269,7 +269,7 @@ impl IoUringDriver {
             // 2.1 install poller
             #[cfg(feature = "poll-io")]
             if !inner.poller_installed {
-                self.install_poller(inner, inner.poll.as_raw_fd());
+                self.install_poller(inner, inner.poller.as_raw_fd());
             }
 
             // 2.2 install eventfd and timeout
@@ -329,7 +329,7 @@ impl IoUringDriver {
         interest: mio::Interest,
     ) -> io::Result<usize> {
         let inner = unsafe { &mut *this.get() };
-        inner.poll.register(source, interest)
+        inner.poller.register(source, interest)
     }
 
     #[cfg(feature = "poll-io")]
@@ -340,7 +340,7 @@ impl IoUringDriver {
         token: usize,
     ) -> io::Result<()> {
         let inner = unsafe { &mut *this.get() };
-        inner.poll.deregister(source, token)
+        inner.poller.deregister(source, token)
     }
 }
 
@@ -388,7 +388,7 @@ impl UringInner {
                 #[cfg(feature = "poll-io")]
                 POLLER_USERDATA => {
                     self.poller_installed = false;
-                    self.poll.tick(Some(Duration::ZERO))?;
+                    self.poller.tick(Some(Duration::ZERO))?;
                 }
                 _ if index >= MIN_REVERSED_USERDATA => (),
                 _ => self.ops.complete(index as _, resultify(&cqe), cqe.flags()),
@@ -501,7 +501,7 @@ impl UringInner {
 
         // wait io ready and do syscall
         inner
-            .poll
+            .poller
             .poll_syscall(cx, index, direction, || OpAble::legacy_call(data))
     }
 

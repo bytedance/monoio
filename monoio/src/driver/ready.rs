@@ -13,37 +13,41 @@ const WRITE_CANCELED: u8 = 0b10_0000;
 /// Describes the readiness state of an I/O resources.
 ///
 /// `Ready` tracks which operation an I/O resource is ready to perform.
-#[cfg_attr(docsrs, doc(cfg(feature = "net")))]
 #[derive(Clone, Copy, PartialEq, PartialOrd, Eq)]
-pub(crate) struct Ready(u8);
+#[allow(unreachable_pub)]
+pub struct Ready(u8);
 
+#[allow(unreachable_pub)]
 impl Ready {
     /// Returns the empty `Ready` set.
-    pub(crate) const EMPTY: Ready = Ready(0);
+    pub const EMPTY: Ready = Ready(0);
 
     /// Returns a `Ready` representing readable readiness.
-    pub(crate) const READABLE: Ready = Ready(READABLE);
+    pub const READABLE: Ready = Ready(READABLE);
 
     /// Returns a `Ready` representing writable readiness.
-    pub(crate) const WRITABLE: Ready = Ready(WRITABLE);
+    pub const WRITABLE: Ready = Ready(WRITABLE);
 
     /// Returns a `Ready` representing read closed readiness.
-    pub(crate) const READ_CLOSED: Ready = Ready(READ_CLOSED);
+    pub const READ_CLOSED: Ready = Ready(READ_CLOSED);
 
     /// Returns a `Ready` representing write closed readiness.
-    pub(crate) const WRITE_CLOSED: Ready = Ready(WRITE_CLOSED);
+    pub const WRITE_CLOSED: Ready = Ready(WRITE_CLOSED);
 
     /// Returns a `Ready` representing read canceled readiness.
-    pub(crate) const READ_CANCELED: Ready = Ready(READ_CANCELED);
+    pub const READ_CANCELED: Ready = Ready(READ_CANCELED);
 
     /// Returns a `Ready` representing write canceled readiness.
-    pub(crate) const WRITE_CANCELED: Ready = Ready(WRITE_CANCELED);
+    pub const WRITE_CANCELED: Ready = Ready(WRITE_CANCELED);
 
     /// Returns a `Ready` representing read or write canceled readiness.
-    pub(crate) const CANCELED: Ready = Ready(READ_CANCELED | WRITE_CANCELED);
+    pub const CANCELED: Ready = Ready(READ_CANCELED | WRITE_CANCELED);
 
-    pub(crate) const READ_ALL: Ready = Ready(READABLE | READ_CLOSED | READ_CANCELED);
-    pub(crate) const WRITE_ALL: Ready = Ready(WRITABLE | WRITE_CLOSED | WRITE_CANCELED);
+    /// All read related readiness.
+    pub const READ_ALL: Ready = Ready(READABLE | READ_CLOSED | READ_CANCELED);
+
+    /// All write related readiness.
+    pub const WRITE_ALL: Ready = Ready(WRITABLE | WRITE_CLOSED | WRITE_CANCELED);
 
     #[cfg(windows)]
     pub(crate) fn from_mio(event: &super::legacy::iocp::Event) -> Ready {
@@ -73,7 +77,7 @@ impl Ready {
     pub(crate) fn from_mio(event: &mio::event::Event) -> Ready {
         let mut ready = Ready::EMPTY;
 
-        #[cfg(all(target_os = "freebsd", feature = "net"))]
+        #[cfg(target_os = "freebsd")]
         {
             if event.is_aio() {
                 ready |= Ready::READABLE;
@@ -104,32 +108,32 @@ impl Ready {
     }
 
     /// Returns true if `Ready` is the empty set.
-    pub(crate) fn is_empty(self) -> bool {
+    pub fn is_empty(self) -> bool {
         self == Ready::EMPTY
     }
 
     /// Returns `true` if the value includes `readable`.
-    pub(crate) fn is_readable(self) -> bool {
+    pub fn is_readable(self) -> bool {
         !(self & Ready::READ_ALL).is_empty()
     }
 
     /// Returns `true` if the value includes writable `readiness`.
-    pub(crate) fn is_writable(self) -> bool {
+    pub fn is_writable(self) -> bool {
         !(self & Ready::WRITE_ALL).is_empty()
     }
 
     /// Returns `true` if the value includes read-closed `readiness`.
-    pub(crate) fn is_read_closed(self) -> bool {
+    pub fn is_read_closed(self) -> bool {
         self.contains(Ready::READ_CLOSED)
     }
 
     /// Returns `true` if the value includes write-closed `readiness`.
-    pub(crate) fn is_write_closed(self) -> bool {
+    pub fn is_write_closed(self) -> bool {
         self.contains(Ready::WRITE_CLOSED)
     }
 
-    #[allow(dead_code)]
-    pub(crate) fn is_canceled(self) -> bool {
+    /// Returns `true` if the value includes canceled.
+    pub fn is_canceled(self) -> bool {
         !(self & Ready::CANCELED).is_empty()
     }
 
@@ -138,7 +142,7 @@ impl Ready {
     /// `other` may represent more than one readiness operations, in which case
     /// the function only returns true if `self` contains all readiness
     /// specified in `other`.
-    pub(crate) fn contains<T: Into<Self>>(self, other: T) -> bool {
+    pub fn contains<T: Into<Self>>(self, other: T) -> bool {
         let other = other.into();
         (self & other) == other
     }
@@ -231,6 +235,7 @@ impl fmt::Debug for Ready {
 pub(crate) enum Direction {
     Read,
     Write,
+    ReadOrWrite,
 }
 
 impl Direction {
@@ -238,6 +243,14 @@ impl Direction {
         match self {
             Direction::Read => Ready::READABLE | Ready::READ_CLOSED | Ready::READ_CANCELED,
             Direction::Write => Ready::WRITABLE | Ready::WRITE_CLOSED | Ready::WRITE_CANCELED,
+            Direction::ReadOrWrite => {
+                Ready::READABLE
+                    | Ready::WRITABLE
+                    | Ready::READ_CLOSED
+                    | Ready::WRITE_CLOSED
+                    | Ready::READ_CANCELED
+                    | Ready::WRITE_CANCELED
+            }
         }
     }
 }

@@ -53,11 +53,11 @@ pub(crate) fn new_socket(
     // Gives a warning for platforms without SOCK_NONBLOCK.
     #[allow(clippy::let_and_return)]
     #[cfg(unix)]
-    let socket = crate::syscall!(socket(domain, socket_type, 0));
+    let socket = unsafe { crate::syscall!(socket(domain, socket_type, 0)) };
 
     // Mimic `libstd` and set `SO_NOSIGPIPE` on apple systems.
     #[cfg(target_vendor = "apple")]
-    let socket = socket.and_then(|socket| {
+    let socket = socket.and_then(|socket| unsafe {
         crate::syscall!(setsockopt(
             socket,
             libc::SOL_SOCKET,
@@ -71,18 +71,20 @@ pub(crate) fn new_socket(
     // Darwin doesn't have SOCK_NONBLOCK or SOCK_CLOEXEC.
     #[cfg(any(target_os = "ios", target_os = "macos"))]
     let socket = socket.and_then(|socket| {
-        // For platforms that don't support flags in socket, we need to
-        // set the flags ourselves.
-        crate::syscall!(fcntl(socket, libc::F_SETFL, libc::O_NONBLOCK))
-            .and_then(|_| {
-                crate::syscall!(fcntl(socket, libc::F_SETFD, libc::FD_CLOEXEC)).map(|_| socket)
-            })
-            .map_err(|e| {
-                // If either of the `fcntl` calls failed, ensure the socket is
-                // closed and return the error.
-                let _ = crate::syscall!(close(socket));
-                e
-            })
+        unsafe {
+            // For platforms that don't support flags in socket, we need to
+            // set the flags ourselves.
+            crate::syscall!(fcntl(socket, libc::F_SETFL, libc::O_NONBLOCK))
+                .and_then(|_| {
+                    crate::syscall!(fcntl(socket, libc::F_SETFD, libc::FD_CLOEXEC)).map(|_| socket)
+                })
+                .map_err(|e| {
+                    // If either of the `fcntl` calls failed, ensure the socket is
+                    // closed and return the error.
+                    let _ = crate::syscall!(close(socket));
+                    e
+                })
+        }
     });
 
     socket
@@ -100,29 +102,29 @@ pub(crate) fn new_socket(
     domain: ADDRESS_FAMILY,
     socket_type: WINSOCK_SOCKET_TYPE,
 ) -> std::io::Result<RawSocket> {
-    let _: i32 = crate::syscall!(
-        WSAStartup(MAKEWORD(2, 2), std::ptr::null_mut()),
-        PartialEq::eq,
-        NO_ERROR as _
-    )?;
-    let socket = crate::syscall!(
-        socket(domain as _, socket_type, 0),
-        PartialEq::eq,
-        INVALID_SOCKET
-    )?;
-    crate::syscall!(
-        ioctlsocket(socket, FIONBIO, &mut 1),
-        PartialEq::ne,
-        NO_ERROR as _
-    )
-    .map(|_: i32| socket as RawSocket)
-    .map_err(|e| {
-        // If either of the `ioctlsocket` calls failed, ensure the socket is
-        // closed and return the error.
-        unsafe {
+    unsafe {
+        let _: i32 = crate::syscall!(
+            WSAStartup(MAKEWORD(2, 2), std::ptr::null_mut()),
+            PartialEq::eq,
+            NO_ERROR as _
+        )?;
+        let socket = crate::syscall!(
+            socket(domain as _, socket_type, 0),
+            PartialEq::eq,
+            INVALID_SOCKET
+        )?;
+        crate::syscall!(
+            ioctlsocket(socket, FIONBIO, &mut 1),
+            PartialEq::ne,
+            NO_ERROR as _
+        )
+        .map(|_: i32| socket as RawSocket)
+        .map_err(|e| {
+            // If either of the `ioctlsocket` calls failed, ensure the socket is
+            // closed and return the error.
             closesocket(socket);
             WSACleanup();
-        }
-        e
-    })
+            e
+        })
+    }
 }

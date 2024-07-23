@@ -57,22 +57,26 @@ impl OpAble for Fsync {
 
     #[cfg(all(any(feature = "legacy", feature = "poll-io"), windows))]
     fn legacy_call(&mut self) -> io::Result<u32> {
-        syscall!(
-            FlushFileBuffers(self.fd.as_raw_handle() as _),
-            PartialEq::eq,
-            0
-        )
+        unsafe {
+            syscall!(
+                FlushFileBuffers(self.fd.as_raw_handle() as _),
+                PartialEq::eq,
+                0
+            )
+        }
     }
 
     #[cfg(all(any(feature = "legacy", feature = "poll-io"), unix))]
     fn legacy_call(&mut self) -> io::Result<u32> {
-        #[cfg(target_os = "linux")]
-        if self.data_sync {
-            syscall_u32!(fdatasync(self.fd.raw_fd()))
-        } else {
+        unsafe {
+            #[cfg(target_os = "linux")]
+            if self.data_sync {
+                syscall_u32!(fdatasync(self.fd.raw_fd()))
+            } else {
+                syscall_u32!(fsync(self.fd.raw_fd()))
+            }
+            #[cfg(not(target_os = "linux"))]
             syscall_u32!(fsync(self.fd.raw_fd()))
         }
-        #[cfg(not(target_os = "linux"))]
-        syscall_u32!(fsync(self.fd.raw_fd()))
     }
 }

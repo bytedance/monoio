@@ -8,7 +8,7 @@ use monoio::{
     net::TcpStream,
 };
 
-#[monoio::test_all]
+#[monoio::test_all(internal = true)]
 async fn split() -> Result<()> {
     const MSG: &[u8] = b"split";
 
