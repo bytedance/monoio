@@ -193,3 +193,18 @@ fn assert_invalid_fd(fd: RawFd, base: std::fs::Metadata) {
         }
     }
 }
+
+#[monoio::test_all]
+async fn file_from_std() {
+    let tempfile = tempfile();
+    let std_file = std::fs::OpenOptions::new()
+        .read(true)
+        .write(true)
+        .create(true)
+        .open(tempfile.path())
+        .unwrap();
+    let file = File::from_std(std_file).unwrap();
+    file.write_at(HELLO, 0).await.0.unwrap();
+    file.sync_all().await.unwrap();
+    read_hello(&file).await;
+}
