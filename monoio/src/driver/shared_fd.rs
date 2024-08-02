@@ -57,9 +57,8 @@ impl State {
                     #[cfg(feature = "legacy")]
                     crate::driver::Inner::Legacy(_) => panic!("unexpected legacy runtime"),
                 })
-                .map_err(|e| {
+                .inspect_err(|_| {
                     let _ = crate::syscall!(fcntl(fd, libc::F_SETFL, 0));
-                    e
                 })?;
             *state = UringState::Legacy(Some(reg));
         } else {
@@ -97,9 +96,8 @@ impl State {
                 #[cfg(feature = "legacy")]
                 crate::driver::Inner::Legacy(_) => panic!("unexpected legacy runtime"),
             })
-            .map_err(|e| {
+            .inspect_err(|_| {
                 let _ = crate::syscall!(fcntl(fd, libc::F_SETFL, libc::O_NONBLOCK));
-                e
             })?;
         *self = State::Uring(UringState::Init);
         Ok(())

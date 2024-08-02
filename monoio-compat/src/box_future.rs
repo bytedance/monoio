@@ -1,7 +1,7 @@
 use std::{future::Future, io};
 
 use monoio::BufResult;
-use reusable_box_future::{ReusableLocalBoxFuture, ReusableBoxFuture};
+use reusable_box_future::{ReusableBoxFuture, ReusableLocalBoxFuture};
 
 use crate::buf::{Buf, RawBuf};
 

@@ -114,10 +114,6 @@ impl StateCell {
         }
     }
 
-    fn is_pending(&self) -> bool {
-        self.state.get() == STATE_PENDING_FIRE
-    }
-
     /// Returns the current expiration time, or None if not currently scheduled.
     fn when(&self) -> Option<u64> {
         let cur_state = self.state.get();
@@ -523,10 +519,6 @@ impl TimerHandle {
 
     pub(super) unsafe fn sync_when(&self) -> u64 {
         unsafe { self.inner.as_ref().sync_when() }
-    }
-
-    pub(super) unsafe fn is_pending(&self) -> bool {
-        unsafe { self.inner.as_ref().state.is_pending() }
     }
 
     /// Forcibly sets the true and cached expiration times to the given tick.

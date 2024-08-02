@@ -224,9 +224,8 @@ impl TcpListener {
             .as_ref()
             .unwrap()
             .local_addr()
-            .map(|addr| {
+            .inspect(|&addr| {
                 unsafe { &mut *meta }.local_addr = Some(addr);
-                addr
             })
     }
 
