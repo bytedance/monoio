@@ -1,13 +1,10 @@
 mod unix;
 mod windows;
 
-use crate::driver::op::Op;
+use std::{os::unix::fs::MetadataExt, path::Path, time::SystemTime};
 
-use super::file_type::FileType;
-use super::permissions::Permissions;
-use std::os::unix::fs::MetadataExt;
-use std::path::Path;
-use std::time::SystemTime;
+use super::{file_type::FileType, permissions::Permissions};
+use crate::driver::op::Op;
 
 /// Given a path, query the file system to get information about a file,
 /// directory, etc.
