@@ -2,7 +2,6 @@
 // in the future, this will change to the reverse. For now, suppress this
 // warning and generally stick with being explicit about unsafety.
 #![allow(unused_unsafe)]
-#![cfg_attr(not(feature = "rt"), allow(dead_code))]
 
 //! Time driver
 
@@ -171,16 +170,6 @@ where
             handle: Handle::new(Rc::new(inner)),
             park,
         }
-    }
-
-    /// Returns a handle to the timer.
-    ///
-    /// The `Handle` is how `Sleep` instances are created. The `Sleep` instances
-    /// can either be created directly or the `Handle` instance can be passed to
-    /// `with_default`, setting the timer as the default timer for the execution
-    /// context.
-    pub(crate) fn handle(&self) -> Handle {
-        self.handle.clone()
     }
 
     fn park_internal(&self, limit: Option<Duration>) -> io::Result<()> {

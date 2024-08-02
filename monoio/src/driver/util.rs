@@ -32,6 +32,7 @@ pub(super) fn timespec(duration: std::time::Duration) -> io_uring::types::Timesp
 #[macro_export]
 macro_rules! syscall {
     ($fn: ident ( $($arg: expr),* $(,)* ) ) => {{
+        #[allow(clippy::macro_metavars_in_unsafe)]
         let res = unsafe { libc::$fn($($arg, )*) };
         if res == -1 {
             Err(std::io::Error::last_os_error())
@@ -62,6 +63,7 @@ macro_rules! syscall_u32 {
         #[cfg(windows)]
         let res = unsafe { $fn($($arg, )*) };
         #[cfg(unix)]
+        #[allow(clippy::macro_metavars_in_unsafe)]
         let res = unsafe { libc::$fn($($arg, )*) };
         if res < 0 {
             Err(std::io::Error::last_os_error())

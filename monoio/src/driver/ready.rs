@@ -73,7 +73,7 @@ impl Ready {
     pub(crate) fn from_mio(event: &mio::event::Event) -> Ready {
         let mut ready = Ready::EMPTY;
 
-        #[cfg(all(target_os = "freebsd", feature = "net"))]
+        #[cfg(all(target_os = "freebsd", feature = "legacy"))]
         {
             if event.is_aio() {
                 ready |= Ready::READABLE;
@@ -149,6 +149,8 @@ impl Ready {
 /// Specifies the readiness events the caller is interested in when awaiting on
 /// I/O resource readiness states.
 #[derive(Clone, Copy, Eq, PartialEq)]
+// TODO: Do we need to remove it?
+#[allow(dead_code)]
 pub(crate) struct Interest(mio::Interest);
 
 impl Interest {

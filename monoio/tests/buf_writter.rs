@@ -13,9 +13,9 @@ async fn ensure_buf_writter_write_properly() {
         let (_, stream_write) = stream.into_split();
 
         let mut buf_w = BufWriter::new(stream_write);
-        assert!(buf_w.write(&[b'1']).await.0.is_ok());
-        assert!(buf_w.write(&[b'2']).await.0.is_ok());
-        assert!(buf_w.write(&[b'3']).await.0.is_ok());
+        assert!(buf_w.write(b"1").await.0.is_ok());
+        assert!(buf_w.write(b"2").await.0.is_ok());
+        assert!(buf_w.write(b"3").await.0.is_ok());
         assert!(buf_w.flush().await.is_ok());
     });
 
