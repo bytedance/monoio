@@ -9,6 +9,7 @@ name = "monoio"
 readme = "../README.md"
 repository = "https://github.com/bytedance/monoio"
 version = "0.2.3"
+rust-version = "1.80"
 
 # common dependencies
 [dependencies]
@@ -61,6 +62,8 @@ tempfile = "3.2"
 
 [features]
 # use nightly only feature flags
+#
+# This feature has been deprecated and will be removed in the future.
 unstable = []
 # async-cancel will push a async-cancel entry into sq when op is canceled
 async-cancel = []

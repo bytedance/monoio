@@ -400,13 +400,6 @@ impl UringInner {
     fn submit(&mut self) -> io::Result<()> {
         loop {
             match self.uring.submit() {
-                #[cfg(feature = "unstable")]
-                Err(ref e)
-                    if matches!(e.kind(), io::ErrorKind::Other | io::ErrorKind::ResourceBusy) =>
-                {
-                    self.tick()?;
-                }
-                #[cfg(not(feature = "unstable"))]
                 Err(ref e)
                     if matches!(e.raw_os_error(), Some(libc::EAGAIN) | Some(libc::EBUSY)) =>
                 {
