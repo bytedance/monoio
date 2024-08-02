@@ -115,13 +115,12 @@ pub(crate) fn new_socket(
         NO_ERROR as _
     )
     .map(|_: i32| socket as RawSocket)
-    .map_err(|e| {
+    .inspect_err(|_| {
         // If either of the `ioctlsocket` calls failed, ensure the socket is
         // closed and return the error.
         unsafe {
             closesocket(socket);
             WSACleanup();
         }
-        e
     })
 }

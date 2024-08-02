@@ -122,9 +122,8 @@ impl OpAble for Accept {
             let stream_fd = syscall_u32!(accept(fd, addr, len))? as i32;
             syscall_u32!(fcntl(stream_fd, libc::F_SETFD, libc::FD_CLOEXEC))
                 .and_then(|_| syscall_u32!(fcntl(stream_fd, libc::F_SETFL, libc::O_NONBLOCK)))
-                .map_err(|e| {
+                .inspect_err(|_| {
                     let _ = syscall_u32!(close(stream_fd));
-                    e
                 })?;
             Ok(stream_fd as _)
         };
