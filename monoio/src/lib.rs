@@ -2,6 +2,7 @@
 #![cfg_attr(docsrs, feature(doc_cfg))]
 #![warn(missing_docs, unreachable_pub)]
 #![allow(stable_features)]
+#![allow(clippy::macro_metavars_in_unsafe)]
 #![cfg_attr(feature = "unstable", feature(io_error_more))]
 #![cfg_attr(feature = "unstable", feature(lazy_cell))]
 #![cfg_attr(feature = "unstable", feature(stmt_expr_attributes))]

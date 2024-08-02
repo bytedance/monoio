@@ -77,11 +77,10 @@ pub(crate) fn new_socket(
             .and_then(|_| {
                 crate::syscall!(fcntl(socket, libc::F_SETFD, libc::FD_CLOEXEC)).map(|_| socket)
             })
-            .map_err(|e| {
+            .inspect_err(|_| {
                 // If either of the `fcntl` calls failed, ensure the socket is
                 // closed and return the error.
                 let _ = crate::syscall!(close(socket));
-                e
             })
     });
 
