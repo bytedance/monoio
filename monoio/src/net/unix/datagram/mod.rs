@@ -74,7 +74,7 @@ impl UnixDatagram {
     pub fn from_std(datagram: StdUnixDatagram) -> io::Result<Self> {
         match SharedFd::new::<false>(datagram.as_raw_fd()) {
             Ok(shared) => {
-                datagram.into_raw_fd();
+                let _ = datagram.into_raw_fd();
                 Ok(Self::from_shared_fd(shared))
             }
             Err(e) => Err(e),

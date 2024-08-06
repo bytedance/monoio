@@ -221,9 +221,9 @@ impl TcpStream {
         match SharedFd::new::<false>(fd) {
             Ok(shared) => {
                 #[cfg(unix)]
-                stream.into_raw_fd();
+                let _ = stream.into_raw_fd();
                 #[cfg(windows)]
-                stream.into_raw_socket();
+                let _ = stream.into_raw_socket();
                 Ok(Self::from_shared_fd(shared))
             }
             Err(e) => Err(e),
@@ -651,8 +651,8 @@ impl Drop for StreamMeta {
     fn drop(&mut self) {
         let socket = self.socket.take().unwrap();
         #[cfg(unix)]
-        socket.into_raw_fd();
+        let _ = socket.into_raw_fd();
         #[cfg(windows)]
-        socket.into_raw_socket();
+        let _ = socket.into_raw_socket();
     }
 }

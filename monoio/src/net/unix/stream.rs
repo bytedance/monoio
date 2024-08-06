@@ -88,7 +88,7 @@ impl UnixStream {
     pub fn from_std(stream: std::os::unix::net::UnixStream) -> io::Result<Self> {
         match SharedFd::new::<false>(stream.as_raw_fd()) {
             Ok(shared) => {
-                stream.into_raw_fd();
+                let _ = stream.into_raw_fd();
                 Ok(Self::from_shared_fd(shared))
             }
             Err(e) => Err(e),

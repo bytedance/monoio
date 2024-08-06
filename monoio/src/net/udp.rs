@@ -100,9 +100,9 @@ impl UdpSocket {
         let socket = unsafe { socket2::Socket::from_raw_socket(self.fd.as_raw_socket()) };
         let addr = socket.peer_addr();
         #[cfg(unix)]
-        socket.into_raw_fd();
+        let _ = socket.into_raw_fd();
         #[cfg(windows)]
-        socket.into_raw_socket();
+        let _ = socket.into_raw_socket();
         addr?
             .as_socket()
             .ok_or_else(|| io::ErrorKind::InvalidInput.into())
@@ -116,9 +116,9 @@ impl UdpSocket {
         let socket = unsafe { socket2::Socket::from_raw_socket(self.fd.as_raw_socket()) };
         let addr = socket.local_addr();
         #[cfg(unix)]
-        socket.into_raw_fd();
+        let _ = socket.into_raw_fd();
         #[cfg(windows)]
-        socket.into_raw_socket();
+        let _ = socket.into_raw_socket();
         addr?
             .as_socket()
             .ok_or_else(|| io::ErrorKind::InvalidInput.into())
@@ -156,9 +156,9 @@ impl UdpSocket {
         match SharedFd::new::<false>(fd) {
             Ok(shared) => {
                 #[cfg(unix)]
-                socket.into_raw_fd();
+                let _ = socket.into_raw_fd();
                 #[cfg(windows)]
-                socket.into_raw_socket();
+                let _ = socket.into_raw_socket();
                 Ok(Self::from_shared_fd(shared))
             }
             Err(e) => Err(e),
@@ -172,13 +172,13 @@ impl UdpSocket {
         let r = {
             let socket = unsafe { socket2::Socket::from_raw_fd(self.fd.as_raw_fd()) };
             let r = socket.set_reuse_address(reuse);
-            socket.into_raw_fd();
+            let _ = socket.into_raw_fd();
             r
         };
         #[cfg(windows)]
         let r = {
             let socket = unsafe { socket2::Socket::from_raw_socket(self.fd.as_raw_socket()) };
-            socket.into_raw_socket();
+            let _ = socket.into_raw_socket();
             Ok(())
         };
         r
@@ -191,13 +191,13 @@ impl UdpSocket {
         let r = {
             let socket = unsafe { socket2::Socket::from_raw_fd(self.fd.as_raw_fd()) };
             let r = socket.set_reuse_port(reuse);
-            socket.into_raw_fd();
+            let _ = socket.into_raw_fd();
             r
         };
         #[cfg(windows)]
         let r = {
             let socket = unsafe { socket2::Socket::from_raw_socket(self.fd.as_raw_socket()) };
-            socket.into_raw_socket();
+            let _ = socket.into_raw_socket();
             Ok(())
         };
         r
