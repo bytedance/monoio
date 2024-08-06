@@ -263,9 +263,9 @@ impl TcpListener {
         match SharedFd::new::<false>(fd) {
             Ok(shared) => {
                 #[cfg(unix)]
-                stdl.into_raw_fd();
+                let _ = stdl.into_raw_fd();
                 #[cfg(windows)]
-                stdl.into_raw_socket();
+                let _ = stdl.into_raw_socket();
                 Ok(Self::from_shared_fd(shared))
             }
             Err(e) => Err(e),
@@ -309,9 +309,9 @@ impl Drop for TcpListener {
     fn drop(&mut self) {
         let listener = self.sys_listener.take().unwrap();
         #[cfg(unix)]
-        listener.into_raw_fd();
+        let _ = listener.into_raw_fd();
         #[cfg(windows)]
-        listener.into_raw_socket();
+        let _ = listener.into_raw_socket();
     }
 }
 

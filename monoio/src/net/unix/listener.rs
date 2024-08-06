@@ -176,7 +176,7 @@ impl IntoRawFd for UnixListener {
         };
         std::mem::swap(&mut this.fd, &mut fd);
         std::mem::swap(&mut this.sys_listener, &mut sys_listener);
-        sys_listener.take().unwrap().into_raw_fd();
+        let _ = sys_listener.take().unwrap().into_raw_fd();
 
         fd.try_unwrap()
             .expect("unexpected multiple reference to rawfd")
@@ -193,6 +193,6 @@ impl AsRawFd for UnixListener {
 impl Drop for UnixListener {
     #[inline]
     fn drop(&mut self) {
-        self.sys_listener.take().unwrap().into_raw_fd();
+        let _ = self.sys_listener.take().unwrap().into_raw_fd();
     }
 }
