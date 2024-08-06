@@ -9,8 +9,10 @@ if [ "${NO_RUN}" != "1" ] && [ "${NO_RUN}" != "true" ]; then
         export CARGO_NET_RETRY=5
         export CARGO_NET_TIMEOUT=10
 
-        cargo install cross
+        cargo install cross --git "https://github.com/cross-rs/cross" --rev "7b79041c9278769eca57fae10c74741f5aa5c14b"
         CARGO=cross
+
+        cargo clean
     fi
 
     # If a test crashes, we want to know which one it was.
@@ -31,13 +33,13 @@ if [ "${NO_RUN}" != "1" ] && [ "${NO_RUN}" != "true" ]; then
     fi
 
     if [ "${TARGET}" != "aarch64-unknown-linux-gnu" ] && [ "${TARGET}" != "armv7-unknown-linux-gnueabihf" ] &&
-       [ "${TARGET}" != "riscv64gc-unknown-linux-gnu" ] && [ "${TARGET}" != "s390x-unknown-linux-gnu" ]; then
+        [ "${TARGET}" != "riscv64gc-unknown-linux-gnu" ] && [ "${TARGET}" != "s390x-unknown-linux-gnu" ]; then
         # enable uring+legacy driver
         "${CARGO}" test --target "${TARGET}"
         "${CARGO}" test --target "${TARGET}" --release
     fi
 
-    if [ "${CHANNEL}" == "nightly" ] && ( [ "${TARGET}" = "x86_64-unknown-linux-gnu" ] || [ "${TARGET}" = "i686-unknown-linux-gnu" ] ); then
+    if [ "${CHANNEL}" == "nightly" ] && ([ "${TARGET}" = "x86_64-unknown-linux-gnu" ] || [ "${TARGET}" = "i686-unknown-linux-gnu" ]); then
         "${CARGO}" test --target "${TARGET}" --all-features
         "${CARGO}" test --target "${TARGET}" --all-features --release
     fi
