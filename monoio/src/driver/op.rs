@@ -22,6 +22,9 @@ mod write;
 #[cfg(unix)]
 mod statx;
 
+#[cfg(all(unix, feature = "mkdirat"))]
+mod mkdir;
+
 #[cfg(all(target_os = "linux", feature = "splice"))]
 mod splice;
 
