@@ -71,6 +71,8 @@ zero-copy = []
 splice = []
 # mkdirat2 op(requires kernel 5.15+)
 mkdirat = []
+# unlinkat op(requires kernel 5.11+)
+unlinkat = []
 # enable `async main` macros support
 macros = ["monoio-macros"]
 # allow waker to be sent across threads
