@@ -25,6 +25,9 @@ mod statx;
 #[cfg(all(unix, feature = "mkdirat"))]
 mod mkdir;
 
+#[cfg(all(unix, feature = "unlinkat"))]
+mod unlink;
+
 #[cfg(all(target_os = "linux", feature = "splice"))]
 mod splice;
 

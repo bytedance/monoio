@@ -34,6 +34,8 @@ mod permissions;
 pub use permissions::Permissions;
 
 use crate::buf::IoBuf;
+#[cfg(all(unix, feature = "unlinkat"))]
+use crate::driver::op::Op;
 
 /// Read the entire contents of a file into a bytes vector.
 #[cfg(unix)]
@@ -61,4 +63,73 @@ pub async fn write<P: AsRef<Path>, C: IoBuf>(path: P, contents: C) -> (io::Resul
         Err(e) => return (Err(e), contents),
     };
     file.write_all_at(contents, 0).await
+}
+
+/// Removes a file from the filesystem.
+///
+/// Note that there is no
+/// guarantee that the file is immediately deleted (e.g., depending on
+/// platform, other open file descriptors may prevent immediate removal).
+///
+/// # Platform-specific behavior
+///
+/// This function is currently only implemented for Unix.
+///
+/// # Errors
+///
+/// This function will return an error in the following situations, but is not
+/// limited to just these cases:
+///
+/// * `path` points to a directory.
+/// * The file doesn't exist.
+/// * The user lacks permissions to remove the file.
+///
+/// # Examples
+///
+/// ```no_run
+/// use monoio::fs::File;
+///
+/// #[monoio::main]
+/// async fn main() -> std::io::Result<()> {
+///     fs::remove_file("a.txt").await?;
+///     Ok(())
+/// }
+/// ```
+#[cfg(all(unix, feature = "unlinkat"))]
+pub async fn remove_file<P: AsRef<Path>>(path: P) -> io::Result<()> {
+    Op::unlink(path)?.await.meta.result?;
+    Ok(())
+}
+
+/// Removes an empty directory.
+///
+/// # Platform-specific behavior
+///
+/// This function is currently only implemented for Unix.
+///
+/// # Errors
+///
+/// This function will return an error in the following situations, but is not
+/// limited to just these cases:
+///
+/// * `path` doesn't exist.
+/// * `path` isn't a directory.
+/// * The user lacks permissions to remove the directory at the provided `path`.
+/// * The directory isn't empty.
+///
+/// # Examples
+///
+/// ```no_run
+/// use monoio::fs::File;
+///
+/// #[monoio::main]
+/// async fn main() -> std::io::Result<()> {
+///     fs::remove_dir("/some/dir").await?;
+///     Ok(())
+/// }
+/// ```
+#[cfg(all(unix, feature = "unlinkat"))]
+pub async fn remove_dir<P: AsRef<Path>>(path: P) -> io::Result<()> {
+    Op::rmdir(path)?.await.meta.result?;
+    Ok(())
 }
