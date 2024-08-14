@@ -28,6 +28,9 @@ mod mkdir;
 #[cfg(all(unix, feature = "unlinkat"))]
 mod unlink;
 
+#[cfg(all(unix, feature = "renameat"))]
+mod rename;
+
 #[cfg(all(target_os = "linux", feature = "splice"))]
 mod splice;
 

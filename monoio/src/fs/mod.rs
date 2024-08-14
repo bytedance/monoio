@@ -133,3 +133,36 @@ pub async fn remove_dir<P: AsRef<Path>>(path: P) -> io::Result<()> {
     Op::rmdir(path)?.await.meta.result?;
     Ok(())
 }
+
+/// Rename a file or directory to a new name, replacing the original file if
+/// `to` already exists.
+///
+/// This will not work if the new name is on a different mount point.
+///
+/// This is async version of [std::fs::rename].
+///
+/// # Errors
+///
+/// This function will return an error in the following situations, but is not
+/// limited to just these cases:
+///
+/// * `from` does not exist.
+/// * The user lacks permissions to view contents.
+/// * `from` and `to` are on separate filesystems.
+///
+/// # Examples
+///
+/// ```no_run
+/// use monoio::fs;
+///
+/// #[monoio::main]
+/// async fn main() -> std::io::Result<()> {
+///     fs::rename("a.txt", "b.txt")?; // Rename a.txt to b.txt
+///     Ok(())
+/// }
+/// ```
+#[cfg(all(unix, feature = "renameat"))]
+pub async fn rename<P: AsRef<Path>, Q: AsRef<Path>>(from: P, to: Q) -> io::Result<()> {
+    Op::rename(from.as_ref(), to.as_ref())?.await.meta.result?;
+    Ok(())
+}
