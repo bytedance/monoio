@@ -73,6 +73,8 @@ splice = []
 mkdirat = []
 # unlinkat op(requires kernel 5.11+)
 unlinkat = []
+# renameat op(requires kernel 5.11+)
+renameat = []
 # enable `async main` macros support
 macros = ["monoio-macros"]
 # allow waker to be sent across threads
