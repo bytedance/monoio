@@ -25,12 +25,12 @@ pub use metadata::{metadata, symlink_metadata, Metadata};
 
 #[cfg(unix)]
 mod file_type;
-#[cfg(target_os = "linux")]
+#[cfg(unix)]
 pub use file_type::FileType;
 
 #[cfg(unix)]
 mod permissions;
-#[cfg(target_os = "linux")]
+#[cfg(unix)]
 pub use permissions::Permissions;
 
 use crate::buf::IoBuf;
@@ -87,11 +87,9 @@ pub async fn write<P: AsRef<Path>, C: IoBuf>(path: P, contents: C) -> (io::Resul
 /// # Examples
 ///
 /// ```no_run
-/// use monoio::fs::File;
-///
 /// #[monoio::main]
 /// async fn main() -> std::io::Result<()> {
-///     fs::remove_file("a.txt").await?;
+///     monoio::fs::remove_file("a.txt").await?;
 ///     Ok(())
 /// }
 /// ```
@@ -120,11 +118,9 @@ pub async fn remove_file<P: AsRef<Path>>(path: P) -> io::Result<()> {
 /// # Examples
 ///
 /// ```no_run
-/// use monoio::fs::File;
-///
 /// #[monoio::main]
 /// async fn main() -> std::io::Result<()> {
-///     fs::remove_dir("/some/dir").await?;
+///     monoio::fs::remove_dir("/some/dir").await?;
 ///     Ok(())
 /// }
 /// ```
@@ -153,11 +149,9 @@ pub async fn remove_dir<P: AsRef<Path>>(path: P) -> io::Result<()> {
 /// # Examples
 ///
 /// ```no_run
-/// use monoio::fs;
-///
 /// #[monoio::main]
 /// async fn main() -> std::io::Result<()> {
-///     fs::rename("a.txt", "b.txt")?; // Rename a.txt to b.txt
+///     monoio::fs::rename("a.txt", "b.txt").await?; // Rename a.txt to b.txt
 ///     Ok(())
 /// }
 /// ```
