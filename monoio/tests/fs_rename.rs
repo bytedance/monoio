@@ -51,10 +51,10 @@ async fn mv_file_in_different_directory() {
 }
 
 #[monoio::test_all]
-async fn rename_inexist_file() {
+async fn rename_nonexistent_file() {
     let temp_dir = tempfile::tempdir().unwrap();
 
-    let old_file_path = temp_dir.path().join("inexist.txt");
+    let old_file_path = temp_dir.path().join("nonexistent.txt");
     let new_file_path = temp_dir.path().join("renamed.txt");
 
     let result = monoio::fs::rename(old_file_path, new_file_path).await;
