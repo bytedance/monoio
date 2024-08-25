@@ -2,7 +2,7 @@ use std::{
     fmt,
     sync::atomic::{
         AtomicUsize,
-        Ordering::{AcqRel, Acquire, Release},
+        Ordering::{AcqRel, Acquire},
     },
 };
 
@@ -80,10 +80,6 @@ impl State {
         Snapshot(self.0.load(Acquire))
     }
 
-    pub(crate) fn store(&self, val: Snapshot) {
-        self.0.store(val.0, Release);
-    }
-
     /// Attempt to transition the lifecycle to `Running`. This sets the
     /// notified bit to false so notifications during the poll can be detected.
     pub(super) fn transition_to_running(&self) {
@@ -156,12 +152,18 @@ impl State {
     /// Optimistically tries to swap the state assuming the join handle is
     /// __immediately__ dropped on spawn
     pub(super) fn drop_join_handle_fast(&self) -> Result<(), ()> {
-        if *self.load() == INITIAL_STATE {
-            self.store(Snapshot((INITIAL_STATE - REF_ONE) & !JOIN_INTEREST));
-            trace!("MONOIO DEBUG[State]: drop_join_handle_fast");
-            Ok(())
-        } else {
-            Err(())
+        match self.fetch_update(|curr| {
+            if *curr == INITIAL_STATE {
+                Some(Snapshot((INITIAL_STATE - REF_ONE) & !JOIN_INTEREST))
+            } else {
+                None
+            }
+        }) {
+            Ok(_) => {
+                trace!("MONOIO DEBUG[State]: drop_join_handle_fast");
+                Ok(())
+            }
+            Err(_) => Err(()),
         }
     }
 
