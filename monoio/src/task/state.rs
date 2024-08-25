@@ -80,11 +80,6 @@ impl State {
         Snapshot(self.0.load(Acquire))
     }
 
-    #[allow(dead_code)]
-    pub(crate) fn store(&self, val: Snapshot) {
-        self.0.store(val.0, Release);
-    }
-
     /// Attempt to transition the lifecycle to `Running`. This sets the
     /// notified bit to false so notifications during the poll can be detected.
     pub(super) fn transition_to_running(&self) {
