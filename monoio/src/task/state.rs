@@ -2,7 +2,7 @@ use std::{
     fmt,
     sync::atomic::{
         AtomicUsize,
-        Ordering::{AcqRel, Acquire, Release},
+        Ordering::{AcqRel, Acquire},
     },
 };
 
