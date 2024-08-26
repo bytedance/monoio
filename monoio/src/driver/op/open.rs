@@ -79,9 +79,15 @@ impl OpAble for Open {
 
     #[cfg(all(any(feature = "legacy", feature = "poll-io"), windows))]
     fn legacy_call(&mut self) -> io::Result<u32> {
+        use std::{ffi::OsString, os::windows::ffi::OsStrExt};
+
+        let os_str = OsString::from(self.path.to_string_lossy().into_owned());
+
+        // Convert OsString to wide character format (Vec<u16>).
+        let wide_path: Vec<u16> = os_str.encode_wide().chain(Some(0)).collect();
         syscall!(
             CreateFileW(
-                self.path.as_c_str().as_ptr().cast(),
+                wide_path.as_ptr(),
                 self.opts.access_mode()?,
                 self.opts.share_mode,
                 self.opts.security_attributes,

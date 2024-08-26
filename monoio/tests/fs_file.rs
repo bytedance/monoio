@@ -1,6 +1,4 @@
-// todo fix these CI in windows
-#![cfg(not(windows))]
-use std::io::prelude::*;
+use std::io::{prelude::*, SeekFrom};
 #[cfg(unix)]
 use std::os::unix::io::{AsRawFd, FromRawFd, RawFd};
 #[cfg(windows)]
@@ -55,7 +53,7 @@ async fn basic_write() {
     file.write_at(HELLO, 0).await.0.unwrap();
     file.sync_all().await.unwrap();
 
-    let file = std::fs::read(tempfile.path()).unwrap();
+    let file = monoio::fs::read(tempfile.path()).await.unwrap();
     assert_eq!(file, HELLO);
 }
 
@@ -167,6 +165,7 @@ async fn poll_once(future: impl std::future::Future) {
     .await;
 }
 
+#[allow(unused, clippy::needless_return)]
 fn assert_invalid_fd(fd: RawFd, base: std::fs::Metadata) {
     use std::fs::File;
     #[cfg(unix)]
@@ -194,6 +193,7 @@ fn assert_invalid_fd(fd: RawFd, base: std::fs::Metadata) {
     }
 }
 
+#[cfg(unix)]
 #[monoio::test_all]
 async fn file_from_std() {
     let tempfile = tempfile();
@@ -207,4 +207,45 @@ async fn file_from_std() {
     file.write_at(HELLO, 0).await.0.unwrap();
     file.sync_all().await.unwrap();
     read_hello(&file).await;
+}
+
+#[monoio::test_all]
+async fn position_read() {
+    let mut tempfile = tempfile();
+    tempfile.write_all(HELLO).unwrap();
+    tempfile.as_file_mut().sync_data().unwrap();
+
+    let file = File::open(tempfile.path()).await.unwrap();
+
+    // Modify the file pointer.
+    let mut std_file = std::fs::File::open(tempfile.path()).unwrap();
+    std_file.seek(SeekFrom::Start(8)).unwrap();
+
+    let buf = Vec::with_capacity(1024);
+    let (res, buf) = file.read_at(buf, 4).await;
+    let n = res.unwrap();
+
+    assert!(n > 0 && n <= HELLO.len() - 4);
+    assert_eq!(&buf, &HELLO[4..4 + n]);
+}
+
+#[monoio::test_all]
+async fn position_write() {
+    let tempfile = tempfile();
+
+    let file = File::create(tempfile.path()).await.unwrap();
+    file.write_at(HELLO, 0).await.0.unwrap();
+    file.sync_all().await.unwrap();
+
+    // Modify the file pointer.
+    let mut std_file = std::fs::File::open(tempfile.path()).unwrap();
+    std_file.seek(SeekFrom::Start(8)).unwrap();
+
+    file.write_at(b"monoio...", 6).await.0.unwrap();
+    file.sync_all().await.unwrap();
+
+    assert_eq!(
+        monoio::fs::read(tempfile.path()).await.unwrap(),
+        b"hello monoio..."
+    )
 }
