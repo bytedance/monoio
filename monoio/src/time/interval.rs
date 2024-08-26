@@ -9,8 +9,9 @@ use crate::{
     time::{sleep_until, Duration, Instant, Sleep},
 };
 
-/// Creates new [`Interval`] that yields with interval of `period`. The first
-/// tick completes immediately. The default [`MissedTickBehavior`] is
+/// Creates new [`Interval`] that yields with interval of `period`.
+///
+/// The first tick completes immediately. The default [`MissedTickBehavior`] is
 /// [`Burst`](MissedTickBehavior::Burst), but this can be configured
 /// by calling [`set_missed_tick_behavior`](Interval::set_missed_tick_behavior).
 ///
@@ -79,9 +80,11 @@ pub fn interval(period: Duration) -> Interval {
 }
 
 /// Creates new [`Interval`] that yields with interval of `period` with the
-/// first tick completing at `start`. The default [`MissedTickBehavior`] is
-/// [`Burst`](MissedTickBehavior::Burst), but this can be configured
-/// by calling [`set_missed_tick_behavior`](Interval::set_missed_tick_behavior).
+/// first tick completing at `start`.
+///
+/// The default [`MissedTickBehavior`] is [`Burst`](MissedTickBehavior::Burst),
+/// but this can be configured by calling
+/// [`set_missed_tick_behavior`](Interval::set_missed_tick_behavior).
 ///
 /// An interval will tick indefinitely. At any time, the [`Interval`] value can
 /// be dropped. This cancels the interval.
