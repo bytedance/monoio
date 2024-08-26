@@ -30,6 +30,9 @@ pub use file_type::FileType;
 
 #[cfg(unix)]
 mod permissions;
+#[cfg(windows)]
+use std::os::windows::io::{AsRawHandle, FromRawHandle, IntoRawHandle};
+
 #[cfg(unix)]
 pub use permissions::Permissions;
 
@@ -38,16 +41,20 @@ use crate::buf::IoBuf;
 use crate::driver::op::Op;
 
 /// Read the entire contents of a file into a bytes vector.
-#[cfg(unix)]
 pub async fn read<P: AsRef<Path>>(path: P) -> io::Result<Vec<u8>> {
-    use std::os::fd::{AsRawFd, FromRawFd, IntoRawFd};
-
     use crate::buf::IoBufMut;
 
     let file = File::open(path).await?;
-    let sys_file = unsafe { std::fs::File::from_raw_fd(file.as_raw_fd()) };
+
+    #[cfg(windows)]
+    let sys_file = unsafe { std::fs::File::from_raw_handle(file.as_raw_handle()) };
+    #[cfg(windows)]
     let size = sys_file.metadata()?.len() as usize;
-    let _ = sys_file.into_raw_fd();
+    #[cfg(windows)]
+    let _ = sys_file.into_raw_handle();
+
+    #[cfg(unix)]
+    let size = file.metadata().await?.len() as usize;
 
     let (res, buf) = file
         .read_exact_at(Vec::with_capacity(size).slice_mut(0..size), 0)

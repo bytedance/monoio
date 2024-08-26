@@ -8,7 +8,7 @@ use io_uring::{opcode, types};
 use windows_sys::Win32::{
     Foundation::TRUE,
     Networking::WinSock::WSASend,
-    Storage::FileSystem::{SetFilePointer, WriteFile, FILE_CURRENT, INVALID_SET_FILE_POINTER},
+    Storage::FileSystem::{SetFilePointer, WriteFile, FILE_BEGIN, INVALID_SET_FILE_POINTER},
 };
 
 use super::{super::shared_fd::SharedFd, Op, OpAble};
@@ -95,7 +95,9 @@ impl<T: IoBuf> OpAble for Write<T> {
         let ret = unsafe {
             // see https://learn.microsoft.com/zh-cn/windows/win32/api/fileapi/nf-fileapi-setfilepointer
             if seek_offset != 0 {
-                let r = SetFilePointer(fd, seek_offset, std::ptr::null_mut(), FILE_CURRENT);
+                // We use `FILE_BEGIN` because this behavior should be the same with unix syscall
+                // `pwrite`, which uses the offset from the begin of the file.
+                let r = SetFilePointer(fd, seek_offset, std::ptr::null_mut(), FILE_BEGIN);
                 if INVALID_SET_FILE_POINTER == r {
                     return Err(io::Error::last_os_error());
                 }
