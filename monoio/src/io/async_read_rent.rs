@@ -5,11 +5,37 @@ use crate::{
     BufResult,
 };
 
-/// AsyncReadRent: async read with a ownership of a buffer
+/// The `AsyncReadRent` trait defines asynchronous reading operations for objects that
+/// implement it.
+///
+/// It provides a way to read bytes from a source into a buffer asynchronously,
+/// which could be a file, socket, or any other byte-oriented stream.
+///
+/// Types that implement this trait are expected to manage asynchronous read operations,
+/// allowing them to interact with other asynchronous tasks without blocking the executor.
 pub trait AsyncReadRent {
-    /// Same as read(2)
+    /// Reads bytes from this source into the provided buffer, returning the number of bytes read.
+    ///
+    /// # Return
+    ///
+    /// When this method returns `(Ok(n), buf)`, it guarantees that `0 <= n <= buf.len()`. A
+    /// non-zero `n` means the buffer `buf` has been filled with `n` bytes of data from this source.
+    /// If `n` is `0`, it can indicate one of two possibilities:
+    ///
+    /// 1. The reader has likely reached the end of the file and may not produce more bytes, though
+    ///    it is not certain that no more bytes will ever be produced.
+    /// 2. The provided buffer was 0 bytes in length.
+    ///
+    /// # Errors
+    ///
+    /// If an I/O or other error occurs, an error variant will be returned, ensuring that no bytes
+    /// were read.
     fn read<T: IoBufMut>(&mut self, buf: T) -> impl Future<Output = BufResult<usize, T>>;
-    /// Same as readv(2)
+    /// Similar to `read`, but reads data into a slice of buffers.
+    ///
+    /// Data is copied sequentially into each buffer, with the last buffer potentially being only
+    /// partially filled. This method should behave equivalently to a single call to `read` with the
+    /// buffers concatenated.
     fn readv<T: IoVecBufMut>(&mut self, buf: T) -> impl Future<Output = BufResult<usize, T>>;
 }
 

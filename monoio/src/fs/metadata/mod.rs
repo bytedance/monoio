@@ -48,7 +48,7 @@ pub async fn metadata<P: AsRef<Path>>(path: P) -> std::io::Result<Metadata> {
     #[cfg(target_os = "macos")]
     let op = Op::statx_using_path(path, true)?;
 
-    op.statx_result().await.map(FileAttr::from).map(Metadata)
+    op.result().await.map(FileAttr::from).map(Metadata)
 }
 
 /// Query the metadata about a file without following symlinks.
@@ -88,7 +88,7 @@ pub async fn symlink_metadata<P: AsRef<Path>>(path: P) -> std::io::Result<Metada
     #[cfg(target_os = "macos")]
     let op = Op::statx_using_path(path, false)?;
 
-    op.statx_result().await.map(FileAttr::from).map(Metadata)
+    op.result().await.map(FileAttr::from).map(Metadata)
 }
 
 #[cfg(unix)]

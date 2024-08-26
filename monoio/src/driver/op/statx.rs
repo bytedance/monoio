@@ -28,16 +28,16 @@ type FdStatx = Statx<SharedFd>;
 impl Op<FdStatx> {
     /// submit a statx operation
     #[cfg(target_os = "linux")]
-    pub(crate) fn statx_using_fd(fd: &SharedFd, flags: i32) -> std::io::Result<Self> {
+    pub(crate) fn statx_using_fd(fd: SharedFd, flags: i32) -> std::io::Result<Self> {
         Op::submit_with(Statx {
-            inner: fd.clone(),
+            inner: fd,
             flags,
             statx_buf: Box::new(MaybeUninit::uninit()),
         })
     }
 
     #[cfg(target_os = "linux")]
-    pub(crate) async fn statx_result(self) -> std::io::Result<statx> {
+    pub(crate) async fn result(self) -> std::io::Result<statx> {
         let complete = self.await;
         complete.meta.result?;
 
@@ -45,16 +45,16 @@ impl Op<FdStatx> {
     }
 
     #[cfg(target_os = "macos")]
-    pub(crate) fn statx_using_fd(fd: &SharedFd, follow_symlinks: bool) -> std::io::Result<Self> {
+    pub(crate) fn statx_using_fd(fd: SharedFd, follow_symlinks: bool) -> std::io::Result<Self> {
         Op::submit_with(Statx {
-            inner: fd.clone(),
+            inner: fd,
             follow_symlinks,
             stat_buf: Box::new(MaybeUninit::uninit()),
         })
     }
 
     #[cfg(target_os = "macos")]
-    pub(crate) async fn statx_result(self) -> std::io::Result<libc::stat> {
+    pub(crate) async fn result(self) -> std::io::Result<libc::stat> {
         let complete = self.await;
         complete.meta.result?;
 
@@ -130,7 +130,7 @@ impl Op<PathStatx> {
     }
 
     #[cfg(target_os = "linux")]
-    pub(crate) async fn statx_result(self) -> std::io::Result<statx> {
+    pub(crate) async fn result(self) -> std::io::Result<statx> {
         let complete = self.await;
         complete.meta.result?;
 
@@ -151,7 +151,7 @@ impl Op<PathStatx> {
     }
 
     #[cfg(target_os = "macos")]
-    pub(crate) async fn statx_result(self) -> std::io::Result<libc::stat> {
+    pub(crate) async fn result(self) -> std::io::Result<libc::stat> {
         let complete = self.await;
         complete.meta.result?;
 

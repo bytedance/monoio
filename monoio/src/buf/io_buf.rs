@@ -204,6 +204,19 @@ where
     }
 }
 
+unsafe impl<T> IoBuf for std::mem::ManuallyDrop<T>
+where
+    T: IoBuf,
+{
+    fn read_ptr(&self) -> *const u8 {
+        <T as IoBuf>::read_ptr(self)
+    }
+
+    fn bytes_init(&self) -> usize {
+        <T as IoBuf>::bytes_init(self)
+    }
+}
+
 /// A mutable `io_uring` compatible buffer.
 ///
 /// The `IoBufMut` trait is implemented by buffer types that can be passed to
@@ -359,6 +372,23 @@ unsafe impl IoBufMut for bytes::BytesMut {
     }
 }
 
+unsafe impl<T> IoBufMut for std::mem::ManuallyDrop<T>
+where
+    T: IoBufMut,
+{
+    fn write_ptr(&mut self) -> *mut u8 {
+        <T as IoBufMut>::write_ptr(self)
+    }
+
+    fn bytes_total(&mut self) -> usize {
+        <T as IoBufMut>::bytes_total(self)
+    }
+
+    unsafe fn set_init(&mut self, pos: usize) {
+        <T as IoBufMut>::set_init(self, pos)
+    }
+}
+
 fn parse_range(range: impl ops::RangeBounds<usize>, end: usize) -> (usize, usize) {
     use core::ops::Bound;
 
@@ -378,6 +408,8 @@ fn parse_range(range: impl ops::RangeBounds<usize>, end: usize) -> (usize, usize
 
 #[cfg(test)]
 mod tests {
+    use std::mem::ManuallyDrop;
+
     use super::*;
 
     #[test]
@@ -508,6 +540,34 @@ mod tests {
         assert_eq!(slice.read_ptr(), unsafe { ptr.add(1) });
         assert_eq!(slice.bytes_init(), 2);
         let buf = Arc::into_inner(slice.into_inner()).unwrap();
+
+        let mut slice = buf.slice_mut(1..8);
+        assert_eq!((slice.begin(), slice.end()), (1, 8));
+        assert_eq!(slice.bytes_total(), 7);
+        unsafe { slice.set_init(5) };
+        assert_eq!(slice.bytes_init(), 5);
+        assert_eq!(slice.into_inner().len(), 6);
+    }
+
+    #[test]
+    fn io_buf_manually_drop() {
+        let mut buf = Vec::with_capacity(10);
+        buf.extend_from_slice(b"0123");
+        let mut buf = ManuallyDrop::new(buf);
+        let ptr = buf.as_ptr();
+
+        assert_eq!(buf.write_ptr(), ptr as _);
+        assert_eq!(buf.read_ptr(), ptr);
+        assert_eq!(buf.bytes_init(), 4);
+        unsafe { buf.set_init(3) };
+        assert_eq!(buf.bytes_init(), 3);
+        assert_eq!(buf.bytes_total(), 10);
+
+        let slice = buf.slice(1..3);
+        assert_eq!((slice.begin(), slice.end()), (1, 3));
+        assert_eq!(slice.read_ptr(), unsafe { ptr.add(1) });
+        assert_eq!(slice.bytes_init(), 2);
+        let buf = ManuallyDrop::into_inner(slice.into_inner());
 
         let mut slice = buf.slice_mut(1..8);
         assert_eq!((slice.begin(), slice.end()), (1, 8));
