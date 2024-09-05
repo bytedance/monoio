@@ -44,7 +44,7 @@ windows-sys = { version = "0.48.0", features = [
     "Win32_Networking_WinSock",
     "Win32_System_IO",
     "Win32_Storage_FileSystem",
-    "Win32_Security"
+    "Win32_Security",
 ] }
 
 # unix dependencies
@@ -96,6 +96,8 @@ poll-io = ["tokio", "mio"]
 # signal enables setting ctrl_c handler
 signal = ["ctrlc", "sync"]
 signal-termination = ["signal", "ctrlc/termination"]
+# asyncify-op will run fs related task in blocking_thread_pool
+asyncify-op = ["sync", "legacy"]
 # by default both iouring and legacy are enabled
 default = ["async-cancel", "bytes", "iouring", "legacy", "macros", "utils"]
 

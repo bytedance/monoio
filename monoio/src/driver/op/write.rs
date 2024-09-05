@@ -229,20 +229,32 @@ impl<T: IoVecBuf> OpAble for WriteVec<T> {
         // There is no `writev` like syscall of file on windows, but this will be used to send
         // socket message.
 
-        use windows_sys::Win32::Networking::WinSock::WSASend;
-
-        use crate::syscall_u32;
+        use windows_sys::Win32::Networking::WinSock::{WSAGetLastError, WSASend, WSAESHUTDOWN};
 
         let mut bytes_sent = 0;
-        syscall_u32!(WSASend(
-            self.fd.raw_socket() as _,
-            self.buf_vec.read_wsabuf_ptr(),
-            self.buf_vec.read_wsabuf_len() as _,
-            &mut bytes_sent,
-            0,
-            std::ptr::null_mut(),
-            None,
-        ))
-        .map(|_| bytes_sent)
+
+        let ret = unsafe {
+            WSASend(
+                self.fd.raw_socket() as _,
+                self.buf_vec.read_wsabuf_ptr(),
+                self.buf_vec.read_wsabuf_len() as _,
+                &mut bytes_sent,
+                0,
+                std::ptr::null_mut(),
+                None,
+            )
+        };
+
+        match ret {
+            0 => Ok(bytes_sent),
+            _ => {
+                let error = unsafe { WSAGetLastError() };
+                if error == WSAESHUTDOWN {
+                    Ok(0)
+                } else {
+                    Err(io::Error::from_raw_os_error(error))
+                }
+            }
+        }
     }
 }

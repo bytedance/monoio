@@ -128,8 +128,7 @@ impl File {
     }
 
     async fn read<T: IoBufMut>(&mut self, buf: T) -> crate::BufResult<usize, T> {
-        let op = Op::read(self.fd.clone(), buf).unwrap();
-        op.result().await
+        file_impl::read(self.fd.clone(), buf).await
     }
 
     async fn read_vectored<T: IoVecBufMut>(&mut self, buf_vec: T) -> crate::BufResult<usize, T> {
@@ -190,9 +189,7 @@ impl File {
     /// }
     /// ```
     pub async fn read_at<T: IoBufMut>(&self, buf: T, pos: u64) -> crate::BufResult<usize, T> {
-        // Submit the read operation
-        let op = Op::read_at(&self.fd, buf, pos).unwrap();
-        op.result().await
+        file_impl::read_at(self.fd.clone(), buf, pos).await
     }
 
     /// Read the exact number of bytes required to fill `buf` at the specified

@@ -4,9 +4,14 @@ use std::{
     os::fd::{AsRawFd, IntoRawFd, RawFd},
 };
 
+#[cfg(all(feature = "asyncify-op", not(feature = "iouring")))]
+pub(crate) use asyncified::*;
+#[cfg(any(not(feature = "asyncify-op"), feature = "iouring"))]
+pub(crate) use uring_or_blocking::*;
+
 use super::File;
 use crate::{
-    buf::{IoVecBuf, IoVecBufMut},
+    buf::{IoBufMut, IoVecBuf, IoVecBufMut},
     driver::{op::Op, shared_fd::SharedFd},
     fs::{metadata::FileAttr, Metadata},
 };
@@ -53,14 +58,6 @@ impl AsRawFd for File {
     }
 }
 
-pub(crate) async fn read_vectored<T: IoVecBufMut>(
-    fd: SharedFd,
-    buf_vec: T,
-) -> crate::BufResult<usize, T> {
-    let op = Op::readv(fd, buf_vec).unwrap();
-    op.result().await
-}
-
 pub(crate) async fn write_vectored<T: IoVecBuf>(
     fd: SharedFd,
     buf_vec: T,
@@ -78,4 +75,41 @@ pub(crate) async fn metadata(fd: SharedFd) -> std::io::Result<Metadata> {
     let op = Op::statx_using_fd(fd, true)?;
 
     op.result().await.map(FileAttr::from).map(Metadata)
+}
+
+#[cfg(any(not(feature = "asyncify-op"), feature = "iouring"))]
+mod uring_or_blocking {
+    use super::*;
+
+    pub(crate) async fn read<T: IoBufMut>(fd: SharedFd, buf: T) -> crate::BufResult<usize, T> {
+        let op = Op::read(fd, buf).unwrap();
+        op.result().await
+    }
+
+    pub(crate) async fn read_at<T: IoBufMut>(
+        fd: SharedFd,
+        buf: T,
+        pos: u64,
+    ) -> crate::BufResult<usize, T> {
+        let op = Op::read_at(fd, buf, pos).unwrap();
+        op.result().await
+    }
+
+    pub(crate) async fn read_vectored<T: IoVecBufMut>(
+        fd: SharedFd,
+        buf_vec: T,
+    ) -> crate::BufResult<usize, T> {
+        let op = Op::readv(fd, buf_vec).unwrap();
+        op.result().await
+    }
+}
+
+#[cfg(all(feature = "asyncify-op", not(feature = "iouring")))]
+mod asyncified {
+    use super::*;
+    use crate::{asyncify_op, driver::op::read};
+
+    asyncify_op!(read<IoBufMut>(read::read, IoBufMut::write_ptr, IoBufMut::bytes_total));
+    asyncify_op!(read_at<IoBufMut>(read::read_at, IoBufMut::write_ptr, IoBufMut::bytes_total, pos: u64));
+    asyncify_op!(read_vectored<IoVecBufMut>(read::read_vectored, IoVecBufMut::write_iovec_ptr, IoVecBufMut::write_iovec_len));
 }
