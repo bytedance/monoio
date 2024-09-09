@@ -1,7 +1,7 @@
 use std::future::Future;
 
 use crate::{
-    buf::{IoBuf, IoBufMut, IoVecBuf},
+    buf::{IoBuf, IoVecBuf},
     BufResult,
 };
 
@@ -23,8 +23,8 @@ pub trait AsyncWriteRent {
 /// AsyncWriteRentAt: async write with a ownership of a buffer and a position
 pub trait AsyncWriteRentAt {
     /// Write buf at given offset
-    fn write_at<T: IoBufMut>(
-        &self,
+    fn write_at<T: IoBuf>(
+        &mut self,
         buf: T,
         pos: usize,
     ) -> impl Future<Output = BufResult<usize, T>>;
