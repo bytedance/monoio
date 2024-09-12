@@ -31,6 +31,9 @@ mod unlink;
 #[cfg(all(unix, feature = "renameat"))]
 mod rename;
 
+#[cfg(all(unix, feature = "symlinkat"))]
+mod symlink;
+
 #[cfg(all(target_os = "linux", feature = "splice"))]
 mod splice;
 
