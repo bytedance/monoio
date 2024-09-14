@@ -40,6 +40,8 @@ fn detect_uring_inner() -> bool {
             RecvMsg::CODE,
             #[cfg(feature = "splice")]
             Splice::CODE,
+            #[cfg(feature = "symlinkat")]
+            SymlinkAt::CODE,
             Timeout::CODE,
             Write::CODE,
             Writev::CODE,
