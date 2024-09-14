@@ -42,7 +42,7 @@ author: ihciah
 
 除了前面的这种场景，Monoio 性能都好于 Tokio 和 Glommio。Tokio 会随着核数的增多，单 Core 的平均峰值性能出现较大下降；Monoio 的峰值性能的水平扩展性是最好的。
 
-单核心下，Monoio 的性能略好于 Tokio；4 核心下峰值性能是 Tokio 的 2 倍左右；16 核心时接近 3 倍。Glommio 和模型和 Monoio 是一致的，所以也有较好的水平扩展性，但是它的峰值性能对比 Monoio 仍旧有一定差距。
+单核心下，Monoio 的性能略好于 Tokio；4 核心下峰值性能是 Tokio 的 2 倍左右；16 核心时接近 3 倍。Glommio 的模型和 Monoio 是一致的，所以也有较好的水平扩展性，但是它的峰值性能对比 Monoio 仍旧有一定差距。
 
 ![100B](/.github/resources/benchmark/monoio-bench-100B.png)
 我们使用 100Byte 的消息大小测试不同核数下的峰值性能（1K 会在核数较多时打满网卡）。可以看出，Monoio 和 Glommio 可以较好地保持线性；而 Tokio 在核数较多时性能提升极少甚至出现劣化。
