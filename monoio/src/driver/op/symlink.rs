@@ -14,7 +14,6 @@ impl Op<Symlink> {
     ) -> io::Result<Op<Symlink>> {
         let _from = cstr(from.as_ref())?;
         let _to = cstr(to.as_ref())?;
-        println!("from: {} to: {}",from.as_ref().to_str().unwrap(),to.as_ref().to_str().unwrap());
         Op::submit_with(Symlink { _from, _to })
     }
 }
@@ -25,7 +24,6 @@ impl OpAble for Symlink {
         use io_uring::{opcode, types};
         let from_ref = self._from.as_c_str().as_ptr();
         let to_ref = self._to.as_c_str().as_ptr();
-        println!("--- from: {} to: {}",self._from.to_str().unwrap(),self._to.to_str().unwrap());
         opcode::SymlinkAt::new(types::Fd(libc::AT_FDCWD), from_ref, to_ref).build()
     }
 

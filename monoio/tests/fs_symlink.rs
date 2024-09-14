@@ -1,6 +1,6 @@
 #![cfg(all(unix, feature = "symlinkat"))]
 
-use std::{io, path::PathBuf, println};
+use std::{io, path::PathBuf};
 
 use monoio::fs::File;
 use tempfile::tempdir;

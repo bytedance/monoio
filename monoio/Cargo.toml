@@ -75,7 +75,7 @@ mkdirat = []
 unlinkat = []
 # renameat op(requires kernel 5.11+)
 renameat = []
-# symlinkat op(requires kernel 5.11+)
+# symlinkat op(requires kernel 5.15+)
 symlinkat = []
 # enable `async main` macros support
 macros = ["monoio-macros"]
