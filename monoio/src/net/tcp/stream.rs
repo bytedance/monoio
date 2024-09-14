@@ -321,13 +321,13 @@ impl AsyncWriteRent for TcpStream {
     fn write<T: IoBuf>(&mut self, buf: T) -> impl Future<Output = BufResult<usize, T>> {
         // Submit the write operation
         let op = Op::send(self.fd.clone(), buf).unwrap();
-        op.write()
+        op.result()
     }
 
     #[inline]
     fn writev<T: IoVecBuf>(&mut self, buf_vec: T) -> impl Future<Output = BufResult<usize, T>> {
-        let op = Op::writev(&self.fd, buf_vec).unwrap();
-        op.write()
+        let op = Op::writev(self.fd.clone(), buf_vec).unwrap();
+        op.result()
     }
 
     #[inline]
@@ -366,7 +366,7 @@ impl CancelableAsyncWriteRent for TcpStream {
 
         let op = Op::send(fd, buf).unwrap();
         let _guard = c.associate_op(op.op_canceller());
-        op.write().await
+        op.result().await
     }
 
     #[inline]
@@ -381,9 +381,9 @@ impl CancelableAsyncWriteRent for TcpStream {
             return (Err(operation_canceled()), buf_vec);
         }
 
-        let op = Op::writev(&fd, buf_vec).unwrap();
+        let op = Op::writev(fd.clone(), buf_vec).unwrap();
         let _guard = c.associate_op(op.op_canceller());
-        op.write().await
+        op.result().await
     }
 
     #[inline]
@@ -412,14 +412,14 @@ impl AsyncReadRent for TcpStream {
     fn read<T: IoBufMut>(&mut self, buf: T) -> impl Future<Output = BufResult<usize, T>> {
         // Submit the read operation
         let op = Op::recv(self.fd.clone(), buf).unwrap();
-        op.read()
+        op.result()
     }
 
     #[inline]
     fn readv<T: IoVecBufMut>(&mut self, buf: T) -> impl Future<Output = BufResult<usize, T>> {
         // Submit the read operation
         let op = Op::readv(self.fd.clone(), buf).unwrap();
-        op.read()
+        op.result()
     }
 }
 
@@ -438,7 +438,7 @@ impl CancelableAsyncReadRent for TcpStream {
 
         let op = Op::recv(fd, buf).unwrap();
         let _guard = c.associate_op(op.op_canceller());
-        op.read().await
+        op.result().await
     }
 
     #[inline]
@@ -455,7 +455,7 @@ impl CancelableAsyncReadRent for TcpStream {
 
         let op = Op::readv(fd, buf).unwrap();
         let _guard = c.associate_op(op.op_canceller());
-        op.read().await
+        op.result().await
     }
 }
 

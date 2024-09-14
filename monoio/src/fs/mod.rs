@@ -65,11 +65,10 @@ pub async fn read<P: AsRef<Path>>(path: P) -> io::Result<Vec<u8>> {
 
 /// Write a buffer as the entire contents of a file.
 pub async fn write<P: AsRef<Path>, C: IoBuf>(path: P, contents: C) -> (io::Result<()>, C) {
-    let file = match File::create(path).await {
-        Ok(f) => f,
-        Err(e) => return (Err(e), contents),
-    };
-    file.write_all_at(contents, 0).await
+    match File::create(path).await {
+        Ok(f) => f.write_all_at(contents, 0).await,
+        Err(e) => (Err(e), contents),
+    }
 }
 
 /// Removes a file from the filesystem.

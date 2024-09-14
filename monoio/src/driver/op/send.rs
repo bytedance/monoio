@@ -44,7 +44,7 @@ impl<T: IoBuf> Op<Send<T>> {
         }
     }
 
-    pub(crate) async fn write(self) -> BufResult<usize, T> {
+    pub(crate) async fn result(self) -> BufResult<usize, T> {
         let complete = self.await;
         (complete.meta.result.map(|v| v as _), complete.data.buf)
     }

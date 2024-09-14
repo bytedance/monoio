@@ -158,7 +158,7 @@ impl UnixDatagram {
     /// which it is connected. On success, returns the number of bytes read.
     pub async fn recv<T: IoBufMut>(&self, buf: T) -> crate::BufResult<usize, T> {
         let op = Op::recv(self.fd.clone(), buf).unwrap();
-        op.read().await
+        op.result().await
     }
 }
 
