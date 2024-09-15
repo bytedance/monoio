@@ -85,7 +85,9 @@ pub enum BlockingStrategy {
 }
 
 /// `spawn_blocking` is used for executing a task(without async) with heavy computation or blocking
-/// io. To used it, users may initialize a thread pool and attach it on creating runtime.
+/// io.
+///
+/// To used it, users may initialize a thread pool and attach it on creating runtime.
 /// Users can also set `BlockingStrategy` for a runtime when there is no thread pool.
 /// WARNING: DO NOT USE THIS FOR ASYNC TASK! Async tasks will not be executed but only built the
 /// future!

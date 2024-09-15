@@ -39,7 +39,7 @@ if [ "${NO_RUN}" != "1" ] && [ "${NO_RUN}" != "true" ]; then
         "${CARGO}" test --target "${TARGET}" --release
     fi
 
-    if [ "${CHANNEL}" == "nightly" ] && ([ "${TARGET}" = "x86_64-unknown-linux-gnu" ] || [ "${TARGET}" = "i686-unknown-linux-gnu" ]); then
+    if [ "${CHANNEL}" = "nightly" ] && ([ "${TARGET}" = "x86_64-unknown-linux-gnu" ] || [ "${TARGET}" = "i686-unknown-linux-gnu" ]); then
         "${CARGO}" test --target "${TARGET}" --all-features
         "${CARGO}" test --target "${TARGET}" --all-features --release
     fi
@@ -53,7 +53,7 @@ if [ "${NO_RUN}" != "1" ] && [ "${NO_RUN}" != "true" ]; then
     "${CARGO}" test --target "${TARGET}" --no-default-features --features hyper
     "${CARGO}" test --target "${TARGET}" --no-default-features --features hyper --release
 
-    if [ "${CHANNEL}" == "nightly" ]; then
+    if [ "${CHANNEL}" = "nightly" ]; then
         "${CARGO}" test --target "${TARGET}" --all-features
         "${CARGO}" test --target "${TARGET}" --all-features --release
     fi
