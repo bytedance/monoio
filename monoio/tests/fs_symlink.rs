@@ -22,4 +22,5 @@ async fn create_symlink() {
 
     let content = monoio::fs::read(dst_file_path).await.unwrap();
     assert_eq!(content, TEST_PAYLOAD);
+    assert(dst_file_path.is_symlink());
 }
