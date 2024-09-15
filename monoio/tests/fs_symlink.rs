@@ -18,7 +18,9 @@ async fn create_symlink() {
     let dst_file_path = tmpdir.path().join("dst");
     let src_file = create_file(&src_file_path).await.unwrap();
     src_file.write_all_at(TEST_PAYLOAD, 0).await.0.unwrap();
-    monoio::fs::symlink(src_file_path.as_path(), dst_file_path.as_path()).await.unwrap();
+    monoio::fs::symlink(src_file_path.as_path(), dst_file_path.as_path())
+        .await
+        .unwrap();
 
     let content = monoio::fs::read(dst_file_path).await.unwrap();
     assert_eq!(content, TEST_PAYLOAD);
