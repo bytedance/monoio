@@ -15,6 +15,11 @@ mod create_dir;
 #[cfg(all(unix, feature = "mkdirat"))]
 pub use create_dir::*;
 
+#[cfg(all(unix, feature = "symlinkat"))]
+mod symlink;
+#[cfg(all(unix, feature = "symlinkat"))]
+pub use symlink::symlink;
+
 mod open_options;
 pub use open_options::OpenOptions;
 
