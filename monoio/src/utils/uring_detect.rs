@@ -29,20 +29,27 @@ fn detect_uring_inner() -> bool {
             Close::CODE,
             Connect::CODE,
             Fsync::CODE,
+            #[cfg(feature = "mkdirat")]
+            MkDirAt::CODE,
             OpenAt::CODE,
             PollAdd::CODE,
             ProvideBuffers::CODE,
             Read::CODE,
             Readv::CODE,
             Recv::CODE,
+            #[cfg(feature = "renameat")]
+            RenameAt::CODE,
             Send::CODE,
             SendMsg::CODE,
             RecvMsg::CODE,
             #[cfg(feature = "splice")]
             Splice::CODE,
+            Statx::CODE,
             #[cfg(feature = "symlinkat")]
             SymlinkAt::CODE,
             Timeout::CODE,
+            #[cfg(feature = "unlinkat")]
+            UnlinkAt::CODE,
             Write::CODE,
             Writev::CODE,
         ];
