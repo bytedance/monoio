@@ -4,10 +4,10 @@ use std::{
     os::fd::{AsRawFd, IntoRawFd, RawFd},
 };
 
-#[cfg(all(feature = "asyncify-op", not(feature = "iouring")))]
+#[cfg(all(not(feature = "iouring"), feature = "sync"))]
 pub(crate) use asyncified::*;
-#[cfg(any(not(feature = "asyncify-op"), feature = "iouring"))]
-pub(crate) use uring_or_blocking::*;
+#[cfg(any(feature = "iouring", not(feature = "sync")))]
+pub(crate) use iouring::*;
 
 use super::File;
 use crate::{
@@ -77,8 +77,8 @@ pub(crate) async fn metadata(fd: SharedFd) -> std::io::Result<Metadata> {
     op.result().await.map(FileAttr::from).map(Metadata)
 }
 
-#[cfg(any(not(feature = "asyncify-op"), feature = "iouring"))]
-mod uring_or_blocking {
+#[cfg(any(feature = "iouring", not(feature = "sync")))]
+mod iouring {
     use super::*;
 
     pub(crate) async fn read<T: IoBufMut>(fd: SharedFd, buf: T) -> crate::BufResult<usize, T> {
@@ -104,7 +104,7 @@ mod uring_or_blocking {
     }
 }
 
-#[cfg(all(feature = "asyncify-op", not(feature = "iouring")))]
+#[cfg(all(not(feature = "iouring"), feature = "sync"))]
 mod asyncified {
     use super::*;
     use crate::{asyncify_op, driver::op::read};

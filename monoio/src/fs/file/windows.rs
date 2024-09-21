@@ -3,9 +3,9 @@ use std::{
     os::windows::io::{AsRawHandle, RawHandle},
 };
 
-#[cfg(all(feature = "asyncify-op", not(feature = "iouring")))]
+#[cfg(all(not(feature = "iouring"), feature = "sync"))]
 pub(crate) use asyncified::*;
-#[cfg(any(not(feature = "asyncify-op"), feature = "iouring"))]
+#[cfg(any(feature = "iouring", not(feature = "sync")))]
 pub(crate) use blocking::*;
 use windows_sys::Win32::Networking::WinSock::WSABUF;
 
@@ -74,7 +74,7 @@ pub(crate) async fn write_vectored<T: IoVecBuf>(
     (Ok(total_bytes_write), buf_vec)
 }
 
-#[cfg(any(not(feature = "asyncify-op"), feature = "iouring"))]
+#[cfg(any(feature = "iouring", not(feature = "sync")))]
 mod blocking {
     use super::*;
 
@@ -143,7 +143,7 @@ mod blocking {
     }
 }
 
-#[cfg(all(feature = "asyncify-op", not(feature = "iouring")))]
+#[cfg(all(not(feature = "iouring"), feature = "sync"))]
 mod asyncified {
     use super::*;
     use crate::{asyncify_op, driver::op::read, fs::asyncify};
@@ -151,6 +151,11 @@ mod asyncified {
     asyncify_op!(read<IoBufMut>(read::read, IoBufMut::write_ptr, IoBufMut::bytes_total));
     asyncify_op!(read_at<IoBufMut>(read::read_at, IoBufMut::write_ptr, IoBufMut::bytes_total, pos: u64));
 
+    /// The `readv` implement on windows.
+    ///
+    /// Due to windows does not have syscall like `readv`, so we need to simulate it by ourself.
+    ///
+    /// This function is just to fill each buffer by calling the `read` function.
     pub(crate) async fn read_vectored<T: IoVecBufMut>(
         fd: SharedFd,
         mut buf_vec: T,

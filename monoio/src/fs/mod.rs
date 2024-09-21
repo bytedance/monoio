@@ -69,8 +69,7 @@ use crate::driver::op::Op;
 /// - The blocking task returned an error, in which case the error is propagated.
 /// - The background task failed to complete due to an internal error, in which case an error with
 ///   `io::ErrorKind::Other` is returned.
-#[cfg(feature = "asyncify-op")]
-#[allow(unused)]
+#[cfg(all(feature = "sync", not(feature = "iouring")))]
 pub(crate) async fn asyncify<F, T>(f: F) -> io::Result<T>
 where
     F: FnOnce() -> io::Result<T> + Send + 'static,
@@ -93,7 +92,7 @@ where
 /// This macro is intended to abstract the process of creating asynchronous functions for
 /// operations that involve reading or writing buffers, making it easier to create functions
 /// that perform system-level I/O asynchronously.
-#[cfg(feature = "asyncify-op")]
+#[cfg(all(feature = "sync", not(feature = "iouring")))]
 #[macro_export]
 macro_rules! asyncify_op {
     ($fn_name:ident<$Trait: ident>($read_op:expr, $buf_ptr_expr:expr, $len_expr:expr $(, $extra_param:ident : $typ: ty)?) $(,)?) => {
