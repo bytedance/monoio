@@ -6,11 +6,6 @@ use std::os::unix::prelude::AsRawFd;
 pub(crate) use impls::*;
 #[cfg(all(target_os = "linux", feature = "iouring"))]
 use io_uring::{opcode, types};
-#[cfg(all(windows, any(feature = "legacy", feature = "poll-io")))]
-use {
-    std::ffi::c_void,
-    windows_sys::Win32::{Foundation::TRUE, Storage::FileSystem::ReadFile},
-};
 
 use super::{super::shared_fd::SharedFd, Op, OpAble};
 #[cfg(any(feature = "legacy", feature = "poll-io"))]
@@ -31,10 +26,11 @@ macro_rules! read_result {
                     let res = complete.meta.result.map(|v| v as usize);
                     // Recover the buffer
                     let mut buf = complete.data.$buf;
-                    let read_len = *res.as_ref().unwrap_or(&0);
 
-                    // Safety: the kernel wrote `n` bytes to the buffer.
-                    unsafe { buf.set_init(read_len) };
+                    if let Ok(read_len) = res {
+                        // Safety: the kernel wrote `n` bytes to the buffer
+                        unsafe { buf.set_init(read_len) };
+                    }
 
                     (res, buf)
                 }
@@ -315,10 +311,12 @@ pub(crate) mod impls {
     use super::*;
     use crate::syscall_u32;
 
+    /// A wrapper for [`libc::read`]
     pub(crate) fn read(fd: i32, buf: *mut u8, len: usize) -> io::Result<u32> {
         syscall_u32!(read(fd, buf as _, len))
     }
 
+    /// A wrapper of [`libc::pread`]
     pub(crate) fn read_at(fd: i32, buf: *mut u8, len: usize, offset: u64) -> io::Result<u32> {
         let offset = libc::off_t::try_from(offset)
             .map_err(|_| io::Error::new(io::ErrorKind::Other, "offset too big"))?;
@@ -326,10 +324,12 @@ pub(crate) mod impls {
         syscall_u32!(pread(fd, buf as _, len, offset))
     }
 
+    /// A wrapper of [`libc::readv`]
     pub(crate) fn read_vectored(fd: i32, buf_vec: *mut iovec, len: usize) -> io::Result<u32> {
         syscall_u32!(readv(fd, buf_vec as _, len as _))
     }
 
+    /// A wrapper of [`libc::preadv`]
     pub(crate) fn read_vectored_at(
         fd: i32,
         buf_vec: *mut iovec,
@@ -345,13 +345,17 @@ pub(crate) mod impls {
 
 #[cfg(all(any(feature = "legacy", feature = "poll-io"), windows))]
 pub(crate) mod impls {
+    use std::ffi::c_void;
+
     use windows_sys::Win32::{
-        Foundation::{GetLastError, ERROR_HANDLE_EOF},
+        Foundation::{GetLastError, ERROR_HANDLE_EOF, TRUE},
+        Storage::FileSystem::ReadFile,
         System::IO::OVERLAPPED,
     };
 
     use super::*;
 
+    /// A wrapper of [`windows_sys::Win32::Storage::FileSystem::ReadFile`]
     pub(crate) fn read(handle: isize, buf: *mut u8, len: usize) -> io::Result<u32> {
         let mut bytes_read = 0;
         let ret = unsafe {
@@ -374,6 +378,8 @@ pub(crate) mod impls {
         }
     }
 
+    /// A wrapper of [`windows_sys::Win32::Storage::FileSystem::ReadFile`] and using the
+    /// [`windows_sys::Win32::System::IO::OVERLAPPED`] to read at specific position.
     pub(crate) fn read_at(handle: isize, buf: *mut u8, len: usize, offset: u64) -> io::Result<u32> {
         let mut bytes_read = 0;
         let ret = unsafe {

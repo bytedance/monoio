@@ -1,5 +1,4 @@
-#![cfg(feature = "asyncify-op")]
-
+#![cfg(feature = "sync")]
 use std::io::prelude::*;
 #[cfg(windows)]
 use std::os::windows::io::{AsRawHandle, FromRawHandle, RawHandle as RawFd};

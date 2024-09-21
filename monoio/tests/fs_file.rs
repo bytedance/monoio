@@ -1,5 +1,3 @@
-#![cfg(not(feature = "asyncify-op"))]
-
 use std::io::{prelude::*, SeekFrom};
 #[cfg(unix)]
 use std::os::unix::io::{AsRawFd, FromRawFd, RawFd};

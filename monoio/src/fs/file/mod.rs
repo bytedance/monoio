@@ -162,6 +162,20 @@ impl File {
     ///     - this function will change the file pointer, but the `pos` always start from the begin
     ///       of file.
     ///
+    /// Addtionally,
+    ///
+    /// - On Unix and Windows (without the `iouring` feature enabled or not support the `iouring`):
+    ///     - If the sync feature is enabled and the thread pool is attached, this operation will be
+    ///       executed on the blocking thread pool, preventing it from blocking the current thread.
+    ///     - If the sync feature is enabled but the thread pool is not attached, or if the sync
+    ///       feature is disabled, the operation will be executed on the local thread, blocking the
+    ///       current thread.
+    ///
+    /// - On Linux (with iouring enabled and supported):
+    ///
+    ///     This operation will use io-uring to execute the task asynchronously.
+    ///
+    ///
     /// # Errors
     ///
     /// If this function encounters any form of I/O or other error, an error
@@ -296,6 +310,19 @@ impl File {
     /// in as an argument. A return value of `0` typically means that the
     /// underlying file is no longer able to accept bytes and will likely not be
     /// able to in the future as well, or that the buffer provided is empty.
+    ///
+    /// # Platform-specific behavior
+    ///
+    /// - On Unix and Windows (without the `iouring` feature enabled or not support the `iouring`):
+    ///     - If the sync feature is enabled and the thread pool is attached, this operation will be
+    ///       executed on the blocking thread pool, preventing it from blocking the current thread.
+    ///     - If the sync feature is enabled but the thread pool is not attached, or if the sync
+    ///       feature is disabled, the operation will be executed on the local thread, blocking the
+    ///       current thread.
+    ///
+    /// - On Linux (with iouring enabled and supported):
+    ///
+    ///     This operation will use io-uring to execute the task asynchronously.
     ///
     /// # Errors
     ///
@@ -628,6 +655,19 @@ impl AsyncReadRent for File {
     /// It is not an error if `n` is smaller than the buffer size, even if there is enough data in
     /// the file to fill the buffer.
     ///
+    /// # Platform-specific behavior
+    ///
+    /// - On Unix and Windows (without the `iouring` feature enabled or not support the `iouring`):
+    ///     - If the sync feature is enabled and the thread pool is attached, this operation will be
+    ///       executed on the blocking thread pool, preventing it from blocking the current thread.
+    ///     - If the sync feature is enabled but the thread pool is not attached, or if the sync
+    ///       feature is disabled, the operation will be executed on the local thread, blocking the
+    ///       current thread.
+    ///
+    /// - On Linux (with iouring enabled and supported):
+    ///
+    ///     This operation will use io-uring to execute the task asynchronously.
+    ///
     /// # Errors
     ///
     /// If an I/O or other error occurs, an error variant will be returned, and the buffer will also
@@ -674,6 +714,18 @@ impl AsyncReadRent for File {
     /// - On windows
     ///     - due to windows does not have syscall like `readv`, so the implement of this function
     ///       on windows is by internally calling the `ReadFile` syscall to fill each buffer.
+    ///
+    /// - On Unix and Windows (without the `iouring` feature enabled or not support the `iouring`):
+    ///     - If the sync feature is enabled and the thread pool is attached, this operation will be
+    ///       executed on the blocking thread pool, preventing it from blocking the current thread.
+    ///     - If the sync feature is enabled but the thread pool is not attached, or if the sync
+    ///       feature is disabled, the operation will be executed on the local thread, blocking the
+    ///       current thread.
+    ///
+    /// - On Linux (with iouring enabled and supported):
+    ///
+    ///     This operation will use io-uring to execute the task asynchronously.
+    ///
     ///
     /// # Errors
     ///
