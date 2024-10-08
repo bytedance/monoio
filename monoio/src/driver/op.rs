@@ -9,6 +9,7 @@ use crate::driver;
 
 pub(crate) mod close;
 pub(crate) mod read;
+pub(crate) mod write;
 
 mod accept;
 mod connect;
@@ -17,8 +18,6 @@ mod open;
 mod poll;
 mod recv;
 mod send;
-mod write;
-
 #[cfg(unix)]
 mod statx;
 

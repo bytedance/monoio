@@ -127,7 +127,7 @@ async fn basic_write() {
 }
 
 #[monoio::test_all]
-async fn write_vectored() {
+async fn basic_write_vectored() {
     let tempfile = tempfile();
     let mut file = File::create(tempfile.path()).await.unwrap();
 

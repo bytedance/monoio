@@ -21,76 +21,16 @@ impl AsRawHandle for File {
     }
 }
 
-pub(crate) async fn write<T: IoBuf>(fd: SharedFd, buf: T) -> crate::BufResult<usize, T> {
-    let op = Op::write(fd, buf).unwrap();
-    op.result().await
-}
-
-/// The `writev` implement on windows
-///  
-/// Due to windows does not have syscall like `writev`, so we need to simulate it by ourself.
-///
-/// This function is just to write each buffer into file by calling the `write` function.
-pub(crate) async fn write_vectored<T: IoVecBuf>(
-    fd: SharedFd,
-    buf_vec: T,
-) -> crate::BufResult<usize, T> {
-    // Convert the buffer vector into raw pointers that can be used in unsafe operations
-    let raw_bufs = buf_vec.read_wsabuf_ptr() as *mut WSABUF;
-    let len = buf_vec.read_wsabuf_len();
-
-    // Safely wrap the raw pointers into a Vec, but prevent automatic cleanup with ManuallyDrop
-    let wsabufs = ManuallyDrop::new(unsafe { Vec::from_raw_parts(raw_bufs, len, len) });
-    let mut total_bytes_write = 0;
-
-    // Iterate through each WSABUF structure and write data from it
-    for wsabuf in wsabufs.iter() {
-        // Safely create a Vec from the WSABUF pointer, then pass it to the write function
-        let (res, _) = write(
-            fd.clone(),
-            ManuallyDrop::new(unsafe {
-                Vec::from_raw_parts(wsabuf.buf, wsabuf.len as usize, wsabuf.len as usize)
-            }),
-        )
-        .await;
-
-        // Handle the result of the write operation
-        match res {
-            Ok(bytes_write) => {
-                total_bytes_write += bytes_write;
-                // If fewer bytes were written than requested, stop further writes
-                if bytes_write < wsabuf.len as usize {
-                    break;
-                }
-            }
-            Err(e) => {
-                // If an error occurs, return it along with the original buffer vector
-                return (Err(e), buf_vec);
-            }
-        }
-    }
-
-    // Return the total bytes written and the buffer vector
-    (Ok(total_bytes_write), buf_vec)
-}
-
 #[cfg(any(feature = "iouring", not(feature = "sync")))]
 mod blocking {
     use super::*;
+    use crate::uring_op;
 
-    pub(crate) async fn read<T: IoBufMut>(fd: SharedFd, buf: T) -> crate::BufResult<usize, T> {
-        let op = Op::read(fd, buf).unwrap();
-        op.result().await
-    }
+    uring_op!(read<IoBufMut>(read, buf));
+    uring_op!(read_at<IoBufMut>(read_at, buf, pos: u64));
 
-    pub(crate) async fn read_at<T: IoBufMut>(
-        fd: SharedFd,
-        buf: T,
-        pos: u64,
-    ) -> crate::BufResult<usize, T> {
-        let op = Op::read_at(fd, buf, pos).unwrap();
-        op.result().await
-    }
+    uring_op!(write<IoBuf>(write, buf));
+    uring_op!(write_at<IoBuf>(write_at, buf, pos: u64));
 
     /// The `readv` implement on windows.
     ///
@@ -141,15 +81,70 @@ mod blocking {
         // Return the total bytes read and the buffer vector
         (Ok(total_bytes_read), buf_vec)
     }
+
+    /// The `writev` implement on windows
+    ///  
+    /// Due to windows does not have syscall like `writev`, so we need to simulate it by ourself.
+    ///
+    /// This function is just to write each buffer into file by calling the `write` function.
+    pub(crate) async fn write_vectored<T: IoVecBuf>(
+        fd: SharedFd,
+        buf_vec: T,
+    ) -> crate::BufResult<usize, T> {
+        // Convert the buffer vector into raw pointers that can be used in unsafe operations
+        let raw_bufs = buf_vec.read_wsabuf_ptr() as *mut WSABUF;
+        let len = buf_vec.read_wsabuf_len();
+
+        // Safely wrap the raw pointers into a Vec, but prevent automatic cleanup with ManuallyDrop
+        let wsabufs = ManuallyDrop::new(unsafe { Vec::from_raw_parts(raw_bufs, len, len) });
+        let mut total_bytes_write = 0;
+
+        // Iterate through each WSABUF structure and write data from it
+        for wsabuf in wsabufs.iter() {
+            // Safely create a Vec from the WSABUF pointer, then pass it to the write function
+            let (res, _) = write(
+                fd.clone(),
+                ManuallyDrop::new(unsafe {
+                    Vec::from_raw_parts(wsabuf.buf, wsabuf.len as usize, wsabuf.len as usize)
+                }),
+            )
+            .await;
+
+            // Handle the result of the write operation
+            match res {
+                Ok(bytes_write) => {
+                    total_bytes_write += bytes_write;
+                    // If fewer bytes were written than requested, stop further writes
+                    if bytes_write < wsabuf.len as usize {
+                        break;
+                    }
+                }
+                Err(e) => {
+                    // If an error occurs, return it along with the original buffer vector
+                    return (Err(e), buf_vec);
+                }
+            }
+        }
+
+        // Return the total bytes written and the buffer vector
+        (Ok(total_bytes_write), buf_vec)
+    }
 }
 
 #[cfg(all(not(feature = "iouring"), feature = "sync"))]
 mod asyncified {
     use super::*;
-    use crate::{asyncify_op, driver::op::read, fs::asyncify};
+    use crate::{
+        asyncify_op,
+        driver::op::{read, write},
+        fs::asyncify,
+    };
 
-    asyncify_op!(read<IoBufMut>(read::read, IoBufMut::write_ptr, IoBufMut::bytes_total));
-    asyncify_op!(read_at<IoBufMut>(read::read_at, IoBufMut::write_ptr, IoBufMut::bytes_total, pos: u64));
+    asyncify_op!(R, read<IoBufMut>(read::read, IoBufMut::write_ptr, IoBufMut::bytes_total));
+    asyncify_op!(R, read_at<IoBufMut>(read::read_at, IoBufMut::write_ptr, IoBufMut::bytes_total, pos: u64));
+
+    asyncify_op!(W, write<IoBuf>(write::write, IoBuf::read_ptr, IoBuf::bytes_init));
+    asyncify_op!(W, write_at<IoBuf>(write::write_at, IoBuf::read_ptr, IoBuf::bytes_init, pos: u64));
 
     /// The `readv` implement on windows.
     ///
@@ -203,6 +198,52 @@ mod asyncified {
         .map(|n| n as usize);
 
         unsafe { buf_vec.set_init(*res.as_ref().unwrap_or(&0)) };
+
+        (res, buf_vec)
+    }
+
+    /// The `writev` implement on windows
+    ///  
+    /// Due to windows does not have syscall like `writev`, so we need to simulate it by ourself.
+    ///
+    /// This function is just to write each buffer into file by calling the `write` function.
+    pub(crate) async fn write_vectored<T: IoVecBuf>(
+        fd: SharedFd,
+        buf_vec: T,
+    ) -> crate::BufResult<usize, T> {
+        // Convert the mutable buffer vector into raw pointers that can be used in unsafe
+        // operation
+        let raw_bufs = buf_vec.read_wsabuf_ptr() as usize;
+        let len = buf_vec.read_wsabuf_len();
+        let fd = fd.as_raw_handle() as _;
+
+        let res = asyncify(move || {
+            // Safely wrap the raw pointers into a Vec, but prevent automatic cleanup with
+            // ManuallyDrop
+            let wsabufs = ManuallyDrop::new(unsafe {
+                Vec::from_raw_parts(raw_bufs as *mut WSABUF, len, len)
+            });
+
+            let mut total_bytes_write = 0;
+
+            for wsabuf in wsabufs.iter() {
+                let res = write::write(fd, wsabuf.buf, wsabuf.len as _);
+
+                match res {
+                    Ok(bytes_write) => {
+                        total_bytes_write += bytes_write;
+                        if bytes_write < wsabuf.len {
+                            break;
+                        }
+                    }
+                    Err(e) => return Err(e),
+                }
+            }
+
+            Ok(total_bytes_write)
+        })
+        .await
+        .map(|n| n as usize);
 
         (res, buf_vec)
     }

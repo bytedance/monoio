@@ -43,6 +43,10 @@ read_result! {
     Read<T: IoBufMut> { buf },
     ReadAt<T: IoBufMut> { buf },
     ReadVec<T: IoVecBufMut> { buf_vec },
+}
+
+#[cfg(not(windows))]
+read_result! {
     ReadVecAt<T: IoVecBufMut> { buf_vec },
 }
 

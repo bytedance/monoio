@@ -289,8 +289,7 @@ impl File {
     }
 
     async fn write<T: IoBuf>(&mut self, buf: T) -> crate::BufResult<usize, T> {
-        let op = Op::write(self.fd.clone(), buf).unwrap();
-        op.result().await
+        file_impl::write(self.fd.clone(), buf).await
     }
 
     async fn write_vectored<T: IoVecBuf>(&mut self, buf_vec: T) -> crate::BufResult<usize, T> {
@@ -356,8 +355,7 @@ impl File {
     ///
     /// [`Ok(n)`]: Ok
     pub async fn write_at<T: IoBuf>(&self, buf: T, pos: u64) -> crate::BufResult<usize, T> {
-        let op = Op::write_at(&self.fd, buf, pos).unwrap();
-        op.result().await
+        file_impl::write_at(self.fd.clone(), buf, pos).await
     }
 
     /// Attempts to write an entire buffer into this file at the specified

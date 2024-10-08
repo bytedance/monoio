@@ -86,6 +86,18 @@ where
     }
 }
 
+/// A macro that generates the some Op-call functions.
+#[cfg(any(feature = "iouring", not(feature = "sync")))]
+#[macro_export]
+macro_rules! uring_op {
+    ($fn_name:ident<$trait_name:ident>($op_name: ident, $buf_name:ident $(, $pos:ident: $pos_type:ty)?)) => {
+        pub(crate) async fn $fn_name<T: $trait_name>(fd: SharedFd, $buf_name: T, $($pos: $pos_type)?) -> $crate::BufResult<usize, T> {
+            let op = Op::$op_name(fd, $buf_name, $($pos)?).unwrap();
+            op.result().await
+        }
+    };
+}
+
 /// A macro that generates an asynchronous I/O operation function, offloading a blocking
 /// system call to a separate thread using the `asyncify` function.
 ///
@@ -95,7 +107,7 @@ where
 #[cfg(all(feature = "sync", not(feature = "iouring")))]
 #[macro_export]
 macro_rules! asyncify_op {
-    ($fn_name:ident<$Trait: ident>($read_op:expr, $buf_ptr_expr:expr, $len_expr:expr $(, $extra_param:ident : $typ: ty)?) $(,)?) => {
+    (R, $fn_name:ident<$Trait: ident>($op:expr, $buf_ptr_expr:expr, $len_expr:expr $(, $extra_param:ident : $typ: ty)?)) => {
         pub(crate) async fn $fn_name<T: $Trait>(
             fd: SharedFd,
             mut buf: T,
@@ -111,11 +123,36 @@ macro_rules! asyncify_op {
             let buf_ptr = $buf_ptr_expr(&mut buf) as usize;
             let len = $len_expr(&mut buf);
 
-            let res = $crate::fs::asyncify(move || $read_op(fd, buf_ptr as *mut _, len, $($extra_param)?))
+            let res = $crate::fs::asyncify(move || $op(fd, buf_ptr as *mut _, len, $($extra_param)?))
                 .await
                 .map(|n| n as usize);
 
             unsafe { buf.set_init(*res.as_ref().unwrap_or(&0)) };
+
+            (res, buf)
+        }
+    };
+    (W, $fn_name:ident<$Trait: ident>($op:expr, $buf_ptr_expr:expr, $len_expr:expr $(, $extra_param:ident : $typ: ty)?)) => {
+        pub(crate) async fn $fn_name<T: $Trait>(
+            fd: SharedFd,
+            mut buf: T,
+            $($extra_param: $typ)?
+        ) -> $crate::BufResult<usize, T> {
+            #[cfg(unix)]
+            let fd = fd.as_raw_fd();
+            #[cfg(windows)]
+            let fd = fd.as_raw_handle() as _;
+            // Safety: Due to the trait `IoBuf*/IoVecBuf*` require the implemet of `*_ptr`
+            // should return the same address, it should be safe to convert it to `usize`
+            // and then convert back.
+            let buf_ptr = $buf_ptr_expr(&mut buf) as usize;
+            let len = $len_expr(&mut buf);
+
+            let res = $crate::fs::asyncify(move || $op(fd, buf_ptr as *mut _, len, $($extra_param)?))
+                .await
+                .map(|n| n as usize);
+
+            // unsafe { buf.set_init(*res.as_ref().unwrap_or(&0)) };
 
             (res, buf)
         }
