@@ -22,6 +22,10 @@ async fn read_hello(file: &File, offset: u64) {
     assert_eq!(&buf, &HELLO[offset as usize..n + offset as usize]);
 }
 
+fn tempfile() -> NamedTempFile {
+    NamedTempFile::new().expect("unable to create tempfile")
+}
+
 #[monoio::test_all]
 async fn basic_read() {
     let mut tempfile = tempfile();
@@ -40,7 +44,7 @@ async fn basic_read() {
 }
 
 #[monoio::test_all]
-async fn read_vectored() {
+async fn basic_read_vectored() {
     let mut tempfile = tempfile();
     tempfile.write_all(HELLO).unwrap();
     tempfile.as_file_mut().sync_data().unwrap();
@@ -95,6 +99,18 @@ async fn basic_read_exact_at() {
 }
 
 #[monoio::test_all]
+async fn read_file_all() {
+    use std::io::Write;
+
+    let mut tempfile = tempfile();
+    tempfile.write_all(HELLO).unwrap();
+    tempfile.as_file_mut().sync_data().unwrap();
+
+    let res = monoio::fs::read(tempfile.path()).await.unwrap();
+    assert_eq!(res, HELLO);
+}
+
+#[monoio::test_all]
 async fn basic_write() {
     let tempfile = tempfile();
     let mut file = File::create(tempfile.path()).await.unwrap();
@@ -111,7 +127,7 @@ async fn basic_write() {
 }
 
 #[monoio::test_all]
-async fn write_vectored() {
+async fn basic_write_vectored() {
     let tempfile = tempfile();
     let mut file = File::create(tempfile.path()).await.unwrap();
 
@@ -238,10 +254,6 @@ async fn sync_doesnt_kill_anything() {
     file.write_at(&b"foo"[..], 0).await.0.unwrap();
     file.sync_all().await.unwrap();
     file.sync_data().await.unwrap();
-}
-
-fn tempfile() -> NamedTempFile {
-    NamedTempFile::new().expect("unable to create tempfile")
 }
 
 #[allow(unused)]
