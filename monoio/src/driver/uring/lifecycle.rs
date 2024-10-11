@@ -24,7 +24,7 @@ pub(crate) enum Lifecycle {
     Completed(io::Result<u32>, u32),
 }
 
-impl<'a> Ref<'a, Lifecycle> {
+impl Ref<'_, Lifecycle> {
     pub(crate) fn complete(mut self, result: io::Result<u32>, flags: u32) {
         let ref_mut = &mut *self;
         match ref_mut {

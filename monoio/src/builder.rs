@@ -162,7 +162,6 @@ impl<D> RuntimeBuilder<D> {
     /// inner `io_uring` API.
     ///
     /// Refer to the [`io_uring::Builder`] documentation for all the supported methods.
-
     #[cfg(all(target_os = "linux", feature = "iouring"))]
     #[must_use]
     pub fn uring_builder(mut self, urb: io_uring::Builder) -> Self {

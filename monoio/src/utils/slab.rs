@@ -142,7 +142,7 @@ pub(crate) struct Ref<'a, T> {
     index: usize,
 }
 
-impl<'a, T> Ref<'a, T> {
+impl<T> Ref<'_, T> {
     #[allow(unused)]
     pub(crate) fn remove(self) -> T {
         // # Safety
@@ -153,7 +153,7 @@ impl<'a, T> Ref<'a, T> {
     }
 }
 
-impl<'a, T> AsRef<T> for Ref<'a, T> {
+impl<T> AsRef<T> for Ref<'_, T> {
     fn as_ref(&self) -> &T {
         // # Safety
         // We make sure the index is valid.
@@ -161,7 +161,7 @@ impl<'a, T> AsRef<T> for Ref<'a, T> {
     }
 }
 
-impl<'a, T> AsMut<T> for Ref<'a, T> {
+impl<T> AsMut<T> for Ref<'_, T> {
     fn as_mut(&mut self) -> &mut T {
         // # Safety
         // We make sure the index is valid.
@@ -169,7 +169,7 @@ impl<'a, T> AsMut<T> for Ref<'a, T> {
     }
 }
 
-impl<'a, T> Deref for Ref<'a, T> {
+impl<T> Deref for Ref<'_, T> {
     type Target = T;
 
     fn deref(&self) -> &Self::Target {
@@ -177,7 +177,7 @@ impl<'a, T> Deref for Ref<'a, T> {
     }
 }
 
-impl<'a, T> DerefMut for Ref<'a, T> {
+impl<T> DerefMut for Ref<'_, T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.as_mut()
     }
