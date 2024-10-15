@@ -149,7 +149,7 @@ impl fmt::Debug for SocketAddr {
     }
 }
 
-impl<'a> fmt::Display for AsciiEscaped<'a> {
+impl fmt::Display for AsciiEscaped<'_> {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(fmt, "\"")?;
         for byte in self.0.iter().cloned().flat_map(ascii::escape_default) {

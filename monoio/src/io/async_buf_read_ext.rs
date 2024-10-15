@@ -13,7 +13,7 @@ struct Guard<'a> {
     len: usize,
 }
 
-impl<'a> Drop for Guard<'a> {
+impl Drop for Guard<'_> {
     fn drop(&mut self) {
         unsafe {
             self.buf.set_len(self.len);

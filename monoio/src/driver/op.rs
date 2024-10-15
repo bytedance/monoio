@@ -8,17 +8,16 @@ use std::{
 use crate::driver;
 
 pub(crate) mod close;
+pub(crate) mod read;
+pub(crate) mod write;
 
 mod accept;
 mod connect;
 mod fsync;
 mod open;
 mod poll;
-mod read;
 mod recv;
 mod send;
-mod write;
-
 #[cfg(unix)]
 mod statx;
 

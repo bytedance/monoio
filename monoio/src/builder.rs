@@ -32,7 +32,14 @@ pub struct RuntimeBuilder<D> {
 scoped_thread_local!(pub(crate) static BUILD_THREAD_ID: usize);
 
 impl<T> Default for RuntimeBuilder<T> {
-    /// Create a default runtime builder
+    /// Create a default runtime builder.
+    ///
+    /// # Note
+    ///
+    /// When the sync feature is enabled, the default behavior of
+    /// [monoio::blocking::BlockingStrategy] is to execute tasks on the local thread. In other
+    /// words, there is no thread pool involved—all blocking I/O operations and heavy computations
+    /// will block the current thread.
     #[must_use]
     fn default() -> Self {
         RuntimeBuilder::<T>::new()
@@ -40,7 +47,14 @@ impl<T> Default for RuntimeBuilder<T> {
 }
 
 impl<T> RuntimeBuilder<T> {
-    /// Create a default runtime builder
+    /// Create a default runtime builder.
+    ///
+    /// # Note
+    ///
+    /// When the sync feature is enabled, the default behavior of
+    /// [monoio::blocking::BlockingStrategy] is to execute tasks on the local thread. In other
+    /// words, there is no thread pool involved—all blocking I/O operations and heavy computations
+    /// will block the current thread.
     #[must_use]
     pub fn new() -> Self {
         Self {
@@ -50,7 +64,7 @@ impl<T> RuntimeBuilder<T> {
             urb: io_uring::IoUring::builder(),
 
             #[cfg(feature = "sync")]
-            blocking_handle: crate::blocking::BlockingStrategy::Panic.into(),
+            blocking_handle: crate::blocking::BlockingStrategy::ExecuteLocal.into(),
             _mark: PhantomData,
         }
     }
@@ -148,7 +162,6 @@ impl<D> RuntimeBuilder<D> {
     /// inner `io_uring` API.
     ///
     /// Refer to the [`io_uring::Builder`] documentation for all the supported methods.
-
     #[cfg(all(target_os = "linux", feature = "iouring"))]
     #[must_use]
     pub fn uring_builder(mut self, urb: io_uring::Builder) -> Self {
