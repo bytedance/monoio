@@ -1,6 +1,12 @@
-use std::{io, path::Path};
-use std::future::Future;
-use crate::{buf::{IoBuf, IoBufMut, IoVecBuf, IoVecBufMut}, driver::{op::Op, shared_fd::SharedFd}, fs::OpenOptions, io::{AsyncReadRent, AsyncWriteRent}, BufResult};
+use std::{future::Future, io, path::Path};
+
+use crate::{
+    buf::{IoBuf, IoBufMut, IoVecBuf, IoVecBufMut},
+    driver::{op::Op, shared_fd::SharedFd},
+    fs::OpenOptions,
+    io::{AsyncReadRent, AsyncWriteRent},
+    BufResult,
+};
 
 #[cfg(unix)]
 mod unix;
@@ -10,6 +16,7 @@ use unix as file_impl;
 mod windows;
 #[cfg(windows)]
 use windows as file_impl;
+
 use crate::io::{AsyncReadRentAt, AsyncWriteRentAt};
 
 /// A reference to an open file on the filesystem.
@@ -632,7 +639,11 @@ impl AsyncWriteRent for File {
 }
 
 impl AsyncWriteRentAt for File {
-    fn write_at<T: IoBuf>(&mut self, buf: T, pos: usize) -> impl Future<Output=BufResult<usize, T>> {
+    fn write_at<T: IoBuf>(
+        &mut self,
+        buf: T,
+        pos: usize,
+    ) -> impl Future<Output = BufResult<usize, T>> {
         File::write_at(self, buf, pos as u64)
     }
 }

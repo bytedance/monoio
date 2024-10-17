@@ -42,11 +42,8 @@ pub trait AsyncReadRent {
 /// AsyncReadRentAt: async read with a ownership of a buffer and a position
 pub trait AsyncReadRentAt {
     /// Same as pread(2)
-    fn read_at<T: IoBufMut>(
-        &self,
-        buf: T,
-        pos: usize,
-    ) -> impl Future<Output = BufResult<usize, T>>;
+    fn read_at<T: IoBufMut>(&self, buf: T, pos: usize)
+        -> impl Future<Output = BufResult<usize, T>>;
 }
 
 impl<A: ?Sized + AsyncReadRent> AsyncReadRent for &mut A {
