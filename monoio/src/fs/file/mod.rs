@@ -1,11 +1,6 @@
 use std::{io, path::Path};
-
-use crate::{
-    buf::{IoBuf, IoBufMut, IoVecBuf, IoVecBufMut},
-    driver::{op::Op, shared_fd::SharedFd},
-    fs::OpenOptions,
-    io::{AsyncReadRent, AsyncWriteRent},
-};
+use std::future::Future;
+use crate::{buf::{IoBuf, IoBufMut, IoVecBuf, IoVecBufMut}, driver::{op::Op, shared_fd::SharedFd}, fs::OpenOptions, io::{AsyncReadRent, AsyncWriteRent}, BufResult};
 
 #[cfg(unix)]
 mod unix;
@@ -15,6 +10,7 @@ use unix as file_impl;
 mod windows;
 #[cfg(windows)]
 use windows as file_impl;
+use crate::io::AsyncReadRentAt;
 
 /// A reference to an open file on the filesystem.
 ///
@@ -751,5 +747,15 @@ impl AsyncReadRent for File {
     /// ```
     async fn readv<T: crate::buf::IoVecBufMut>(&mut self, buf: T) -> crate::BufResult<usize, T> {
         self.read_vectored(buf).await
+    }
+}
+
+impl AsyncReadRentAt for File {
+    fn read_at<T: IoBufMut>(
+        &self,
+        buf: T,
+        pos: usize,
+    ) -> impl Future<Output = BufResult<usize, T>> {
+        File::read_at(self, buf, pos as u64)
     }
 }

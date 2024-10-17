@@ -43,7 +43,7 @@ pub trait AsyncReadRent {
 pub trait AsyncReadRentAt {
     /// Same as pread(2)
     fn read_at<T: IoBufMut>(
-        &mut self,
+        &self,
         buf: T,
         pos: usize,
     ) -> impl Future<Output = BufResult<usize, T>>;
