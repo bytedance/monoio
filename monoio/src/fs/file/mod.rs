@@ -10,7 +10,7 @@ use unix as file_impl;
 mod windows;
 #[cfg(windows)]
 use windows as file_impl;
-use crate::io::AsyncReadRentAt;
+use crate::io::{AsyncReadRentAt, AsyncWriteRentAt};
 
 /// A reference to an open file on the filesystem.
 ///
@@ -628,6 +628,12 @@ impl AsyncWriteRent for File {
     /// This function will call [`flush`] inside.
     async fn shutdown(&mut self) -> std::io::Result<()> {
         self.flush().await
+    }
+}
+
+impl AsyncWriteRentAt for File {
+    fn write_at<T: IoBuf>(&mut self, buf: T, pos: usize) -> impl Future<Output=BufResult<usize, T>> {
+        File::write_at(self, buf, pos as u64)
     }
 }
 
