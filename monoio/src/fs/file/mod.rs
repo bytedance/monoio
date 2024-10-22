@@ -769,7 +769,7 @@ impl AsyncReadRent for File {
 
 impl AsyncReadRentAt for File {
     fn read_at<T: IoBufMut>(
-        &self,
+        &mut self,
         buf: T,
         pos: usize,
     ) -> impl Future<Output = BufResult<usize, T>> {
