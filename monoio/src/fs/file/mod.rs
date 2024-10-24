@@ -1,10 +1,11 @@
-use std::{io, path::Path};
+use std::{future::Future, io, path::Path};
 
 use crate::{
     buf::{IoBuf, IoBufMut, IoVecBuf, IoVecBufMut},
     driver::{op::Op, shared_fd::SharedFd},
     fs::OpenOptions,
     io::{AsyncReadRent, AsyncWriteRent},
+    BufResult,
 };
 
 #[cfg(unix)]
@@ -15,6 +16,8 @@ use unix as file_impl;
 mod windows;
 #[cfg(windows)]
 use windows as file_impl;
+
+use crate::io::{AsyncReadRentAt, AsyncWriteRentAt};
 
 /// A reference to an open file on the filesystem.
 ///
@@ -635,6 +638,16 @@ impl AsyncWriteRent for File {
     }
 }
 
+impl AsyncWriteRentAt for File {
+    fn write_at<T: IoBuf>(
+        &mut self,
+        buf: T,
+        pos: usize,
+    ) -> impl Future<Output = BufResult<usize, T>> {
+        File::write_at(self, buf, pos as u64)
+    }
+}
+
 impl AsyncReadRent for File {
     /// Reads bytes from the file at the current file pointer into the specified buffer, returning
     /// the number of bytes read.
@@ -751,5 +764,15 @@ impl AsyncReadRent for File {
     /// ```
     async fn readv<T: crate::buf::IoVecBufMut>(&mut self, buf: T) -> crate::BufResult<usize, T> {
         self.read_vectored(buf).await
+    }
+}
+
+impl AsyncReadRentAt for File {
+    fn read_at<T: IoBufMut>(
+        &mut self,
+        buf: T,
+        pos: usize,
+    ) -> impl Future<Output = BufResult<usize, T>> {
+        File::read_at(self, buf, pos as u64)
     }
 }
