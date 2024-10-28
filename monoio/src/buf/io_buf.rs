@@ -39,6 +39,12 @@ pub unsafe trait IoBuf: Unpin + 'static {
     /// For `Vec`, this is identical to `len()`.
     fn bytes_init(&self) -> usize;
 
+    /// Returns a slice of the buffer.
+    #[inline]
+    fn as_slice(&self) -> &[u8] {
+        unsafe { core::slice::from_raw_parts(self.read_ptr(), self.bytes_init()) }
+    }
+
     /// Returns a view of the buffer with the specified range.
     #[inline]
     fn slice(self, range: impl ops::RangeBounds<usize>) -> Slice<Self>
