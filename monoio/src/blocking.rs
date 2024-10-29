@@ -293,21 +293,23 @@ mod tests {
             .enable_timer()
             .build()
             .unwrap();
-        fn thread_sleep(s: &'static str) -> impl FnOnce() -> &'static str {
-            move || {
-                // Simulate a heavy computation.
-                std::thread::sleep(std::time::Duration::from_millis(500));
-                s
-            }
+        macro_rules! thread_sleep {
+            ($s:expr) => {
+                || {
+                    // Simulate a heavy computation.
+                    std::thread::sleep(std::time::Duration::from_millis(500));
+                    $s
+                }
+            };
         }
         rt.block_on(async {
             let begin = std::time::Instant::now();
-            let join1 = crate::spawn_blocking(thread_sleep("hello spawn_blocking1!"));
-            let join2 = crate::spawn_blocking(thread_sleep("hello spawn_blocking2!"));
-            let join3 = crate::spawn_blocking(thread_sleep("hello spawn_blocking3!"));
-            let join4 = crate::spawn_blocking(thread_sleep("hello spawn_blocking4!"));
-            let join5 = crate::spawn_blocking(thread_sleep("hello spawn_blocking5!"));
-            let join6 = crate::spawn_blocking(thread_sleep("hello spawn_blocking6!"));
+            let join1 = crate::spawn_blocking(thread_sleep!("hello spawn_blocking1!"));
+            let join2 = crate::spawn_blocking(thread_sleep!("hello spawn_blocking2!"));
+            let join3 = crate::spawn_blocking(thread_sleep!("hello spawn_blocking3!"));
+            let join4 = crate::spawn_blocking(thread_sleep!("hello spawn_blocking4!"));
+            let join5 = crate::spawn_blocking(thread_sleep!("hello spawn_blocking5!"));
+            let join6 = crate::spawn_blocking(thread_sleep!("hello spawn_blocking6!"));
             let sleep_async = crate::time::sleep(std::time::Duration::from_millis(500));
             let (result1, result2, result3, result4, result5, result6, _) =
                 crate::join!(join1, join2, join3, join4, join5, join6, sleep_async);
