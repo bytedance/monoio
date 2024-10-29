@@ -331,9 +331,9 @@ impl AsyncWriteRent for TcpStream {
     }
 
     #[inline]
-    async fn flush(&mut self) -> std::io::Result<()> {
+    fn flush(&mut self) -> impl Future<Output = std::io::Result<()>> {
         // Tcp stream does not need flush.
-        Ok(())
+        std::future::ready(Ok(()))
     }
 
     fn shutdown(&mut self) -> impl Future<Output = std::io::Result<()>> {
@@ -347,7 +347,7 @@ impl AsyncWriteRent for TcpStream {
             -1 => Err(io::Error::last_os_error()),
             _ => Ok(()),
         };
-        async move { res }
+        std::future::ready(res)
     }
 }
 
@@ -403,7 +403,7 @@ impl CancelableAsyncWriteRent for TcpStream {
             -1 => Err(io::Error::last_os_error()),
             _ => Ok(()),
         };
-        async move { res }
+        std::future::ready(res)
     }
 }
 

@@ -83,6 +83,17 @@ pub trait AsyncWriteRentAt {
     ) -> impl Future<Output = BufResult<usize, T>>;
 }
 
+impl<A: ?Sized + AsyncWriteRentAt> AsyncWriteRentAt for &mut A {
+    #[inline]
+    fn write_at<T: IoBuf>(
+        &mut self,
+        buf: T,
+        pos: usize,
+    ) -> impl Future<Output = BufResult<usize, T>> {
+        (**self).write_at(buf, pos)
+    }
+}
+
 impl<A: ?Sized + AsyncWriteRent> AsyncWriteRent for &mut A {
     #[inline]
     fn write<T: IoBuf>(&mut self, buf: T) -> impl Future<Output = BufResult<usize, T>> {
@@ -102,5 +113,58 @@ impl<A: ?Sized + AsyncWriteRent> AsyncWriteRent for &mut A {
     #[inline]
     fn shutdown(&mut self) -> impl Future<Output = std::io::Result<()>> {
         (**self).shutdown()
+    }
+}
+
+impl AsyncWriteRent for Vec<u8> {
+    fn write<T: IoBuf>(&mut self, buf: T) -> impl Future<Output = BufResult<usize, T>> {
+        let slice = buf.as_slice();
+        self.extend_from_slice(slice);
+        let len = slice.len();
+        std::future::ready((Ok(len), buf))
+    }
+
+    fn writev<T: IoVecBuf>(&mut self, buf: T) -> impl Future<Output = BufResult<usize, T>> {
+        let mut sum = 0;
+        {
+            #[cfg(windows)]
+            let buf_slice =
+                unsafe { std::slice::from_raw_parts(buf.read_wsabuf_ptr(), buf.read_wsabuf_len()) };
+            #[cfg(unix)]
+            let buf_slice =
+                unsafe { std::slice::from_raw_parts(buf.read_iovec_ptr(), buf.read_iovec_len()) };
+            for buf in buf_slice {
+                #[cfg(windows)]
+                let len = buf.len as usize;
+                #[cfg(unix)]
+                let len = buf.iov_len;
+
+                sum += len;
+            }
+            self.reserve(sum);
+            for buf in buf_slice {
+                #[cfg(windows)]
+                let ptr = buf.buf.cast::<u8>();
+                #[cfg(unix)]
+                let ptr = buf.iov_base.cast::<u8>();
+                #[cfg(windows)]
+                let len = buf.len as usize;
+                #[cfg(unix)]
+                let len = buf.iov_len;
+
+                self.extend_from_slice(unsafe { std::slice::from_raw_parts(ptr, len) });
+            }
+        }
+        std::future::ready((Ok(sum), buf))
+    }
+
+    #[inline]
+    fn flush(&mut self) -> impl Future<Output = std::io::Result<()>> {
+        std::future::ready(Ok(()))
+    }
+
+    #[inline]
+    fn shutdown(&mut self) -> impl Future<Output = std::io::Result<()>> {
+        std::future::ready(Ok(()))
     }
 }

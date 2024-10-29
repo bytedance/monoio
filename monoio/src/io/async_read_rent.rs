@@ -1,7 +1,7 @@
-use std::future::Future;
+use std::{future::Future, io::Cursor};
 
 use crate::{
-    buf::{IoBufMut, IoVecBufMut, RawBuf},
+    buf::{IoBufMut, IoVecBufMut},
     BufResult,
 };
 
@@ -49,6 +49,17 @@ pub trait AsyncReadRentAt {
     ) -> impl Future<Output = BufResult<usize, T>>;
 }
 
+impl<A: ?Sized + AsyncReadRentAt> AsyncReadRentAt for &mut A {
+    #[inline]
+    fn read_at<T: IoBufMut>(
+        &mut self,
+        buf: T,
+        pos: usize,
+    ) -> impl Future<Output = BufResult<usize, T>> {
+        (**self).read_at(buf, pos)
+    }
+}
+
 impl<A: ?Sized + AsyncReadRent> AsyncReadRent for &mut A {
     #[inline]
     fn read<T: IoBufMut>(&mut self, buf: T) -> impl Future<Output = BufResult<usize, T>> {
@@ -70,29 +81,85 @@ impl AsyncReadRent for &[u8] {
             buf.set_init(amt);
         }
         *self = b;
-        async move { (Ok(amt), buf) }
+        std::future::ready((Ok(amt), buf))
     }
 
     fn readv<T: IoVecBufMut>(&mut self, mut buf: T) -> impl Future<Output = BufResult<usize, T>> {
-        // # Safety
-        // We do it in pure sync way.
-        let n = match unsafe { RawBuf::new_from_iovec_mut(&mut buf) } {
-            Some(mut raw_buf) => {
-                // copy from read to avoid await
-                let amt = std::cmp::min(self.len(), raw_buf.bytes_total());
+        let mut sum = 0;
+        {
+            #[cfg(windows)]
+            let buf_slice = unsafe {
+                std::slice::from_raw_parts_mut(buf.write_wsabuf_ptr(), buf.write_wsabuf_len())
+            };
+            #[cfg(unix)]
+            let buf_slice = unsafe {
+                std::slice::from_raw_parts_mut(buf.write_iovec_ptr(), buf.write_iovec_len())
+            };
+            for buf in buf_slice {
+                #[cfg(windows)]
+                let amt = std::cmp::min(self.len(), buf.len as usize);
+                #[cfg(unix)]
+                let amt = std::cmp::min(self.len(), buf.iov_len);
+
                 let (a, b) = self.split_at(amt);
+                // # Safety
+                // The pointer is valid.
                 unsafe {
-                    raw_buf
-                        .write_ptr()
+                    #[cfg(windows)]
+                    buf.buf
+                        .cast::<u8>()
                         .copy_from_nonoverlapping(a.as_ptr(), amt);
-                    raw_buf.set_init(amt);
+                    #[cfg(unix)]
+                    buf.iov_base
+                        .cast::<u8>()
+                        .copy_from_nonoverlapping(a.as_ptr(), amt);
                 }
                 *self = b;
-                amt
+                sum += amt;
+
+                if self.is_empty() {
+                    break;
+                }
             }
-            None => 0,
-        };
-        unsafe { buf.set_init(n) };
-        async move { (Ok(n), buf) }
+        }
+
+        unsafe { buf.set_init(sum) };
+        std::future::ready((Ok(sum), buf))
+    }
+}
+
+impl<T: AsRef<[u8]>> AsyncReadRent for Cursor<T> {
+    async fn read<B: IoBufMut>(&mut self, buf: B) -> BufResult<usize, B> {
+        let pos = self.position();
+        let slice: &[u8] = (*self).get_ref().as_ref();
+
+        if pos > slice.len() as u64 {
+            return (Ok(0), buf);
+        }
+
+        (&slice[pos as usize..]).read(buf).await
+    }
+
+    async fn readv<B: IoVecBufMut>(&mut self, buf: B) -> BufResult<usize, B> {
+        let pos = self.position();
+        let slice: &[u8] = (*self).get_ref().as_ref();
+
+        if pos > slice.len() as u64 {
+            return (Ok(0), buf);
+        }
+
+        (&slice[pos as usize..]).readv(buf).await
+    }
+}
+
+impl<T: ?Sized + AsyncReadRent> AsyncReadRent for Box<T> {
+    #[inline]
+    fn read<B: IoBufMut>(&mut self, buf: B) -> impl Future<Output = BufResult<usize, B>> {
+        (**self).read(buf)
+    }
+
+    #[inline]
+    fn readv<B: IoVecBufMut>(&mut self, buf: B) -> impl Future<Output = BufResult<usize, B>> {
+        (**self).readv(buf)
     }
 }

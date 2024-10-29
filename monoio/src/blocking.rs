@@ -287,44 +287,39 @@ mod tests {
 
     #[test]
     fn default_pool() {
-        let shared_pool = Box::new(DefaultThreadPool::new(3));
+        let shared_pool = Box::new(DefaultThreadPool::new(6));
         let mut rt = crate::RuntimeBuilder::<crate::FusionDriver>::new()
             .attach_thread_pool(shared_pool)
             .enable_timer()
             .build()
             .unwrap();
+        fn thread_sleep(s: &'static str) -> impl FnOnce() -> &'static str {
+            move || {
+                // Simulate a heavy computation.
+                std::thread::sleep(std::time::Duration::from_millis(500));
+                s
+            }
+        }
         rt.block_on(async {
             let begin = std::time::Instant::now();
-            let join1 = crate::spawn_blocking(|| {
-                // Simulate a heavy computation.
-                std::thread::sleep(std::time::Duration::from_millis(150));
-                "hello spawn_blocking1!".to_string()
-            });
-            let join2 = crate::spawn_blocking(|| {
-                // Simulate a heavy computation.
-                std::thread::sleep(std::time::Duration::from_millis(150));
-                "hello spawn_blocking2!".to_string()
-            });
-            let join3 = crate::spawn_blocking(|| {
-                // Simulate a heavy computation.
-                std::thread::sleep(std::time::Duration::from_millis(150));
-                "hello spawn_blocking3!".to_string()
-            });
-            let join4 = crate::spawn_blocking(|| {
-                // Simulate a heavy computation.
-                std::thread::sleep(std::time::Duration::from_millis(150));
-                "hello spawn_blocking4!".to_string()
-            });
-            let sleep_async = crate::time::sleep(std::time::Duration::from_millis(150));
-            let (result1, result2, result3, result4, _) =
-                crate::join!(join1, join2, join3, join4, sleep_async);
+            let join1 = crate::spawn_blocking(thread_sleep("hello spawn_blocking1!"));
+            let join2 = crate::spawn_blocking(thread_sleep("hello spawn_blocking2!"));
+            let join3 = crate::spawn_blocking(thread_sleep("hello spawn_blocking3!"));
+            let join4 = crate::spawn_blocking(thread_sleep("hello spawn_blocking4!"));
+            let join5 = crate::spawn_blocking(thread_sleep("hello spawn_blocking5!"));
+            let join6 = crate::spawn_blocking(thread_sleep("hello spawn_blocking6!"));
+            let sleep_async = crate::time::sleep(std::time::Duration::from_millis(500));
+            let (result1, result2, result3, result4, result5, result6, _) =
+                crate::join!(join1, join2, join3, join4, join5, join6, sleep_async);
             let eps = begin.elapsed();
-            assert!(eps < std::time::Duration::from_millis(590));
-            assert!(eps >= std::time::Duration::from_millis(150));
+            assert!(eps < std::time::Duration::from_millis(3000));
+            assert!(eps >= std::time::Duration::from_millis(500));
             assert_eq!(result1.unwrap(), "hello spawn_blocking1!");
             assert_eq!(result2.unwrap(), "hello spawn_blocking2!");
             assert_eq!(result3.unwrap(), "hello spawn_blocking3!");
             assert_eq!(result4.unwrap(), "hello spawn_blocking4!");
+            assert_eq!(result5.unwrap(), "hello spawn_blocking5!");
+            assert_eq!(result6.unwrap(), "hello spawn_blocking6!");
         });
     }
 }

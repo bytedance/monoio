@@ -505,8 +505,9 @@ impl File {
         Ok(())
     }
 
-    async fn flush(&mut self) -> io::Result<()> {
-        Ok(())
+    #[inline]
+    fn flush(&mut self) -> impl Future<Output = io::Result<()>> {
+        std::future::ready(Ok(()))
     }
 
     /// Closes the file.
