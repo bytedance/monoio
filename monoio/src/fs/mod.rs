@@ -166,11 +166,12 @@ pub async fn read<P: AsRef<Path>>(path: P) -> io::Result<Vec<u8>> {
     let file = File::open(path).await?;
 
     #[cfg(windows)]
-    let sys_file = unsafe { std::fs::File::from_raw_handle(file.as_raw_handle()) };
-    #[cfg(windows)]
-    let size = sys_file.metadata()?.len() as usize;
-    #[cfg(windows)]
-    let _ = sys_file.into_raw_handle();
+    let size = {
+        let sys_file = std::mem::ManuallyDrop::new(unsafe {
+            std::fs::File::from_raw_handle(file.as_raw_handle())
+        });
+        sys_file.metadata()?.len() as usize
+    };
 
     #[cfg(unix)]
     let size = file.metadata().await?.len() as usize;
