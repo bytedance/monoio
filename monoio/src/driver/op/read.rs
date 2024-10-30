@@ -360,7 +360,7 @@ pub(crate) mod impls {
     use super::*;
 
     /// A wrapper of [`windows_sys::Win32::Storage::FileSystem::ReadFile`]
-    pub(crate) fn read(handle: isize, buf: *mut u8, len: usize) -> io::Result<u32> {
+    pub(crate) fn read(handle: isize, buf: *mut u8, len: usize) -> io::Result<MaybeFd> {
         let mut bytes_read = 0;
         let ret = unsafe {
             ReadFile(
@@ -373,18 +373,23 @@ pub(crate) mod impls {
         };
 
         if ret == TRUE {
-            return Ok(bytes_read);
+            return Ok(MaybeFd::new_non_fd(bytes_read));
         }
 
         match unsafe { GetLastError() } {
-            ERROR_HANDLE_EOF => Ok(bytes_read),
+            ERROR_HANDLE_EOF => Ok(MaybeFd::new_non_fd(bytes_read)),
             error => Err(io::Error::from_raw_os_error(error as _)),
         }
     }
 
     /// A wrapper of [`windows_sys::Win32::Storage::FileSystem::ReadFile`] and using the
     /// [`windows_sys::Win32::System::IO::OVERLAPPED`] to read at specific position.
-    pub(crate) fn read_at(handle: isize, buf: *mut u8, len: usize, offset: u64) -> io::Result<u32> {
+    pub(crate) fn read_at(
+        handle: isize,
+        buf: *mut u8,
+        len: usize,
+        offset: u64,
+    ) -> io::Result<MaybeFd> {
         let mut bytes_read = 0;
         let ret = unsafe {
             // see https://learn.microsoft.com/zh-cn/windows/win32/api/fileapi/nf-fileapi-readfile
@@ -402,11 +407,11 @@ pub(crate) mod impls {
         };
 
         if ret == TRUE {
-            return Ok(bytes_read);
+            return Ok(MaybeFd::new_non_fd(bytes_read));
         }
 
         match unsafe { GetLastError() } {
-            ERROR_HANDLE_EOF => Ok(bytes_read),
+            ERROR_HANDLE_EOF => Ok(MaybeFd::new_non_fd(bytes_read)),
             error => Err(io::Error::from_raw_os_error(error as _)),
         }
     }

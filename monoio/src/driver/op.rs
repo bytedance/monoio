@@ -109,6 +109,11 @@ impl MaybeFd {
             fd: 0,
         }
     }
+
+    #[inline]
+    pub(crate) fn fd(&self) -> u32 {
+        self.fd
+    }
 }
 
 impl Drop for MaybeFd {
@@ -237,6 +242,7 @@ where
     }
 }
 
+#[cfg(all(target_os = "linux", feature = "iouring"))]
 impl<T: OpAble> Drop for Op<T> {
     #[inline]
     fn drop(&mut self) {

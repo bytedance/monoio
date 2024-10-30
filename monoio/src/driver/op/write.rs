@@ -306,23 +306,28 @@ pub(crate) mod impls {
     use super::*;
 
     /// A wrapper of [`windows_sys::Win32::Storage::FileSystem::WriteFile`]
-    pub(crate) fn write(fd: isize, buf: *const u8, len: usize) -> io::Result<u32> {
+    pub(crate) fn write(fd: isize, buf: *const u8, len: usize) -> io::Result<MaybeFd> {
         let mut bytes_write = 0;
 
         let ret = unsafe { WriteFile(fd, buf, len as _, &mut bytes_write, std::ptr::null_mut()) };
         if ret == TRUE {
-            return Ok(bytes_write);
+            return Ok(MaybeFd::new_non_fd(bytes_write));
         }
 
         match unsafe { GetLastError() } {
-            ERROR_HANDLE_EOF => Ok(bytes_write),
+            ERROR_HANDLE_EOF => Ok(MaybeFd::new_non_fd(bytes_write)),
             error => Err(io::Error::from_raw_os_error(error as _)),
         }
     }
 
     /// A wrapper of [`windows_sys::Win32::Storage::FileSystem::WriteFile`],
     /// using [`windows_sys::Win32::System::IO::OVERLAPPED`] to write at specific offset.
-    pub(crate) fn write_at(fd: isize, buf: *const u8, len: usize, offset: u64) -> io::Result<u32> {
+    pub(crate) fn write_at(
+        fd: isize,
+        buf: *const u8,
+        len: usize,
+        offset: u64,
+    ) -> io::Result<MaybeFd> {
         let mut bytes_write = 0;
 
         let mut overlapped: OVERLAPPED = unsafe { std::mem::zeroed() };
@@ -340,18 +345,22 @@ pub(crate) mod impls {
         };
 
         if ret == TRUE {
-            return Ok(bytes_write);
+            return Ok(MaybeFd::new_non_fd(bytes_write));
         }
 
         match unsafe { GetLastError() } {
-            ERROR_HANDLE_EOF => Ok(bytes_write),
+            ERROR_HANDLE_EOF => Ok(MaybeFd::new_non_fd(bytes_write)),
             error => Err(io::Error::from_raw_os_error(error as _)),
         }
     }
 
     /// There is no `writev` like syscall of file on windows, but this will be used to send socket
     /// message.
-    pub(crate) fn write_vectored(fd: usize, buf_vec: *const WSABUF, len: usize) -> io::Result<u32> {
+    pub(crate) fn write_vectored(
+        fd: usize,
+        buf_vec: *const WSABUF,
+        len: usize,
+    ) -> io::Result<MaybeFd> {
         use windows_sys::Win32::Networking::WinSock::{WSAGetLastError, WSASend, WSAESHUTDOWN};
 
         let mut bytes_sent = 0;
@@ -369,11 +378,11 @@ pub(crate) mod impls {
         };
 
         match ret {
-            0 => Ok(bytes_sent),
+            0 => Ok(MaybeFd::new_non_fd(bytes_sent)),
             _ => {
                 let error = unsafe { WSAGetLastError() };
                 if error == WSAESHUTDOWN {
-                    Ok(0)
+                    Ok(MaybeFd::zero())
                 } else {
                     Err(io::Error::from_raw_os_error(error))
                 }

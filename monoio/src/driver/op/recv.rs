@@ -109,8 +109,8 @@ impl<T: IoBufMut> OpAble for Recv<T> {
     #[cfg(all(any(feature = "legacy", feature = "poll-io"), windows))]
     fn legacy_call(&mut self) -> io::Result<MaybeFd> {
         let fd = self.fd.as_raw_socket();
-        MaybeFd::new_non_fd_result(crate::syscall!(
-            recv(
+        crate::syscall!(
+            recv@NON_FD(
                 fd as _,
                 self.buf.write_ptr(),
                 self.buf.bytes_total().min(i32::MAX as usize) as _,
@@ -118,7 +118,7 @@ impl<T: IoBufMut> OpAble for Recv<T> {
             ),
             PartialOrd::lt,
             0
-        ))
+        )
     }
 }
 

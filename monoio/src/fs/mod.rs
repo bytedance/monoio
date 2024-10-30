@@ -125,7 +125,7 @@ macro_rules! asyncify_op {
 
             let res = $crate::fs::asyncify(move || $op(fd, buf_ptr as *mut _, len, $($extra_param)?))
                 .await
-                .map(|n| n as usize);
+                .map(|n| n.into_inner() as usize);
 
             unsafe { buf.set_init(*res.as_ref().unwrap_or(&0)) };
 
@@ -150,7 +150,7 @@ macro_rules! asyncify_op {
 
             let res = $crate::fs::asyncify(move || $op(fd, buf_ptr as *mut _, len, $($extra_param)?))
                 .await
-                .map(|n| n as usize);
+                .map(|n| n.into_inner() as usize);
 
             // unsafe { buf.set_init(*res.as_ref().unwrap_or(&0)) };
 

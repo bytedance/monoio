@@ -113,7 +113,7 @@ impl<T: IoBuf> OpAble for Send<T> {
     }
 
     #[cfg(all(any(feature = "legacy", feature = "poll-io"), windows))]
-    fn legacy_call(&mut self) -> io::Result<u32> {
+    fn legacy_call(&mut self) -> io::Result<MaybeFd> {
         let fd = self.fd.as_raw_socket();
         syscall!(
             send@NON_FD(fd as _, self.buf.read_ptr(), self.buf.bytes_init() as _, 0),
@@ -219,7 +219,7 @@ impl<T: IoBuf> OpAble for SendMsg<T> {
     }
 
     #[cfg(all(any(feature = "legacy", feature = "poll-io"), windows))]
-    fn legacy_call(&mut self) -> io::Result<u32> {
+    fn legacy_call(&mut self) -> io::Result<MaybeFd> {
         let fd = self.fd.as_raw_socket();
         let mut nsent = 0;
         let ret = unsafe {
@@ -235,7 +235,7 @@ impl<T: IoBuf> OpAble for SendMsg<T> {
         if ret == SOCKET_ERROR {
             Err(io::Error::last_os_error())
         } else {
-            Ok(nsent)
+            Ok(MaybeFd::new_non_fd(nsent))
         }
     }
 }

@@ -52,8 +52,10 @@ impl OpAble for Fsync {
     fn legacy_call(&mut self) -> io::Result<MaybeFd> {
         use std::os::windows::prelude::AsRawHandle;
 
+        use windows_sys::Win32::Storage::FileSystem::FlushFileBuffers;
+
         crate::syscall!(
-            windows_sys::Win32::Storage::FileSystem::FlushFileBuffers@NON_FD(self.fd.as_raw_handle() as _),
+            FlushFileBuffers@NON_FD(self.fd.as_raw_handle() as _),
             PartialEq::eq,
             0
         )

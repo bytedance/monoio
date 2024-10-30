@@ -156,7 +156,7 @@ impl Inner {
         }
     }
 
-    #[allow(unused)]
+    #[cfg(all(target_os = "linux", feature = "iouring"))]
     #[inline]
     fn drop_op<T: 'static>(&self, index: usize, data: &mut Option<T>, skip_cancel: bool) {
         match self {

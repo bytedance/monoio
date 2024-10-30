@@ -121,9 +121,9 @@ impl OpAble for Accept {
         ))]
         return {
             let stream_fd = syscall_u32!(accept@FD(fd, addr, len))?;
-            let fd = stream_fd.get() as i32;
-            syscall_u32!(fcntl(fd, libc::F_SETFD, libc::FD_CLOEXEC))?;
-            syscall_u32!(fcntl(fd, libc::F_SETFL, libc::O_NONBLOCK))?;
+            let fd = stream_fd.fd() as i32;
+            syscall_u32!(fcntl@RAW(fd, libc::F_SETFD, libc::FD_CLOEXEC))?;
+            syscall_u32!(fcntl@RAW(fd, libc::F_SETFL, libc::O_NONBLOCK))?;
             Ok(stream_fd)
         };
     }
