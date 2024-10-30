@@ -1,6 +1,6 @@
 use std::{io, task::Context, time::Duration};
 
-use super::{ready::Direction, scheduled_io::ScheduledIo};
+use super::{op::MaybeFd, ready::Direction, scheduled_io::ScheduledIo};
 use crate::{driver::op::CompletionMeta, utils::slab::Slab};
 
 /// Poller with io dispatch.
@@ -77,7 +77,7 @@ impl Poll {
         cx: &mut Context<'_>,
         token: usize,
         direction: Direction,
-        syscall: impl FnOnce() -> io::Result<u32>,
+        syscall: impl FnOnce() -> io::Result<MaybeFd>,
     ) -> std::task::Poll<CompletionMeta> {
         let mut scheduled_io = self.io_dispatch.get(token).expect("scheduled_io lost");
         let ref_mut = scheduled_io.as_mut();

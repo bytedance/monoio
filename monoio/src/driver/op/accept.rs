@@ -18,7 +18,7 @@ use {
 
 use super::{super::shared_fd::SharedFd, Op, OpAble};
 #[cfg(any(feature = "legacy", feature = "poll-io"))]
-use crate::driver::ready::Direction;
+use super::{driver::ready::Direction, MaybeFd};
 #[cfg(all(unix, any(feature = "legacy", feature = "poll-io")))]
 use crate::syscall_u32;
 
@@ -55,6 +55,9 @@ impl Op<Accept> {
 
 impl OpAble for Accept {
     #[cfg(all(target_os = "linux", feature = "iouring"))]
+    const RET_IS_FD: bool = true;
+
+    #[cfg(all(target_os = "linux", feature = "iouring"))]
     fn uring_op(&mut self) -> io_uring::squeue::Entry {
         opcode::Accept::new(
             types::Fd(self.fd.raw_fd()),
@@ -71,16 +74,16 @@ impl OpAble for Accept {
     }
 
     #[cfg(all(any(feature = "legacy", feature = "poll-io"), windows))]
-    fn legacy_call(&mut self) -> io::Result<u32> {
+    fn legacy_call(&mut self) -> io::Result<MaybeFd> {
         let fd = self.fd.as_raw_socket();
         let addr = self.addr.0.as_mut_ptr() as *mut _;
         let len = &mut self.addr.1;
 
-        syscall!(accept(fd as _, addr, len), PartialEq::eq, INVALID_SOCKET)
+        syscall!(accept@FD(fd as _, addr, len), PartialEq::eq, INVALID_SOCKET)
     }
 
     #[cfg(all(any(feature = "legacy", feature = "poll-io"), unix))]
-    fn legacy_call(&mut self) -> io::Result<u32> {
+    fn legacy_call(&mut self) -> io::Result<MaybeFd> {
         let fd = self.fd.as_raw_fd();
         let addr = self.addr.0.as_mut_ptr() as *mut _;
         let len = &mut self.addr.1;
@@ -102,12 +105,10 @@ impl OpAble for Accept {
             target_os = "netbsd",
             target_os = "openbsd"
         ))]
-        return syscall_u32!(accept4(
-            fd,
-            addr,
-            len,
-            libc::SOCK_CLOEXEC | libc::SOCK_NONBLOCK,
-        ));
+        return {
+            let flag = libc::SOCK_CLOEXEC | libc::SOCK_NONBLOCK;
+            syscall_u32!(accept4@FD(fd, addr, len, flag))
+        };
 
         // But not all platforms have the `accept4(2)` call. Luckily BSD (derived)
         // OSes inherit the non-blocking flag from the listener, so we just have to
@@ -119,13 +120,11 @@ impl OpAble for Accept {
             target_os = "redox"
         ))]
         return {
-            let stream_fd = syscall_u32!(accept(fd, addr, len))? as i32;
-            syscall_u32!(fcntl(stream_fd, libc::F_SETFD, libc::FD_CLOEXEC))
-                .and_then(|_| syscall_u32!(fcntl(stream_fd, libc::F_SETFL, libc::O_NONBLOCK)))
-                .inspect_err(|_| {
-                    let _ = syscall_u32!(close(stream_fd));
-                })?;
-            Ok(stream_fd as _)
+            let stream_fd = syscall_u32!(accept@FD(fd, addr, len))?;
+            let fd = stream_fd.get() as i32;
+            syscall_u32!(fcntl(fd, libc::F_SETFD, libc::FD_CLOEXEC))?;
+            syscall_u32!(fcntl(fd, libc::F_SETFL, libc::O_NONBLOCK))?;
+            Ok(stream_fd)
         };
     }
 }

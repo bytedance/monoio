@@ -26,8 +26,8 @@ impl UnixSeqpacketListener {
     pub fn bind_with_backlog<P: AsRef<Path>>(path: P, backlog: libc::c_int) -> io::Result<Self> {
         let (addr, addr_len) = socket_addr(path.as_ref())?;
         let socket = new_socket(libc::AF_UNIX, libc::SOCK_SEQPACKET)?;
-        crate::syscall!(bind(socket, &addr as *const _ as *const _, addr_len))?;
-        crate::syscall!(listen(socket, backlog))?;
+        crate::syscall!(bind@RAW(socket, &addr as *const _ as *const _, addr_len))?;
+        crate::syscall!(listen@RAW(socket, backlog))?;
         Ok(Self {
             fd: SharedFd::new::<false>(socket)?,
         })
@@ -50,7 +50,7 @@ impl UnixSeqpacketListener {
         let fd = completion.meta.result?;
 
         // Construct stream
-        let stream = UnixSeqpacket::from_shared_fd(SharedFd::new::<false>(fd as _)?);
+        let stream = UnixSeqpacket::from_shared_fd(SharedFd::new::<false>(fd.into_inner() as _)?);
 
         // Construct SocketAddr
         let mut storage = unsafe { std::mem::MaybeUninit::assume_init(completion.data.addr.0) };

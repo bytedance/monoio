@@ -14,7 +14,7 @@ use {crate::syscall_u32, std::os::unix::prelude::AsRawFd};
 
 use super::{super::shared_fd::SharedFd, Op, OpAble};
 #[cfg(any(feature = "legacy", feature = "poll-io"))]
-use crate::driver::ready::Direction;
+use super::{driver::ready::Direction, MaybeFd};
 #[cfg(unix)]
 use crate::net::unix::SocketAddr as UnixSocketAddr;
 use crate::{
@@ -46,7 +46,10 @@ impl<T: IoBuf> Op<Send<T>> {
 
     pub(crate) async fn result(self) -> BufResult<usize, T> {
         let complete = self.await;
-        (complete.meta.result.map(|v| v as _), complete.data.buf)
+        (
+            complete.meta.result.map(|v| v.into_inner() as _),
+            complete.data.buf,
+        )
     }
 }
 
@@ -93,7 +96,7 @@ impl<T: IoBuf> OpAble for Send<T> {
     }
 
     #[cfg(all(any(feature = "legacy", feature = "poll-io"), unix))]
-    fn legacy_call(&mut self) -> io::Result<u32> {
+    fn legacy_call(&mut self) -> io::Result<MaybeFd> {
         let fd = self.fd.as_raw_fd();
         #[cfg(target_os = "linux")]
         #[allow(deprecated)]
@@ -101,7 +104,7 @@ impl<T: IoBuf> OpAble for Send<T> {
         #[cfg(not(target_os = "linux"))]
         let flags = 0;
 
-        syscall_u32!(send(
+        syscall_u32!(send@NON_FD(
             fd,
             self.buf.read_ptr() as _,
             self.buf.bytes_init(),
@@ -113,7 +116,7 @@ impl<T: IoBuf> OpAble for Send<T> {
     fn legacy_call(&mut self) -> io::Result<u32> {
         let fd = self.fd.as_raw_socket();
         syscall!(
-            send(fd as _, self.buf.read_ptr(), self.buf.bytes_init() as _, 0),
+            send@NON_FD(fd as _, self.buf.read_ptr(), self.buf.bytes_init() as _, 0),
             PartialOrd::lt,
             0
         )
@@ -180,7 +183,7 @@ impl<T: IoBuf> Op<SendMsg<T>> {
 
     pub(crate) async fn wait(self) -> BufResult<usize, T> {
         let complete = self.await;
-        let res = complete.meta.result.map(|v| v as _);
+        let res = complete.meta.result.map(|v| v.into_inner() as _);
         let buf = complete.data.buf;
         (res, buf)
     }
@@ -205,14 +208,14 @@ impl<T: IoBuf> OpAble for SendMsg<T> {
     }
 
     #[cfg(all(any(feature = "legacy", feature = "poll-io"), unix))]
-    fn legacy_call(&mut self) -> io::Result<u32> {
+    fn legacy_call(&mut self) -> io::Result<MaybeFd> {
         #[cfg(target_os = "linux")]
         #[allow(deprecated)]
         const FLAGS: libc::c_int = libc::MSG_NOSIGNAL as libc::c_int;
         #[cfg(not(target_os = "linux"))]
         const FLAGS: libc::c_int = 0;
         let fd = self.fd.as_raw_fd();
-        syscall_u32!(sendmsg(fd, &*self.info.2, FLAGS))
+        syscall_u32!(sendmsg@NON_FD(fd, &*self.info.2, FLAGS))
     }
 
     #[cfg(all(any(feature = "legacy", feature = "poll-io"), windows))]
@@ -282,7 +285,7 @@ impl<T: IoBuf> Op<SendMsgUnix<T>> {
 
     pub(crate) async fn wait(self) -> BufResult<usize, T> {
         let complete = self.await;
-        let res = complete.meta.result.map(|v| v as _);
+        let res = complete.meta.result.map(|v| v.into_inner() as _);
         let buf = complete.data.buf;
         (res, buf)
     }
@@ -309,13 +312,13 @@ impl<T: IoBuf> OpAble for SendMsgUnix<T> {
 
     #[cfg(any(feature = "legacy", feature = "poll-io"))]
     #[inline]
-    fn legacy_call(&mut self) -> io::Result<u32> {
+    fn legacy_call(&mut self) -> io::Result<MaybeFd> {
         #[cfg(target_os = "linux")]
         #[allow(deprecated)]
         const FLAGS: libc::c_int = libc::MSG_NOSIGNAL as libc::c_int;
         #[cfg(not(target_os = "linux"))]
         const FLAGS: libc::c_int = 0;
         let fd = self.fd.as_raw_fd();
-        syscall_u32!(sendmsg(fd, &mut self.info.2 as *mut _, FLAGS))
+        syscall_u32!(sendmsg@NON_FD(fd, &mut self.info.2 as *mut _, FLAGS))
     }
 }

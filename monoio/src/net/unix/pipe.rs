@@ -30,8 +30,8 @@ pub fn new_pipe() -> io::Result<(Pipe, Pipe)> {
         }
     };
     #[cfg(target_os = "linux")]
-    crate::syscall!(pipe2(pipes.as_mut_ptr() as _, flag))?;
+    crate::syscall!(pipe2@RAW(pipes.as_mut_ptr() as _, flag))?;
     #[cfg(not(target_os = "linux"))]
-    crate::syscall!(pipe(pipes.as_mut_ptr() as _))?;
+    crate::syscall!(pipe@RAW(pipes.as_mut_ptr() as _))?;
     Ok((Pipe::from_raw_fd(pipes[0]), Pipe::from_raw_fd(pipes[1])))
 }

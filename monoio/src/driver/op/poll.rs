@@ -1,20 +1,8 @@
 use std::io;
-#[cfg(windows)]
-use std::{
-    io::{Error, ErrorKind},
-    os::windows::prelude::AsRawSocket,
-};
-
-#[cfg(all(target_os = "linux", feature = "iouring"))]
-use io_uring::{opcode, types};
-#[cfg(windows)]
-use windows_sys::Win32::Networking::WinSock::{
-    WSAGetLastError, WSAPoll, POLLIN, POLLOUT, SOCKET_ERROR, WSAPOLLFD,
-};
 
 use super::{super::shared_fd::SharedFd, Op, OpAble};
 #[cfg(any(feature = "legacy", feature = "poll-io"))]
-use crate::driver::ready::Direction;
+use super::{driver::ready::Direction, MaybeFd};
 
 pub(crate) struct PollAdd {
     /// Holds a strong ref to the FD, preventing the file from being closed
@@ -55,6 +43,8 @@ impl Op<PollAdd> {
 impl OpAble for PollAdd {
     #[cfg(all(target_os = "linux", feature = "iouring"))]
     fn uring_op(&mut self) -> io_uring::squeue::Entry {
+        use io_uring::{opcode, types};
+
         opcode::PollAdd::new(
             types::Fd(self.fd.raw_fd()),
             if self.is_read {
@@ -82,7 +72,7 @@ impl OpAble for PollAdd {
     }
 
     #[cfg(all(any(feature = "legacy", feature = "poll-io"), not(windows)))]
-    fn legacy_call(&mut self) -> io::Result<u32> {
+    fn legacy_call(&mut self) -> io::Result<MaybeFd> {
         if !self.relaxed {
             use std::{io::ErrorKind, os::fd::AsRawFd};
 
@@ -95,16 +85,25 @@ impl OpAble for PollAdd {
                 },
                 revents: 0,
             };
-            let ret = crate::syscall_u32!(poll(&mut pollfd as *mut _, 1, 0))?;
+            let ret = crate::syscall_u32!(poll@RAW(&mut pollfd as *mut _, 1, 0))?;
             if ret == 0 {
                 return Err(ErrorKind::WouldBlock.into());
             }
         }
-        Ok(0)
+        Ok(MaybeFd::new_non_fd(1))
     }
 
     #[cfg(all(any(feature = "legacy", feature = "poll-io"), windows))]
-    fn legacy_call(&mut self) -> io::Result<u32> {
+    fn legacy_call(&mut self) -> io::Result<MaybeFd> {
+        use std::{
+            io::{Error, ErrorKind},
+            os::windows::prelude::AsRawSocket,
+        };
+
+        use windows_sys::Win32::Networking::WinSock::{
+            WSAGetLastError, WSAPoll, POLLIN, POLLOUT, SOCKET_ERROR, WSAPOLLFD,
+        };
+
         if !self.relaxed {
             let mut pollfd = WSAPOLLFD {
                 fd: self.fd.as_raw_socket() as _,
@@ -125,6 +124,6 @@ impl OpAble for PollAdd {
                 _ => (),
             }
         }
-        Ok(0)
+        Ok(MaybeFd::new_non_fd(1))
     }
 }

@@ -13,7 +13,7 @@ use windows_sys::Win32::{Foundation::TRUE, Storage::FileSystem::WriteFile};
 
 use super::{super::shared_fd::SharedFd, Op, OpAble};
 #[cfg(any(feature = "legacy", feature = "poll-io"))]
-use crate::driver::ready::Direction;
+use super::{driver::ready::Direction, MaybeFd};
 use crate::{
     buf::{IoBuf, IoVecBuf},
     BufResult,
@@ -25,7 +25,7 @@ macro_rules! write_result {
             impl<$T: $Trait> super::Op<$name<$T>> {
                 pub(crate) async fn result(self) -> BufResult<usize, $T> {
                     let complete = self.await;
-                    (complete.meta.result.map(|v| v as _), complete.data.$buf)
+                    (complete.meta.result.map(|v| v.into_inner() as _), complete.data.$buf)
                 }
             }
         )*
@@ -79,7 +79,7 @@ impl<T: IoBuf> OpAble for Write<T> {
     }
 
     #[cfg(any(feature = "legacy", feature = "poll-io"))]
-    fn legacy_call(&mut self) -> io::Result<u32> {
+    fn legacy_call(&mut self) -> io::Result<MaybeFd> {
         #[cfg(windows)]
         let fd = self.fd.as_raw_handle() as _;
         #[cfg(unix)]
@@ -128,7 +128,7 @@ impl<T: IoBuf> OpAble for WriteAt<T> {
     }
 
     #[cfg(any(feature = "legacy", feature = "poll-io"))]
-    fn legacy_call(&mut self) -> io::Result<u32> {
+    fn legacy_call(&mut self) -> io::Result<MaybeFd> {
         #[cfg(windows)]
         let fd = self.fd.as_raw_handle() as _;
         #[cfg(unix)]
@@ -181,7 +181,7 @@ impl<T: IoVecBuf> OpAble for WriteVec<T> {
     }
 
     #[cfg(any(feature = "legacy", feature = "poll-io"))]
-    fn legacy_call(&mut self) -> io::Result<u32> {
+    fn legacy_call(&mut self) -> io::Result<MaybeFd> {
         #[cfg(windows)]
         let fd = self.fd.as_raw_handle() as _;
         #[cfg(unix)]
@@ -237,7 +237,7 @@ impl<T: IoVecBuf> OpAble for WriteVecAt<T> {
     }
 
     #[cfg(any(feature = "legacy", feature = "poll-io"))]
-    fn legacy_call(&mut self) -> io::Result<u32> {
+    fn legacy_call(&mut self) -> io::Result<MaybeFd> {
         write_vectored_at(
             self.fd.raw_fd(),
             self.buf_vec.read_iovec_ptr(),
@@ -255,21 +255,30 @@ pub(crate) mod impls {
     use crate::syscall_u32;
 
     /// A wrapper of [`libc::write`]
-    pub(crate) fn write(fd: i32, buf: *const u8, len: usize) -> io::Result<u32> {
-        syscall_u32!(write(fd, buf as _, len))
+    pub(crate) fn write(fd: i32, buf: *const u8, len: usize) -> io::Result<MaybeFd> {
+        syscall_u32!(write@NON_FD(fd, buf as _, len))
     }
 
     /// A wrapper of [`libc::write`]
-    pub(crate) fn write_at(fd: i32, buf: *const u8, len: usize, offset: u64) -> io::Result<u32> {
+    pub(crate) fn write_at(
+        fd: i32,
+        buf: *const u8,
+        len: usize,
+        offset: u64,
+    ) -> io::Result<MaybeFd> {
         let offset = libc::off_t::try_from(offset)
             .map_err(|_| io::Error::new(io::ErrorKind::Other, "offset too big"))?;
 
-        syscall_u32!(pwrite(fd, buf as _, len, offset))
+        syscall_u32!(pwrite@NON_FD(fd, buf as _, len, offset))
     }
 
     /// A wrapper of [`libc::writev`]
-    pub(crate) fn write_vectored(fd: i32, buf_vec: *const iovec, len: usize) -> io::Result<u32> {
-        syscall_u32!(writev(fd, buf_vec as _, len as _))
+    pub(crate) fn write_vectored(
+        fd: i32,
+        buf_vec: *const iovec,
+        len: usize,
+    ) -> io::Result<MaybeFd> {
+        syscall_u32!(writev@NON_FD(fd, buf_vec as _, len as _))
     }
 
     /// A wrapper of [`libc::pwritev`]
@@ -278,11 +287,11 @@ pub(crate) mod impls {
         buf_vec: *const iovec,
         len: usize,
         offset: u64,
-    ) -> io::Result<u32> {
+    ) -> io::Result<MaybeFd> {
         let offset = libc::off_t::try_from(offset)
             .map_err(|_| io::Error::new(io::ErrorKind::Other, "offset too big"))?;
 
-        syscall_u32!(pwritev(fd, buf_vec as _, len as _, offset))
+        syscall_u32!(pwritev@NON_FD(fd, buf_vec as _, len as _, offset))
     }
 }
 

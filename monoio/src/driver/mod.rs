@@ -157,10 +157,11 @@ impl Inner {
     }
 
     #[allow(unused)]
-    fn drop_op<T: 'static>(&self, index: usize, data: &mut Option<T>) {
+    #[inline]
+    fn drop_op<T: 'static>(&self, index: usize, data: &mut Option<T>, skip_cancel: bool) {
         match self {
             #[cfg(all(target_os = "linux", feature = "iouring"))]
-            Inner::Uring(this) => UringInner::drop_op(this, index, data),
+            Inner::Uring(this) => UringInner::drop_op(this, index, data, skip_cancel),
             #[cfg(feature = "legacy")]
             Inner::Legacy(_) => {}
             #[cfg(all(

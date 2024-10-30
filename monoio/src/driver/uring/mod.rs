@@ -11,7 +11,7 @@ use std::{
 };
 
 use io_uring::{cqueue, opcode, types::Timespec, IoUring};
-use lifecycle::Lifecycle;
+use lifecycle::MaybeFdLifecycle;
 
 use super::{
     op::{CompletionMeta, Op, OpAble},
@@ -87,7 +87,7 @@ pub(crate) struct UringInner {
 // When dropping the driver, all in-flight operations must have completed. This
 // type wraps the slab and ensures that, on drop, the slab is empty.
 struct Ops {
-    slab: Slab<Lifecycle>,
+    slab: Slab<MaybeFdLifecycle>,
 }
 
 impl IoUringDriver {
@@ -129,7 +129,7 @@ impl IoUringDriver {
 
         // Create eventfd and register it to the ring.
         let waker = {
-            let fd = crate::syscall!(eventfd(0, libc::EFD_CLOEXEC))?;
+            let fd = crate::syscall!(eventfd@RAW(0, libc::EFD_CLOEXEC))?;
             unsafe {
                 use std::os::unix::io::FromRawFd;
                 std::fs::File::from_raw_fd(fd)
@@ -391,7 +391,9 @@ impl UringInner {
                     self.poll.tick(Some(Duration::ZERO))?;
                 }
                 _ if index >= MIN_REVERSED_USERDATA => (),
-                _ => self.ops.complete(index as _, resultify(&cqe), cqe.flags()),
+                // # Safety
+                // Here we can make sure the result is valid.
+                _ => unsafe { self.ops.complete(index as _, resultify(&cqe), cqe.flags()) },
             }
         }
         Ok(())
@@ -421,10 +423,10 @@ impl UringInner {
         }
     }
 
-    fn new_op<T>(data: T, inner: &mut UringInner, driver: Inner) -> Op<T> {
+    fn new_op<T: OpAble>(data: T, inner: &mut UringInner, driver: Inner) -> Op<T> {
         Op {
             driver,
-            index: inner.ops.insert(),
+            index: inner.ops.insert(T::RET_IS_FD),
             data: Some(data),
         }
     }
@@ -509,6 +511,7 @@ impl UringInner {
         this: &Rc<UnsafeCell<UringInner>>,
         index: usize,
         data: &mut Option<T>,
+        _skip_cancel: bool,
     ) {
         let inner = unsafe { &mut *this.get() };
         if index == usize::MAX {
@@ -518,7 +521,7 @@ impl UringInner {
         if let Some(lifecycle) = inner.ops.slab.get(index) {
             let _must_finished = lifecycle.drop_op(data);
             #[cfg(feature = "async-cancel")]
-            if !_must_finished {
+            if !_must_finished && !_skip_cancel {
                 unsafe {
                     let cancel = opcode::AsyncCancel::new(index as u64)
                         .build()
@@ -597,11 +600,16 @@ impl Ops {
     }
 
     // Insert a new operation
-    pub(crate) fn insert(&mut self) -> usize {
-        self.slab.insert(Lifecycle::Submitted)
+    #[inline]
+    pub(crate) fn insert(&mut self, is_fd: bool) -> usize {
+        self.slab.insert(MaybeFdLifecycle::new(is_fd))
     }
 
-    fn complete(&mut self, index: usize, result: io::Result<u32>, flags: u32) {
+    // Complete an operation
+    // # Safety
+    // Caller must make sure the result is valid.
+    #[inline]
+    unsafe fn complete(&mut self, index: usize, result: io::Result<u32>, flags: u32) {
         let lifecycle = unsafe { self.slab.get(index).unwrap_unchecked() };
         lifecycle.complete(result, flags);
     }

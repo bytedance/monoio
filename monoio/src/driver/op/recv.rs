@@ -11,9 +11,10 @@ use {
     crate::net::unix::SocketAddr as UnixSocketAddr,
     libc::{sockaddr_in, sockaddr_in6, sockaddr_storage, socklen_t, AF_INET, AF_INET6},
 };
+#[cfg(all(unix, any(feature = "legacy", feature = "poll-io")))]
+use {crate::syscall_u32, std::os::unix::prelude::AsRawFd};
 #[cfg(all(windows, any(feature = "legacy", feature = "poll-io")))]
 use {
-    crate::syscall,
     std::os::windows::io::AsRawSocket,
     windows_sys::Win32::Networking::WinSock::recv,
     windows_sys::{
@@ -30,12 +31,10 @@ use {
         },
     },
 };
-#[cfg(all(unix, any(feature = "legacy", feature = "poll-io")))]
-use {crate::syscall_u32, std::os::unix::prelude::AsRawFd};
 
 use super::{super::shared_fd::SharedFd, Op, OpAble};
 #[cfg(any(feature = "legacy", feature = "poll-io"))]
-use crate::driver::ready::Direction;
+use super::{driver::ready::Direction, MaybeFd};
 use crate::{
     buf::{IoBufMut, IoVecBufMut, IoVecMeta, MsgMeta},
     BufResult,
@@ -66,7 +65,7 @@ impl<T: IoBufMut> Op<Recv<T>> {
 
     pub(crate) async fn result(self) -> BufResult<usize, T> {
         let complete = self.await;
-        let res = complete.meta.result.map(|v| v as _);
+        let res = complete.meta.result.map(|v| v.into_inner() as _);
         let mut buf = complete.data.buf;
 
         if let Ok(n) = res {
@@ -97,9 +96,9 @@ impl<T: IoBufMut> OpAble for Recv<T> {
     }
 
     #[cfg(all(any(feature = "legacy", feature = "poll-io"), unix))]
-    fn legacy_call(&mut self) -> io::Result<u32> {
+    fn legacy_call(&mut self) -> io::Result<MaybeFd> {
         let fd = self.fd.as_raw_fd();
-        syscall_u32!(recv(
+        syscall_u32!(recv@NON_FD(
             fd,
             self.buf.write_ptr() as _,
             self.buf.bytes_total().min(u32::MAX as usize),
@@ -108,9 +107,9 @@ impl<T: IoBufMut> OpAble for Recv<T> {
     }
 
     #[cfg(all(any(feature = "legacy", feature = "poll-io"), windows))]
-    fn legacy_call(&mut self) -> io::Result<u32> {
+    fn legacy_call(&mut self) -> io::Result<MaybeFd> {
         let fd = self.fd.as_raw_socket();
-        syscall!(
+        MaybeFd::new_non_fd_result(crate::syscall!(
             recv(
                 fd as _,
                 self.buf.write_ptr(),
@@ -119,7 +118,7 @@ impl<T: IoBufMut> OpAble for Recv<T> {
             ),
             PartialOrd::lt,
             0
-        )
+        ))
     }
 }
 
@@ -162,7 +161,7 @@ impl<T: IoBufMut> Op<RecvMsg<T>> {
 
     pub(crate) async fn wait(self) -> BufResult<(usize, SocketAddr), T> {
         let complete = self.await;
-        let res = complete.meta.result.map(|v| v as _);
+        let res = complete.meta.result.map(|v| v.into_inner() as _);
         let mut buf = complete.data.buf;
 
         let res = res.map(|n| {
@@ -236,13 +235,13 @@ impl<T: IoBufMut> OpAble for RecvMsg<T> {
     }
 
     #[cfg(all(any(feature = "legacy", feature = "poll-io"), unix))]
-    fn legacy_call(&mut self) -> io::Result<u32> {
+    fn legacy_call(&mut self) -> io::Result<MaybeFd> {
         let fd = self.fd.as_raw_fd();
-        syscall_u32!(recvmsg(fd, &mut *self.info.2, 0))
+        syscall_u32!(recvmsg@NON_FD(fd, &mut *self.info.2, 0))
     }
 
     #[cfg(all(any(feature = "legacy", feature = "poll-io"), windows))]
-    fn legacy_call(&mut self) -> io::Result<u32> {
+    fn legacy_call(&mut self) -> io::Result<MaybeFd> {
         let fd = self.fd.as_raw_socket() as _;
         let func_ptr = WSA_RECV_MSG.get_or_init(|| unsafe {
             let mut wsa_recv_msg: LPFN_WSARECVMSG = None;
@@ -281,7 +280,7 @@ impl<T: IoBufMut> OpAble for RecvMsg<T> {
         if r == SOCKET_ERROR {
             unsafe { Err(io::Error::from_raw_os_error(WSAGetLastError())) }
         } else {
-            Ok(recved)
+            Ok(MaybeFd::new_non_fd(recved))
         }
     }
 }
@@ -317,7 +316,7 @@ impl<T: IoBufMut> Op<RecvMsgUnix<T>> {
 
     pub(crate) async fn wait(self) -> BufResult<(usize, UnixSocketAddr), T> {
         let complete = self.await;
-        let res = complete.meta.result.map(|v| v as _);
+        let res = complete.meta.result.map(|v| v.into_inner() as _);
         let mut buf = complete.data.buf;
 
         let res = res.map(|n| {
@@ -354,8 +353,8 @@ impl<T: IoBufMut> OpAble for RecvMsgUnix<T> {
     }
 
     #[cfg(any(feature = "legacy", feature = "poll-io"))]
-    fn legacy_call(&mut self) -> io::Result<u32> {
+    fn legacy_call(&mut self) -> io::Result<MaybeFd> {
         let fd = self.fd.as_raw_fd();
-        syscall_u32!(recvmsg(fd, &mut self.info.2 as *mut _, 0))
+        syscall_u32!(recvmsg@NON_FD(fd, &mut self.info.2 as *mut _, 0))
     }
 }

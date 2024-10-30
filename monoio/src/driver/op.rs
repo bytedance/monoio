@@ -37,7 +37,7 @@ mod symlink;
 mod splice;
 
 /// In-flight operation
-pub(crate) struct Op<T: 'static> {
+pub(crate) struct Op<T: 'static + OpAble> {
     // Driver running the operation
     pub(super) driver: driver::Inner,
 
@@ -58,19 +58,87 @@ pub(crate) struct Completion<T> {
 /// Operation completion meta info.
 #[derive(Debug)]
 pub(crate) struct CompletionMeta {
-    pub(crate) result: io::Result<u32>,
+    pub(crate) result: io::Result<MaybeFd>,
     #[allow(unused)]
     pub(crate) flags: u32,
 }
 
+#[derive(Debug)]
+pub(crate) struct MaybeFd {
+    is_fd: bool,
+    fd: u32,
+}
+
+impl MaybeFd {
+    #[inline]
+    pub(crate) unsafe fn new_result(fdr: io::Result<u32>, is_fd: bool) -> io::Result<Self> {
+        fdr.map(|fd| Self { is_fd, fd })
+    }
+
+    #[inline]
+    pub(crate) unsafe fn new_fd_result(fdr: io::Result<u32>) -> io::Result<Self> {
+        fdr.map(|fd| Self { is_fd: true, fd })
+    }
+
+    #[inline]
+    pub(crate) fn new_non_fd_result(fdr: io::Result<u32>) -> io::Result<Self> {
+        fdr.map(|fd| Self { is_fd: false, fd })
+    }
+
+    #[inline]
+    pub(crate) const unsafe fn new_fd(fd: u32) -> Self {
+        Self { is_fd: true, fd }
+    }
+
+    #[inline]
+    pub(crate) const fn new_non_fd(fd: u32) -> Self {
+        Self { is_fd: false, fd }
+    }
+
+    #[inline]
+    pub(crate) const fn into_inner(self) -> u32 {
+        let fd = self.fd;
+        std::mem::forget(self);
+        fd
+    }
+
+    #[inline]
+    pub(crate) const fn zero() -> Self {
+        Self {
+            is_fd: false,
+            fd: 0,
+        }
+    }
+}
+
+impl Drop for MaybeFd {
+    fn drop(&mut self) {
+        // The fd close only executed when:
+        // 1. the operation is cancelled
+        // 2. the cancellation failed
+        // 3. the returned result is a fd
+        // So this is a relatively cold path. For simplicity, we just do a close syscall here
+        // instead of pushing close op.
+        if self.is_fd {
+            unsafe {
+                libc::close(self.fd as libc::c_int);
+            }
+        }
+    }
+}
+
 pub(crate) trait OpAble {
+    #[cfg(all(target_os = "linux", feature = "iouring"))]
+    const RET_IS_FD: bool = false;
+    #[cfg(all(target_os = "linux", feature = "iouring"))]
+    const SKIP_CANCEL: bool = false;
     #[cfg(all(target_os = "linux", feature = "iouring"))]
     fn uring_op(&mut self) -> io_uring::squeue::Entry;
 
     #[cfg(any(feature = "legacy", feature = "poll-io"))]
     fn legacy_interest(&self) -> Option<(super::ready::Direction, usize)>;
     #[cfg(any(feature = "legacy", feature = "poll-io"))]
-    fn legacy_call(&mut self) -> io::Result<u32>;
+    fn legacy_call(&mut self) -> io::Result<MaybeFd>;
 }
 
 /// If legacy is enabled and iouring is not, we can expose io interface in a poll-like way.
@@ -85,10 +153,7 @@ pub(crate) trait PollLegacy {
 }
 
 #[cfg(any(feature = "legacy", feature = "poll-io"))]
-impl<T> PollLegacy for T
-where
-    T: OpAble,
-{
+impl<T: OpAble> PollLegacy for T {
     #[cfg(feature = "legacy")]
     #[inline]
     fn poll_legacy(&mut self, _cx: &mut std::task::Context<'_>) -> std::task::Poll<CompletionMeta> {
@@ -113,24 +178,18 @@ where
     }
 }
 
-impl<T> Op<T> {
+impl<T: OpAble> Op<T> {
     /// Submit an operation to uring.
     ///
     /// `state` is stored during the operation tracking any state submitted to
     /// the kernel.
-    pub(super) fn submit_with(data: T) -> io::Result<Op<T>>
-    where
-        T: OpAble,
-    {
+    pub(super) fn submit_with(data: T) -> io::Result<Op<T>> {
         driver::CURRENT.with(|this| this.submit_with(data))
     }
 
     /// Try submitting an operation to uring
     #[allow(unused)]
-    pub(super) fn try_submit_with(data: T) -> io::Result<Op<T>>
-    where
-        T: OpAble,
-    {
+    pub(super) fn try_submit_with(data: T) -> io::Result<Op<T>> {
         if driver::CURRENT.is_set() {
             Op::submit_with(data)
         } else {
@@ -138,10 +197,7 @@ impl<T> Op<T> {
         }
     }
 
-    pub(crate) fn op_canceller(&self) -> OpCanceller
-    where
-        T: OpAble,
-    {
+    pub(crate) fn op_canceller(&self) -> OpCanceller {
         #[cfg(feature = "legacy")]
         if is_legacy() {
             return if let Some((dir, id)) = self.data.as_ref().unwrap().legacy_interest() {
@@ -181,9 +237,11 @@ where
     }
 }
 
-impl<T> Drop for Op<T> {
+impl<T: OpAble> Drop for Op<T> {
+    #[inline]
     fn drop(&mut self) {
-        self.driver.drop_op(self.index, &mut self.data);
+        self.driver
+            .drop_op(self.index, &mut self.data, T::SKIP_CANCEL);
     }
 }
 
