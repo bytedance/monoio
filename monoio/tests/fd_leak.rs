@@ -1,9 +1,11 @@
+#[cfg(unix)]
 use std::{
     io::{Read, Write},
     sync::mpsc::channel,
     time::Duration,
 };
 
+#[cfg(unix)]
 use monoio::io::AsyncReadRentExt;
 
 // This test is used to prove the runtime can close the cancelled(but failed to cancel) op's fd
@@ -15,6 +17,8 @@ use monoio::io::AsyncReadRentExt;
 // 5. the other thread should be able to get a connection
 // 6. if the other thread can read eof, then it can prove the runtime close the fd correctly
 // 7. if the read blocked, then the runtime failed to close the fd
+#[cfg(unix)]
+#[cfg(feature = "async-cancel")]
 #[monoio::test_all(timer_enabled = true)]
 async fn test_fd_leak_cancel_fail() {
     // step 1 and 2
@@ -72,10 +76,11 @@ async fn test_fd_leak_cancel_fail() {
     assert_eq!(r.unwrap(), 1);
     assert_eq!(buf[0], 0);
     drop(conn);
-    rx2.recv().unwrap();
+    rx2.recv_timeout(Duration::from_secs(1)).unwrap();
 }
 
 // This test is used to prove the runtime try best to cancel pending op when op is dropped.
+#[cfg(unix)]
 #[cfg(feature = "async-cancel")]
 #[monoio::test_all(timer_enabled = true)]
 async fn test_fd_leak_try_cancel() {
@@ -96,7 +101,7 @@ async fn test_fd_leak_try_cancel() {
         conn.write_all(&buf).unwrap();
         tx.send(()).unwrap();
     });
-    rx.recv().unwrap();
+    rx.recv_timeout(Duration::from_secs(1)).unwrap();
     let mut conn = listener.accept().await.unwrap().0;
     let buf = vec![1; 1];
     let (r, buf) = conn.read_exact(buf).await;
