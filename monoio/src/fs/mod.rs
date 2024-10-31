@@ -36,7 +36,7 @@ pub use file_type::FileType;
 #[cfg(unix)]
 mod permissions;
 #[cfg(windows)]
-use std::os::windows::io::{AsRawHandle, FromRawHandle, IntoRawHandle};
+use std::os::windows::io::{AsRawHandle, FromRawHandle};
 
 #[cfg(unix)]
 pub use permissions::Permissions;
@@ -92,7 +92,7 @@ where
 macro_rules! uring_op {
     ($fn_name:ident<$trait_name:ident>($op_name: ident, $buf_name:ident $(, $pos:ident: $pos_type:ty)?)) => {
         pub(crate) async fn $fn_name<T: $trait_name>(fd: SharedFd, $buf_name: T, $($pos: $pos_type)?) -> $crate::BufResult<usize, T> {
-            let op = Op::$op_name(fd, $buf_name, $($pos)?).unwrap();
+            let op = $crate::driver::op::Op::$op_name(fd, $buf_name, $($pos)?).unwrap();
             op.result().await
         }
     };

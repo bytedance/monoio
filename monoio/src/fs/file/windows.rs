@@ -12,7 +12,7 @@ use windows_sys::Win32::Networking::WinSock::WSABUF;
 use super::File;
 use crate::{
     buf::{IoBuf, IoBufMut, IoVecBuf, IoVecBufMut},
-    driver::{op::Op, shared_fd::SharedFd},
+    driver::shared_fd::SharedFd,
 };
 
 impl AsRawHandle for File {
@@ -45,13 +45,12 @@ mod blocking {
         let raw_bufs = buf_vec.write_wsabuf_ptr();
         let len = buf_vec.write_wsabuf_len();
 
-        // Safely wrap the raw pointers into a Vec, but prevent automatic cleanup with ManuallyDrop
-        let wasbufs = ManuallyDrop::new(unsafe { Vec::from_raw_parts(raw_bufs, len, len) });
+        let wsabufs = unsafe { std::slice::from_raw_parts(raw_bufs, len) };
 
         let mut total_bytes_read = 0;
 
         // Iterate through each WSABUF structure and read data into it
-        for wsabuf in wasbufs.iter() {
+        for wsabuf in wsabufs.iter() {
             // Safely create a Vec from the WSABUF pointer, then pass it to the read function
             let (res, _) = read(
                 fd.clone(),
@@ -83,7 +82,7 @@ mod blocking {
     }
 
     /// The `writev` implement on windows
-    ///  
+    ///
     /// Due to windows does not have syscall like `writev`, so we need to simulate it by ourself.
     ///
     /// This function is just to write each buffer into file by calling the `write` function.
@@ -95,8 +94,7 @@ mod blocking {
         let raw_bufs = buf_vec.read_wsabuf_ptr() as *mut WSABUF;
         let len = buf_vec.read_wsabuf_len();
 
-        // Safely wrap the raw pointers into a Vec, but prevent automatic cleanup with ManuallyDrop
-        let wsabufs = ManuallyDrop::new(unsafe { Vec::from_raw_parts(raw_bufs, len, len) });
+        let wsabufs = unsafe { std::slice::from_raw_parts(raw_bufs, len) };
         let mut total_bytes_write = 0;
 
         // Iterate through each WSABUF structure and write data from it
@@ -162,21 +160,18 @@ mod asyncified {
         let fd = fd.as_raw_handle() as _;
 
         let res = asyncify(move || {
-            // Safely wrap the raw pointers into a Vec, but prevent automatic cleanup with
-            // ManuallyDrop
-            let wasbufs = ManuallyDrop::new(unsafe {
-                Vec::from_raw_parts(raw_bufs as *mut WSABUF, len, len)
-            });
+            let wsabufs = unsafe { std::slice::from_raw_parts(raw_bufs as *mut WSABUF, len) };
 
             let mut total_bytes_read = 0;
 
             // Iterate through each WSABUF structure and read data into it
-            for wsabuf in wasbufs.iter() {
+            for wsabuf in wsabufs.iter() {
                 let res = read::read(fd, wsabuf.buf, wsabuf.len as usize);
 
                 // Handle the result of the read operation
                 match res {
                     Ok(bytes_read) => {
+                        let bytes_read = bytes_read.into_inner();
                         total_bytes_read += bytes_read;
                         // If fewer bytes were read than requested, stop further reads
                         if bytes_read < wsabuf.len {
@@ -203,7 +198,7 @@ mod asyncified {
     }
 
     /// The `writev` implement on windows
-    ///  
+    ///
     /// Due to windows does not have syscall like `writev`, so we need to simulate it by ourself.
     ///
     /// This function is just to write each buffer into file by calling the `write` function.
@@ -218,11 +213,7 @@ mod asyncified {
         let fd = fd.as_raw_handle() as _;
 
         let res = asyncify(move || {
-            // Safely wrap the raw pointers into a Vec, but prevent automatic cleanup with
-            // ManuallyDrop
-            let wsabufs = ManuallyDrop::new(unsafe {
-                Vec::from_raw_parts(raw_bufs as *mut WSABUF, len, len)
-            });
+            let wsabufs = unsafe { std::slice::from_raw_parts(raw_bufs as *mut WSABUF, len) };
 
             let mut total_bytes_write = 0;
 
@@ -231,6 +222,7 @@ mod asyncified {
 
                 match res {
                     Ok(bytes_write) => {
+                        let bytes_write = bytes_write.into_inner();
                         total_bytes_write += bytes_write;
                         if bytes_write < wsabuf.len {
                             break;
