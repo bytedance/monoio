@@ -63,6 +63,7 @@ tempfile = "3.2"
 # use nightly only feature flags
 unstable = []
 # async-cancel will push a async-cancel entry into sq when op is canceled
+# strongly recommend to enable this feature
 async-cancel = []
 # enanle zero copy(enable SOCK_ZEROCOPY + MSG_ZEROCOPY flag)
 # WARNING: this feature may cause performance degradation
