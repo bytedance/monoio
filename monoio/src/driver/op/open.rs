@@ -6,8 +6,6 @@ use io_uring::{opcode, types};
 #[cfg(any(feature = "legacy", feature = "poll-io"))]
 use super::{driver::ready::Direction, MaybeFd};
 use super::{Op, OpAble};
-#[cfg(all(unix, any(feature = "legacy", feature = "poll-io")))]
-use crate::syscall_u32;
 use crate::{driver::util::cstr, fs::OpenOptions};
 
 /// Open a file
@@ -69,7 +67,7 @@ impl OpAble for Open {
 
     #[cfg(all(any(feature = "legacy", feature = "poll-io"), not(windows)))]
     fn legacy_call(&mut self) -> io::Result<MaybeFd> {
-        syscall_u32!(open@FD(
+        crate::syscall!(open@FD(
             self.path.as_c_str().as_ptr(),
             self.flags,
             self.mode as libc::c_int

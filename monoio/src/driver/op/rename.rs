@@ -40,9 +40,7 @@ impl OpAble for Rename {
 
     #[cfg(all(any(feature = "legacy", feature = "poll-io"), unix))]
     fn legacy_call(&mut self) -> std::io::Result<MaybeFd> {
-        use crate::syscall_u32;
-
-        syscall_u32!(renameat@NON_FD(
+        crate::syscall!(renameat@NON_FD(
             libc::AT_FDCWD,
             self.from.as_ptr(),
             libc::AT_FDCWD,

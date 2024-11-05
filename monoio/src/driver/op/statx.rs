@@ -86,7 +86,7 @@ impl OpAble for FdStatx {
     fn legacy_call(&mut self) -> std::io::Result<MaybeFd> {
         use std::os::fd::AsRawFd;
 
-        crate::syscall_u32!(statx@NON_FD(
+        crate::syscall!(statx@NON_FD(
             self.inner.as_raw_fd(),
             c"".as_ptr(),
             libc::AT_EMPTY_PATH,
@@ -104,7 +104,7 @@ impl OpAble for FdStatx {
     fn legacy_call(&mut self) -> std::io::Result<MaybeFd> {
         use std::os::fd::AsRawFd;
 
-        crate::syscall_u32!(fstat@NON_FD(
+        crate::syscall!(fstat@NON_FD(
             self.inner.as_raw_fd(),
             self.stat_buf.as_mut_ptr() as *mut _
         ))
@@ -173,7 +173,7 @@ impl OpAble for PathStatx {
 
     #[cfg(all(any(feature = "legacy", feature = "poll-io"), target_os = "linux"))]
     fn legacy_call(&mut self) -> std::io::Result<MaybeFd> {
-        crate::syscall_u32!(statx@NON_FD(
+        crate::syscall!(statx@NON_FD(
             libc::AT_FDCWD,
             self.inner.as_ptr(),
             self.flags,
@@ -190,12 +190,12 @@ impl OpAble for PathStatx {
     #[cfg(all(any(feature = "legacy", feature = "poll-io"), target_os = "macos"))]
     fn legacy_call(&mut self) -> std::io::Result<MaybeFd> {
         if self.follow_symlinks {
-            crate::syscall_u32!(stat@NON_FD(
+            crate::syscall!(stat@NON_FD(
                 self.inner.as_ptr(),
                 self.stat_buf.as_mut_ptr() as *mut _
             ))
         } else {
-            crate::syscall_u32!(lstat@NON_FD(
+            crate::syscall!(lstat@NON_FD(
                 self.inner.as_ptr(),
                 self.stat_buf.as_mut_ptr() as *mut _
             ))

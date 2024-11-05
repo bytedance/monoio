@@ -63,6 +63,12 @@ pub(crate) struct CompletionMeta {
     pub(crate) flags: u32,
 }
 
+/// MaybeFd is a wrapper for fd or a normal number. If it is marked as fd, it will close the fd when
+/// dropped.
+/// Use `into_inner` to take the inner fd or number and skip the drop.
+///
+/// This wrapper is designed to be used in the syscall return value. It can prevent fd leak when the
+/// operation is cancelled.
 #[derive(Debug)]
 pub(crate) struct MaybeFd {
     is_fd: bool,

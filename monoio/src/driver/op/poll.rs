@@ -85,7 +85,7 @@ impl OpAble for PollAdd {
                 },
                 revents: 0,
             };
-            let ret = crate::syscall_u32!(poll@RAW(&mut pollfd as *mut _, 1, 0))?;
+            let ret = crate::syscall!(poll@RAW(&mut pollfd as *mut _, 1, 0))?;
             if ret == 0 {
                 return Err(ErrorKind::WouldBlock.into());
             }

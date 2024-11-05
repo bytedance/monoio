@@ -1,3 +1,5 @@
+#[cfg(all(unix, any(feature = "legacy", feature = "poll-io")))]
+use std::os::unix::prelude::AsRawFd;
 use std::{
     io,
     mem::{transmute, MaybeUninit},
@@ -11,8 +13,6 @@ use {
     crate::net::unix::SocketAddr as UnixSocketAddr,
     libc::{sockaddr_in, sockaddr_in6, sockaddr_storage, socklen_t, AF_INET, AF_INET6},
 };
-#[cfg(all(unix, any(feature = "legacy", feature = "poll-io")))]
-use {crate::syscall_u32, std::os::unix::prelude::AsRawFd};
 #[cfg(all(windows, any(feature = "legacy", feature = "poll-io")))]
 use {
     std::os::windows::io::AsRawSocket,
@@ -98,7 +98,7 @@ impl<T: IoBufMut> OpAble for Recv<T> {
     #[cfg(all(any(feature = "legacy", feature = "poll-io"), unix))]
     fn legacy_call(&mut self) -> io::Result<MaybeFd> {
         let fd = self.fd.as_raw_fd();
-        syscall_u32!(recv@NON_FD(
+        crate::syscall!(recv@NON_FD(
             fd,
             self.buf.write_ptr() as _,
             self.buf.bytes_total().min(u32::MAX as usize),
@@ -237,7 +237,7 @@ impl<T: IoBufMut> OpAble for RecvMsg<T> {
     #[cfg(all(any(feature = "legacy", feature = "poll-io"), unix))]
     fn legacy_call(&mut self) -> io::Result<MaybeFd> {
         let fd = self.fd.as_raw_fd();
-        syscall_u32!(recvmsg@NON_FD(fd, &mut *self.info.2, 0))
+        crate::syscall!(recvmsg@NON_FD(fd, &mut *self.info.2, 0))
     }
 
     #[cfg(all(any(feature = "legacy", feature = "poll-io"), windows))]
@@ -355,6 +355,6 @@ impl<T: IoBufMut> OpAble for RecvMsgUnix<T> {
     #[cfg(any(feature = "legacy", feature = "poll-io"))]
     fn legacy_call(&mut self) -> io::Result<MaybeFd> {
         let fd = self.fd.as_raw_fd();
-        syscall_u32!(recvmsg@NON_FD(fd, &mut self.info.2 as *mut _, 0))
+        crate::syscall!(recvmsg@NON_FD(fd, &mut self.info.2 as *mut _, 0))
     }
 }

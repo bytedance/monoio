@@ -36,7 +36,7 @@ impl OpAble for Symlink {
 
     #[cfg(any(feature = "legacy", feature = "poll-io"))]
     fn legacy_call(&mut self) -> std::io::Result<MaybeFd> {
-        crate::syscall_u32!(symlink@NON_FD(
+        crate::syscall!(symlink@NON_FD(
             self.from.as_c_str().as_ptr(),
             self.to.as_c_str().as_ptr()
         ))

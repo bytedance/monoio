@@ -37,9 +37,7 @@ impl OpAble for MkDir {
 
     #[cfg(all(any(feature = "legacy", feature = "poll-io"), unix))]
     fn legacy_call(&mut self) -> std::io::Result<MaybeFd> {
-        use crate::syscall_u32;
-
-        syscall_u32!(mkdirat@NON_FD(
+        crate::syscall!(mkdirat@NON_FD(
             libc::AT_FDCWD,
             self.path.as_ptr(),
             self.mode

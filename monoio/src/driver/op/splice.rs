@@ -6,10 +6,7 @@ use std::io;
 use io_uring::{opcode, types};
 #[cfg(all(unix, feature = "legacy"))]
 use {
-    crate::{
-        driver::{op::MaybeFd, ready::Direction},
-        syscall_u32,
-    },
+    crate::driver::{op::MaybeFd, ready::Direction},
     std::os::unix::prelude::AsRawFd,
 };
 
@@ -97,7 +94,7 @@ impl OpAble for Splice {
         let fd_out = self.fd_out.as_raw_fd();
         let off_in = std::ptr::null_mut::<libc::loff_t>();
         let off_out = std::ptr::null_mut::<libc::loff_t>();
-        syscall_u32!(splice@NON_FD(
+        crate::syscall!(splice@NON_FD(
             fd_in,
             off_in,
             fd_out,

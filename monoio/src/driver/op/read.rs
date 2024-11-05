@@ -313,11 +313,10 @@ pub(crate) mod impls {
     use libc::iovec;
 
     use super::*;
-    use crate::syscall_u32;
 
     /// A wrapper for [`libc::read`]
     pub(crate) fn read(fd: i32, buf: *mut u8, len: usize) -> io::Result<MaybeFd> {
-        syscall_u32!(read@NON_FD(fd, buf as _, len))
+        crate::syscall!(read@NON_FD(fd, buf as _, len))
     }
 
     /// A wrapper of [`libc::pread`]
@@ -325,12 +324,12 @@ pub(crate) mod impls {
         let offset = libc::off_t::try_from(offset)
             .map_err(|_| io::Error::new(io::ErrorKind::Other, "offset too big"))?;
 
-        syscall_u32!(pread@NON_FD(fd, buf as _, len, offset))
+        crate::syscall!(pread@NON_FD(fd, buf as _, len, offset))
     }
 
     /// A wrapper of [`libc::readv`]
     pub(crate) fn read_vectored(fd: i32, buf_vec: *mut iovec, len: usize) -> io::Result<MaybeFd> {
-        syscall_u32!(readv@NON_FD(fd, buf_vec as _, len as _))
+        crate::syscall!(readv@NON_FD(fd, buf_vec as _, len as _))
     }
 
     /// A wrapper of [`libc::preadv`]
@@ -343,7 +342,7 @@ pub(crate) mod impls {
         let offset = libc::off_t::try_from(offset)
             .map_err(|_| io::Error::new(io::ErrorKind::Other, "offset too big"))?;
 
-        syscall_u32!(preadv@NON_FD(fd, buf_vec as _, len as _, offset))
+        crate::syscall!(preadv@NON_FD(fd, buf_vec as _, len as _, offset))
     }
 }
 

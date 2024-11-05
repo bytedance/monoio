@@ -70,7 +70,7 @@ impl OpAble for Connect {
             endpoints.sae_dstaddr = self.socket_addr.as_ptr();
             endpoints.sae_dstaddrlen = self.socket_addr_len;
 
-            return match crate::syscall_u32!(connectx@RAW(
+            return match crate::syscall!(connectx@RAW(
                 self.fd.raw_fd(),
                 &endpoints as *const _,
                 libc::SAE_ASSOCID_ANY,
@@ -86,7 +86,7 @@ impl OpAble for Connect {
         }
 
         #[cfg(unix)]
-        match crate::syscall_u32!(connect@RAW(
+        match crate::syscall!(connect@RAW(
             self.fd.raw_fd(),
             self.socket_addr.as_ptr(),
             self.socket_addr_len,
@@ -158,7 +158,7 @@ impl OpAble for ConnectUnix {
 
     #[cfg(any(feature = "legacy", feature = "poll-io"))]
     fn legacy_call(&mut self) -> io::Result<MaybeFd> {
-        match crate::syscall_u32!(connect@RAW(
+        match crate::syscall!(connect@RAW(
             self.fd.raw_fd(),
             &self.socket_addr.0 as *const _ as *const _,
             self.socket_addr.1

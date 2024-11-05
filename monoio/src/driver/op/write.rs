@@ -252,11 +252,10 @@ pub(crate) mod impls {
     use libc::iovec;
 
     use super::*;
-    use crate::syscall_u32;
 
     /// A wrapper of [`libc::write`]
     pub(crate) fn write(fd: i32, buf: *const u8, len: usize) -> io::Result<MaybeFd> {
-        syscall_u32!(write@NON_FD(fd, buf as _, len))
+        crate::syscall!(write@NON_FD(fd, buf as _, len))
     }
 
     /// A wrapper of [`libc::write`]
@@ -269,7 +268,7 @@ pub(crate) mod impls {
         let offset = libc::off_t::try_from(offset)
             .map_err(|_| io::Error::new(io::ErrorKind::Other, "offset too big"))?;
 
-        syscall_u32!(pwrite@NON_FD(fd, buf as _, len, offset))
+        crate::syscall!(pwrite@NON_FD(fd, buf as _, len, offset))
     }
 
     /// A wrapper of [`libc::writev`]
@@ -278,7 +277,7 @@ pub(crate) mod impls {
         buf_vec: *const iovec,
         len: usize,
     ) -> io::Result<MaybeFd> {
-        syscall_u32!(writev@NON_FD(fd, buf_vec as _, len as _))
+        crate::syscall!(writev@NON_FD(fd, buf_vec as _, len as _))
     }
 
     /// A wrapper of [`libc::pwritev`]
@@ -291,7 +290,7 @@ pub(crate) mod impls {
         let offset = libc::off_t::try_from(offset)
             .map_err(|_| io::Error::new(io::ErrorKind::Other, "offset too big"))?;
 
-        syscall_u32!(pwritev@NON_FD(fd, buf_vec as _, len as _, offset))
+        crate::syscall!(pwritev@NON_FD(fd, buf_vec as _, len as _, offset))
     }
 }
 

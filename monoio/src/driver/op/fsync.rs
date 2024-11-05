@@ -63,15 +63,13 @@ impl OpAble for Fsync {
 
     #[cfg(all(any(feature = "legacy", feature = "poll-io"), unix))]
     fn legacy_call(&mut self) -> io::Result<MaybeFd> {
-        use crate::syscall_u32;
-
         #[cfg(target_os = "linux")]
         if self.data_sync {
-            syscall_u32!(fdatasync@NON_FD(self.fd.raw_fd()))
+            crate::syscall!(fdatasync@NON_FD(self.fd.raw_fd()))
         } else {
-            syscall_u32!(fsync@NON_FD(self.fd.raw_fd()))
+            crate::syscall!(fsync@NON_FD(self.fd.raw_fd()))
         }
         #[cfg(not(target_os = "linux"))]
-        syscall_u32!(fsync@NON_FD(self.fd.raw_fd()))
+        crate::syscall!(fsync@NON_FD(self.fd.raw_fd()))
     }
 }

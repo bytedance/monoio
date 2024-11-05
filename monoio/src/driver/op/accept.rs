@@ -9,7 +9,6 @@ use std::{
 use io_uring::{opcode, types};
 #[cfg(windows)]
 use {
-    crate::syscall,
     std::os::windows::prelude::AsRawSocket,
     windows_sys::Win32::Networking::WinSock::{
         accept, socklen_t, INVALID_SOCKET, SOCKADDR_STORAGE,
@@ -19,8 +18,6 @@ use {
 use super::{super::shared_fd::SharedFd, Op, OpAble};
 #[cfg(any(feature = "legacy", feature = "poll-io"))]
 use super::{driver::ready::Direction, MaybeFd};
-#[cfg(all(unix, any(feature = "legacy", feature = "poll-io")))]
-use crate::syscall_u32;
 
 /// Accept
 pub(crate) struct Accept {
@@ -79,7 +76,7 @@ impl OpAble for Accept {
         let addr = self.addr.0.as_mut_ptr() as *mut _;
         let len = &mut self.addr.1;
 
-        syscall!(accept@FD(fd as _, addr, len), PartialEq::eq, INVALID_SOCKET)
+        crate::syscall!(accept@FD(fd as _, addr, len), PartialEq::eq, INVALID_SOCKET)
     }
 
     #[cfg(all(any(feature = "legacy", feature = "poll-io"), unix))]
@@ -107,7 +104,7 @@ impl OpAble for Accept {
         ))]
         return {
             let flag = libc::SOCK_CLOEXEC | libc::SOCK_NONBLOCK;
-            syscall_u32!(accept4@FD(fd, addr, len, flag))
+            crate::syscall!(accept4@FD(fd, addr, len, flag))
         };
 
         // But not all platforms have the `accept4(2)` call. Luckily BSD (derived)
@@ -120,10 +117,10 @@ impl OpAble for Accept {
             target_os = "redox"
         ))]
         return {
-            let stream_fd = syscall_u32!(accept@FD(fd, addr, len))?;
-            let fd = stream_fd.fd() as i32;
-            syscall_u32!(fcntl@RAW(fd, libc::F_SETFD, libc::FD_CLOEXEC))?;
-            syscall_u32!(fcntl@RAW(fd, libc::F_SETFL, libc::O_NONBLOCK))?;
+            let stream_fd = crate::syscall!(accept@FD(fd, addr, len))?;
+            let fd = stream_fd.fd() as libc::c_int;
+            crate::syscall!(fcntl@RAW(fd, libc::F_SETFD, libc::FD_CLOEXEC))?;
+            crate::syscall!(fcntl@RAW(fd, libc::F_SETFL, libc::O_NONBLOCK))?;
             Ok(stream_fd)
         };
     }

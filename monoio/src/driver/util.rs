@@ -28,6 +28,10 @@ pub(super) fn timespec(duration: std::time::Duration) -> io_uring::types::Timesp
 }
 
 /// Do syscall and return Result<T, std::io::Error>
+/// If use syscall@FD or syscall@NON_FD, the return value is wrapped in MaybeFd. The `MaybeFd` is
+/// designed to close the fd when it is dropped.
+/// If use syscall@RAW, the return value is raw value. The requirement to explicitly add @RAW is to
+/// avoid misuse.
 #[cfg(unix)]
 #[macro_export]
 macro_rules! syscall {
@@ -36,7 +40,7 @@ macro_rules! syscall {
         if res == -1 {
             Err(std::io::Error::last_os_error())
         } else {
-            Ok(unsafe { $crate::driver::op::MaybeFd::new_fd(res) })
+            Ok(unsafe { $crate::driver::op::MaybeFd::new_fd(res as u32) })
         }
     }};
     ($fn: ident @NON_FD ( $($arg: expr),* $(,)* ) ) => {{
@@ -44,7 +48,7 @@ macro_rules! syscall {
         if res == -1 {
             Err(std::io::Error::last_os_error())
         } else {
-            Ok($crate::driver::op::MaybeFd::new_non_fd(res))
+            Ok($crate::driver::op::MaybeFd::new_non_fd(res as u32))
         }
     }};
     ($fn: ident @RAW ( $($arg: expr),* $(,)* ) ) => {{
@@ -58,6 +62,10 @@ macro_rules! syscall {
 }
 
 /// Do syscall and return Result<T, std::io::Error>
+/// If use syscall@FD or syscall@NON_FD, the return value is wrapped in MaybeFd. The `MaybeFd` is
+/// designed to close the fd when it is dropped.
+/// If use syscall@RAW, the return value is raw value. The requirement to explicitly add @RAW is to
+/// avoid misuse.
 #[cfg(windows)]
 #[macro_export]
 macro_rules! syscall {
@@ -83,44 +91,6 @@ macro_rules! syscall {
             Err(std::io::Error::last_os_error())
         } else {
             Ok(res.try_into().unwrap())
-        }
-    }};
-}
-
-/// Do syscall and return Result<T, std::io::Error>
-#[macro_export]
-macro_rules! syscall_u32 {
-    ($fn: ident @RAW ( $($arg: expr),* $(,)* ) ) => {{
-        #[cfg(windows)]
-        let res = unsafe { $fn($($arg, )*) };
-        #[cfg(unix)]
-        let res = unsafe { ::libc::$fn($($arg, )*) };
-        if res < 0 {
-            Err(::std::io::Error::last_os_error())
-        } else {
-            Ok(res as u32)
-        }
-    }};
-    ($fn: ident @FD ( $($arg: expr),* $(,)* ) ) => {{
-        #[cfg(windows)]
-        let res = unsafe { $fn($($arg, )*) };
-        #[cfg(unix)]
-        let res = unsafe { ::libc::$fn($($arg, )*) };
-        if res < 0 {
-            Err(::std::io::Error::last_os_error())
-        } else {
-            Ok(unsafe { $crate::driver::op::MaybeFd::new_fd(res as u32) })
-        }
-    }};
-    ($fn: ident @NON_FD ( $($arg: expr),* $(,)* ) ) => {{
-        #[cfg(windows)]
-        let res = unsafe { $fn($($arg, )*) };
-        #[cfg(unix)]
-        let res = unsafe { ::libc::$fn($($arg, )*) };
-        if res < 0 {
-            Err(::std::io::Error::last_os_error())
-        } else {
-            Ok($crate::driver::op::MaybeFd::new_non_fd(res as u32))
         }
     }};
 }

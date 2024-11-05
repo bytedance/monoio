@@ -8,10 +8,7 @@ use libc::{AT_FDCWD, AT_REMOVEDIR};
 use super::{Op, OpAble};
 use crate::driver::util::cstr;
 #[cfg(any(feature = "legacy", feature = "poll-io"))]
-use crate::{
-    driver::{op::MaybeFd, ready::Direction},
-    syscall_u32,
-};
+use crate::driver::{op::MaybeFd, ready::Direction};
 
 pub(crate) struct Unlink {
     path: CString,
@@ -52,9 +49,9 @@ impl OpAble for Unlink {
     #[cfg(any(feature = "legacy", feature = "poll-io"))]
     fn legacy_call(&mut self) -> io::Result<MaybeFd> {
         if self.remove_dir {
-            syscall_u32!(rmdir@NON_FD(self.path.as_c_str().as_ptr()))
+            crate::syscall!(rmdir@NON_FD(self.path.as_c_str().as_ptr()))
         } else {
-            syscall_u32!(unlink@NON_FD(self.path.as_c_str().as_ptr()))
+            crate::syscall!(unlink@NON_FD(self.path.as_c_str().as_ptr()))
         }
     }
 }

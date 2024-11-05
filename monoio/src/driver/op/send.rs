@@ -1,3 +1,5 @@
+#[cfg(all(unix, any(feature = "legacy", feature = "poll-io")))]
+use std::os::unix::prelude::AsRawFd;
 use std::{io, net::SocketAddr};
 
 #[cfg(all(target_os = "linux", feature = "iouring"))]
@@ -5,12 +7,9 @@ use io_uring::{opcode, types};
 use socket2::SockAddr;
 #[cfg(all(windows, any(feature = "legacy", feature = "poll-io")))]
 use {
-    crate::syscall,
     std::os::windows::io::AsRawSocket,
     windows_sys::Win32::Networking::WinSock::{send, WSASendMsg, SOCKET_ERROR},
 };
-#[cfg(all(unix, any(feature = "legacy", feature = "poll-io")))]
-use {crate::syscall_u32, std::os::unix::prelude::AsRawFd};
 
 use super::{super::shared_fd::SharedFd, Op, OpAble};
 #[cfg(any(feature = "legacy", feature = "poll-io"))]
@@ -104,7 +103,7 @@ impl<T: IoBuf> OpAble for Send<T> {
         #[cfg(not(target_os = "linux"))]
         let flags = 0;
 
-        syscall_u32!(send@NON_FD(
+        crate::syscall!(send@NON_FD(
             fd,
             self.buf.read_ptr() as _,
             self.buf.bytes_init(),
@@ -115,7 +114,7 @@ impl<T: IoBuf> OpAble for Send<T> {
     #[cfg(all(any(feature = "legacy", feature = "poll-io"), windows))]
     fn legacy_call(&mut self) -> io::Result<MaybeFd> {
         let fd = self.fd.as_raw_socket();
-        syscall!(
+        crate::syscall!(
             send@NON_FD(fd as _, self.buf.read_ptr(), self.buf.bytes_init() as _, 0),
             PartialOrd::lt,
             0
@@ -215,7 +214,7 @@ impl<T: IoBuf> OpAble for SendMsg<T> {
         #[cfg(not(target_os = "linux"))]
         const FLAGS: libc::c_int = 0;
         let fd = self.fd.as_raw_fd();
-        syscall_u32!(sendmsg@NON_FD(fd, &*self.info.2, FLAGS))
+        crate::syscall!(sendmsg@NON_FD(fd, &*self.info.2, FLAGS))
     }
 
     #[cfg(all(any(feature = "legacy", feature = "poll-io"), windows))]
@@ -319,6 +318,6 @@ impl<T: IoBuf> OpAble for SendMsgUnix<T> {
         #[cfg(not(target_os = "linux"))]
         const FLAGS: libc::c_int = 0;
         let fd = self.fd.as_raw_fd();
-        syscall_u32!(sendmsg@NON_FD(fd, &mut self.info.2 as *mut _, FLAGS))
+        crate::syscall!(sendmsg@NON_FD(fd, &mut self.info.2 as *mut _, FLAGS))
     }
 }
