@@ -128,7 +128,8 @@ impl Poller {
         token: mio::Token,
         interests: mio::Interest,
     ) -> std::io::Result<()> {
-        if state.inner.is_none() {
+        let mut state_inner = state.inner.lock().unwrap();
+        if state_inner.inner.is_none() {
             let flags = interests_to_afd_flags(interests);
 
             let inner = {
@@ -143,9 +144,9 @@ impl Poller {
 
             self.queue_state(inner.clone());
             unsafe { self.update_sockets_events_if_polling()? };
-            state.inner = Some(inner);
-            state.token = token;
-            state.interest = interests;
+            state_inner.inner = Some(inner);
+            state_inner.token = token;
+            state_inner.interest = interests;
 
             Ok(())
         } else {
@@ -155,37 +156,31 @@ impl Poller {
 
     pub fn reregister(
         &self,
-        state: &mut SocketState,
+        state: Pin<Arc<Mutex<SockState>>>,
         token: mio::Token,
         interests: mio::Interest,
     ) -> std::io::Result<()> {
-        if let Some(inner) = state.inner.as_mut() {
-            {
-                let event = Event {
-                    flags: interests_to_afd_flags(interests),
-                    data: token.0 as u64,
-                };
+        {
+            let event = Event {
+                flags: interests_to_afd_flags(interests),
+                data: token.0 as u64,
+            };
 
-                inner.lock().unwrap().set_event(event);
-            }
-
-            state.token = token;
-            state.interest = interests;
-
-            self.queue_state(inner.clone());
-            unsafe { self.update_sockets_events_if_polling() }
-        } else {
-            Err(std::io::ErrorKind::NotFound.into())
+            state.lock().unwrap().set_event(event);
         }
+
+        self.queue_state(state.clone());
+        unsafe { self.update_sockets_events_if_polling() }
     }
 
     pub fn deregister(&mut self, state: &mut SocketState) -> std::io::Result<()> {
-        if let Some(inner) = state.inner.as_mut() {
+        let mut state_inner = state.inner.lock().unwrap();
+        if let Some(inner) = state_inner.inner.as_mut() {
             {
                 let mut sock_state = inner.lock().unwrap();
                 sock_state.mark_delete();
             }
-            state.inner = None;
+            state_inner.inner = None;
             Ok(())
         } else {
             Err(std::io::ErrorKind::NotFound.into())
