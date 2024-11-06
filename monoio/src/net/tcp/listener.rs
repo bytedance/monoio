@@ -117,7 +117,7 @@ impl TcpListener {
         let fd = completion.meta.result?;
 
         // Construct stream
-        let stream = TcpStream::from_shared_fd(SharedFd::new::<false>(fd as _)?);
+        let stream = TcpStream::from_shared_fd(SharedFd::new::<false>(fd.into_inner() as _)?);
 
         // Construct SocketAddr
         let storage = completion.data.addr.0.as_ptr();
@@ -174,7 +174,7 @@ impl TcpListener {
         let fd = completion.meta.result?;
 
         // Construct stream
-        let stream = TcpStream::from_shared_fd(SharedFd::new::<false>(fd as _)?);
+        let stream = TcpStream::from_shared_fd(SharedFd::new::<false>(fd.into_inner() as _)?);
 
         // Construct SocketAddr
         let storage = completion.data.addr.0.as_ptr();

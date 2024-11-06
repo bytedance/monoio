@@ -6,9 +6,12 @@ use std::{
     task::{Context, Poll, Waker},
 };
 
-use crate::{driver::op::CompletionMeta, utils::slab::Ref};
+use crate::{
+    driver::op::{CompletionMeta, MaybeFd},
+    utils::slab::Ref,
+};
 
-pub(crate) enum Lifecycle {
+enum Lifecycle {
     /// The operation has been submitted to uring and is currently in-flight
     Submitted,
 
@@ -21,12 +24,30 @@ pub(crate) enum Lifecycle {
     Ignored(Box<dyn std::any::Any>),
 
     /// The operation has completed.
-    Completed(io::Result<u32>, u32),
+    Completed(io::Result<MaybeFd>, u32),
 }
 
-impl Ref<'_, Lifecycle> {
-    pub(crate) fn complete(mut self, result: io::Result<u32>, flags: u32) {
-        let ref_mut = &mut *self;
+pub(crate) struct MaybeFdLifecycle {
+    is_fd: bool,
+    lifecycle: Lifecycle,
+}
+
+impl MaybeFdLifecycle {
+    #[inline]
+    pub(crate) const fn new(is_fd: bool) -> Self {
+        Self {
+            is_fd,
+            lifecycle: Lifecycle::Submitted,
+        }
+    }
+}
+
+impl Ref<'_, MaybeFdLifecycle> {
+    // # Safety
+    // Caller must make sure the result is valid since it may contain fd or a length hint.
+    pub(crate) unsafe fn complete(mut self, result: io::Result<u32>, flags: u32) {
+        let result = MaybeFd::new_result(result, self.is_fd);
+        let ref_mut = &mut self.lifecycle;
         match ref_mut {
             Lifecycle::Submitted => {
                 *ref_mut = Lifecycle::Completed(result, flags);
@@ -37,19 +58,19 @@ impl Ref<'_, Lifecycle> {
                     Lifecycle::Waiting(waker) => {
                         waker.wake();
                     }
-                    _ => unsafe { std::hint::unreachable_unchecked() },
+                    _ => std::hint::unreachable_unchecked(),
                 }
             }
             Lifecycle::Ignored(..) => {
                 self.remove();
             }
-            Lifecycle::Completed(..) => unsafe { std::hint::unreachable_unchecked() },
+            Lifecycle::Completed(..) => std::hint::unreachable_unchecked(),
         }
     }
 
     #[allow(clippy::needless_pass_by_ref_mut)]
     pub(crate) fn poll_op(mut self, cx: &mut Context<'_>) -> Poll<CompletionMeta> {
-        let ref_mut = &mut *self;
+        let ref_mut = &mut self.lifecycle;
         match ref_mut {
             Lifecycle::Submitted => {
                 *ref_mut = Lifecycle::Waiting(cx.waker().clone());
@@ -64,7 +85,7 @@ impl Ref<'_, Lifecycle> {
             _ => {}
         }
 
-        match self.remove() {
+        match self.remove().lifecycle {
             Lifecycle::Completed(result, flags) => Poll::Ready(CompletionMeta { result, flags }),
             _ => unsafe { std::hint::unreachable_unchecked() },
         }
@@ -72,7 +93,7 @@ impl Ref<'_, Lifecycle> {
 
     // return if the op must has been finished
     pub(crate) fn drop_op<T: 'static>(mut self, data: &mut Option<T>) -> bool {
-        let ref_mut = &mut *self;
+        let ref_mut = &mut self.lifecycle;
         match ref_mut {
             Lifecycle::Submitted | Lifecycle::Waiting(_) => {
                 if let Some(data) = data.take() {

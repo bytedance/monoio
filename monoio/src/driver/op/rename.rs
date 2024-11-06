@@ -1,5 +1,7 @@
 use std::{ffi::CString, path::Path};
 
+#[cfg(any(feature = "legacy", feature = "poll-io"))]
+use super::MaybeFd;
 use super::{Op, OpAble};
 use crate::driver::util::cstr;
 
@@ -37,10 +39,8 @@ impl OpAble for Rename {
     }
 
     #[cfg(all(any(feature = "legacy", feature = "poll-io"), unix))]
-    fn legacy_call(&mut self) -> std::io::Result<u32> {
-        use crate::syscall_u32;
-
-        syscall_u32!(renameat(
+    fn legacy_call(&mut self) -> std::io::Result<MaybeFd> {
+        crate::syscall!(renameat@NON_FD(
             libc::AT_FDCWD,
             self.from.as_ptr(),
             libc::AT_FDCWD,
@@ -49,7 +49,7 @@ impl OpAble for Rename {
     }
 
     #[cfg(all(any(feature = "legacy", feature = "poll-io"), windows))]
-    fn legacy_call(&mut self) -> io::Result<u32> {
+    fn legacy_call(&mut self) -> io::Result<MaybeFd> {
         unimplemented!()
     }
 }

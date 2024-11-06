@@ -9,7 +9,7 @@ use io_uring::{opcode, types};
 
 use super::{super::shared_fd::SharedFd, Op, OpAble};
 #[cfg(any(feature = "legacy", feature = "poll-io"))]
-use crate::driver::ready::Direction;
+use super::{driver::ready::Direction, MaybeFd};
 use crate::{
     buf::{IoBufMut, IoVecBufMut},
     BufResult,
@@ -23,7 +23,7 @@ macro_rules! read_result {
                     let complete = self.await;
 
                     // Convert the operation result to `usize`
-                    let res = complete.meta.result.map(|v| v as usize);
+                    let res = complete.meta.result.map(|v| v.into_inner() as usize);
                     // Recover the buffer
                     let mut buf = complete.data.$buf;
 
@@ -86,7 +86,7 @@ impl<T: IoBufMut> OpAble for Read<T> {
     }
 
     #[cfg(any(feature = "legacy", feature = "poll-io"))]
-    fn legacy_call(&mut self) -> io::Result<u32> {
+    fn legacy_call(&mut self) -> io::Result<MaybeFd> {
         #[cfg(unix)]
         let fd = self.fd.as_raw_fd();
 
@@ -131,7 +131,7 @@ impl<T: IoBufMut> OpAble for ReadAt<T> {
     }
 
     #[cfg(any(feature = "legacy", feature = "poll-io"))]
-    fn legacy_call(&mut self) -> io::Result<u32> {
+    fn legacy_call(&mut self) -> io::Result<MaybeFd> {
         #[cfg(unix)]
         let fd = self.fd.as_raw_fd();
         #[cfg(windows)]
@@ -179,7 +179,7 @@ impl<T: IoVecBufMut> OpAble for ReadVec<T> {
     }
 
     #[cfg(all(any(feature = "legacy", feature = "poll-io"), unix))]
-    fn legacy_call(&mut self) -> io::Result<u32> {
+    fn legacy_call(&mut self) -> io::Result<MaybeFd> {
         read_vectored(
             self.fd.raw_fd(),
             self.buf_vec.write_iovec_ptr(),
@@ -188,7 +188,7 @@ impl<T: IoVecBufMut> OpAble for ReadVec<T> {
     }
 
     #[cfg(all(any(feature = "legacy", feature = "poll-io"), windows))]
-    fn legacy_call(&mut self) -> io::Result<u32> {
+    fn legacy_call(&mut self) -> io::Result<MaybeFd> {
         // There is no `readv`-like syscall of file on windows, but this will be used to send
         // socket message.
 
@@ -208,11 +208,11 @@ impl<T: IoVecBufMut> OpAble for ReadVec<T> {
             )
         };
         match ret {
-            0 => Ok(nread),
+            0 => Ok(MaybeFd::new_non_fd(nread)),
             _ => {
                 let error = unsafe { WSAGetLastError() };
                 if error == WSAESHUTDOWN {
-                    Ok(0)
+                    Ok(MaybeFd::zero())
                 } else {
                     Err(io::Error::from_raw_os_error(error))
                 }
@@ -257,7 +257,7 @@ impl<T: IoVecBufMut> OpAble for ReadVecAt<T> {
     }
 
     #[cfg(all(any(feature = "legacy", feature = "poll-io"), unix))]
-    fn legacy_call(&mut self) -> io::Result<u32> {
+    fn legacy_call(&mut self) -> io::Result<MaybeFd> {
         read_vectored_at(
             self.fd.raw_fd(),
             self.buf_vec.write_iovec_ptr(),
@@ -267,7 +267,7 @@ impl<T: IoVecBufMut> OpAble for ReadVecAt<T> {
     }
 
     #[cfg(all(any(feature = "legacy", feature = "poll-io"), windows))]
-    fn legacy_call(&mut self) -> io::Result<u32> {
+    fn legacy_call(&mut self) -> io::Result<MaybeFd> {
         // There is no `readv` like syscall of file on windows, but this will be used to send
         // socket message.
 
@@ -295,11 +295,11 @@ impl<T: IoVecBufMut> OpAble for ReadVecAt<T> {
             )
         };
         match ret {
-            0 => Ok(nread),
+            0 => Ok(MaybeFd::new_non_fd(nread)),
             _ => {
                 let error = unsafe { WSAGetLastError() };
                 if error == WSAESHUTDOWN {
-                    Ok(0)
+                    Ok(MaybeFd::zero())
                 } else {
                     Err(io::Error::from_raw_os_error(error))
                 }
@@ -313,24 +313,23 @@ pub(crate) mod impls {
     use libc::iovec;
 
     use super::*;
-    use crate::syscall_u32;
 
     /// A wrapper for [`libc::read`]
-    pub(crate) fn read(fd: i32, buf: *mut u8, len: usize) -> io::Result<u32> {
-        syscall_u32!(read(fd, buf as _, len))
+    pub(crate) fn read(fd: i32, buf: *mut u8, len: usize) -> io::Result<MaybeFd> {
+        crate::syscall!(read@NON_FD(fd, buf as _, len))
     }
 
     /// A wrapper of [`libc::pread`]
-    pub(crate) fn read_at(fd: i32, buf: *mut u8, len: usize, offset: u64) -> io::Result<u32> {
+    pub(crate) fn read_at(fd: i32, buf: *mut u8, len: usize, offset: u64) -> io::Result<MaybeFd> {
         let offset = libc::off_t::try_from(offset)
             .map_err(|_| io::Error::new(io::ErrorKind::Other, "offset too big"))?;
 
-        syscall_u32!(pread(fd, buf as _, len, offset))
+        crate::syscall!(pread@NON_FD(fd, buf as _, len, offset))
     }
 
     /// A wrapper of [`libc::readv`]
-    pub(crate) fn read_vectored(fd: i32, buf_vec: *mut iovec, len: usize) -> io::Result<u32> {
-        syscall_u32!(readv(fd, buf_vec as _, len as _))
+    pub(crate) fn read_vectored(fd: i32, buf_vec: *mut iovec, len: usize) -> io::Result<MaybeFd> {
+        crate::syscall!(readv@NON_FD(fd, buf_vec as _, len as _))
     }
 
     /// A wrapper of [`libc::preadv`]
@@ -339,11 +338,11 @@ pub(crate) mod impls {
         buf_vec: *mut iovec,
         len: usize,
         offset: u64,
-    ) -> io::Result<u32> {
+    ) -> io::Result<MaybeFd> {
         let offset = libc::off_t::try_from(offset)
             .map_err(|_| io::Error::new(io::ErrorKind::Other, "offset too big"))?;
 
-        syscall_u32!(preadv(fd, buf_vec as _, len as _, offset))
+        crate::syscall!(preadv@NON_FD(fd, buf_vec as _, len as _, offset))
     }
 }
 
@@ -360,7 +359,7 @@ pub(crate) mod impls {
     use super::*;
 
     /// A wrapper of [`windows_sys::Win32::Storage::FileSystem::ReadFile`]
-    pub(crate) fn read(handle: isize, buf: *mut u8, len: usize) -> io::Result<u32> {
+    pub(crate) fn read(handle: isize, buf: *mut u8, len: usize) -> io::Result<MaybeFd> {
         let mut bytes_read = 0;
         let ret = unsafe {
             ReadFile(
@@ -373,18 +372,23 @@ pub(crate) mod impls {
         };
 
         if ret == TRUE {
-            return Ok(bytes_read);
+            return Ok(MaybeFd::new_non_fd(bytes_read));
         }
 
         match unsafe { GetLastError() } {
-            ERROR_HANDLE_EOF => Ok(bytes_read),
+            ERROR_HANDLE_EOF => Ok(MaybeFd::new_non_fd(bytes_read)),
             error => Err(io::Error::from_raw_os_error(error as _)),
         }
     }
 
     /// A wrapper of [`windows_sys::Win32::Storage::FileSystem::ReadFile`] and using the
     /// [`windows_sys::Win32::System::IO::OVERLAPPED`] to read at specific position.
-    pub(crate) fn read_at(handle: isize, buf: *mut u8, len: usize, offset: u64) -> io::Result<u32> {
+    pub(crate) fn read_at(
+        handle: isize,
+        buf: *mut u8,
+        len: usize,
+        offset: u64,
+    ) -> io::Result<MaybeFd> {
         let mut bytes_read = 0;
         let ret = unsafe {
             // see https://learn.microsoft.com/zh-cn/windows/win32/api/fileapi/nf-fileapi-readfile
@@ -402,11 +406,11 @@ pub(crate) mod impls {
         };
 
         if ret == TRUE {
-            return Ok(bytes_read);
+            return Ok(MaybeFd::new_non_fd(bytes_read));
         }
 
         match unsafe { GetLastError() } {
-            ERROR_HANDLE_EOF => Ok(bytes_read),
+            ERROR_HANDLE_EOF => Ok(MaybeFd::new_non_fd(bytes_read)),
             error => Err(io::Error::from_raw_os_error(error as _)),
         }
     }

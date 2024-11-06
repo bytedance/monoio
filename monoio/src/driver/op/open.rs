@@ -2,16 +2,10 @@ use std::{ffi::CString, io, path::Path};
 
 #[cfg(all(target_os = "linux", feature = "iouring"))]
 use io_uring::{opcode, types};
-#[cfg(windows)]
-use windows_sys::Win32::{Foundation::INVALID_HANDLE_VALUE, Storage::FileSystem::CreateFileW};
 
-use super::{Op, OpAble};
 #[cfg(any(feature = "legacy", feature = "poll-io"))]
-use crate::driver::ready::Direction;
-#[cfg(windows)]
-use crate::syscall;
-#[cfg(all(unix, any(feature = "legacy", feature = "poll-io")))]
-use crate::syscall_u32;
+use super::{driver::ready::Direction, MaybeFd};
+use super::{Op, OpAble};
 use crate::{driver::util::cstr, fs::OpenOptions};
 
 /// Open a file
@@ -55,6 +49,9 @@ impl Op<Open> {
 
 impl OpAble for Open {
     #[cfg(all(target_os = "linux", feature = "iouring"))]
+    const RET_IS_FD: bool = true;
+
+    #[cfg(all(target_os = "linux", feature = "iouring"))]
     fn uring_op(&mut self) -> io_uring::squeue::Entry {
         opcode::OpenAt::new(types::Fd(libc::AT_FDCWD), self.path.as_c_str().as_ptr())
             .flags(self.flags)
@@ -69,8 +66,8 @@ impl OpAble for Open {
     }
 
     #[cfg(all(any(feature = "legacy", feature = "poll-io"), not(windows)))]
-    fn legacy_call(&mut self) -> io::Result<u32> {
-        syscall_u32!(open(
+    fn legacy_call(&mut self) -> io::Result<MaybeFd> {
+        crate::syscall!(open@FD(
             self.path.as_c_str().as_ptr(),
             self.flags,
             self.mode as libc::c_int
@@ -78,15 +75,20 @@ impl OpAble for Open {
     }
 
     #[cfg(all(any(feature = "legacy", feature = "poll-io"), windows))]
-    fn legacy_call(&mut self) -> io::Result<u32> {
+    fn legacy_call(&mut self) -> io::Result<MaybeFd> {
         use std::{ffi::OsString, os::windows::ffi::OsStrExt};
+
+        use windows_sys::Win32::{
+            Foundation::INVALID_HANDLE_VALUE, Storage::FileSystem::CreateFileW,
+        };
 
         let os_str = OsString::from(self.path.to_string_lossy().into_owned());
 
         // Convert OsString to wide character format (Vec<u16>).
         let wide_path: Vec<u16> = os_str.encode_wide().chain(Some(0)).collect();
-        syscall!(
-            CreateFileW(
+
+        crate::syscall!(
+            CreateFileW@FD(
                 wide_path.as_ptr(),
                 self.opts.access_mode()?,
                 self.opts.share_mode,

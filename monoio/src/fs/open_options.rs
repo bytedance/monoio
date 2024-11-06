@@ -352,7 +352,7 @@ impl OpenOptions {
 
         // The file is open
         Ok(File::from_shared_fd(SharedFd::new_without_register(
-            completion.meta.result? as _,
+            completion.meta.result?.into_inner() as _,
         )))
     }
 

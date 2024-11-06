@@ -11,7 +11,7 @@ thread_local! {
 
 /// Call before listen.
 pub(crate) fn set_tcp_fastopen<S: AsRawFd>(fd: &S, fast_open: i32) -> io::Result<()> {
-    crate::syscall!(setsockopt(
+    crate::syscall!(setsockopt@RAW(
         fd.as_raw_fd(),
         libc::SOL_TCP,
         libc::TCP_FASTOPEN,
@@ -26,7 +26,7 @@ pub(crate) fn set_tcp_fastopen<S: AsRawFd>(fd: &S, fast_open: i32) -> io::Result
 pub(crate) fn set_tcp_fastopen_connect<S: AsRawFd>(fd: &S) -> io::Result<()> {
     const ENABLED: libc::c_int = 0x1;
 
-    crate::syscall!(setsockopt(
+    crate::syscall!(setsockopt@RAW(
         fd.as_raw_fd(),
         libc::SOL_TCP,
         libc::TCP_FASTOPEN_CONNECT,

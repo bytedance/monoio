@@ -45,7 +45,7 @@ impl State {
         // TODO: only Init state can convert?
         if matches!(state, UringState::Init) {
             let mut source = mio::unix::SourceFd(&fd);
-            crate::syscall!(fcntl(fd, libc::F_SETFL, libc::O_NONBLOCK))?;
+            crate::syscall!(fcntl@RAW(fd, libc::F_SETFL, libc::O_NONBLOCK))?;
             let reg = CURRENT
                 .with(|inner| match inner {
                     #[cfg(all(target_os = "linux", feature = "iouring"))]
@@ -58,7 +58,7 @@ impl State {
                     crate::driver::Inner::Legacy(_) => panic!("unexpected legacy runtime"),
                 })
                 .inspect_err(|_| {
-                    let _ = crate::syscall!(fcntl(fd, libc::F_SETFL, 0));
+                    let _ = crate::syscall!(fcntl@RAW(fd, libc::F_SETFL, 0));
                 })?;
             *state = UringState::Legacy(Some(reg));
         } else {
@@ -86,7 +86,7 @@ impl State {
             return Err(io::Error::new(io::ErrorKind::Other, "empty token"));
         };
         let mut source = mio::unix::SourceFd(&fd);
-        crate::syscall!(fcntl(fd, libc::F_SETFL, 0))?;
+        crate::syscall!(fcntl@RAW(fd, libc::F_SETFL, 0))?;
         CURRENT
             .with(|inner| match inner {
                 #[cfg(all(target_os = "linux", feature = "iouring"))]
@@ -97,7 +97,7 @@ impl State {
                 crate::driver::Inner::Legacy(_) => panic!("unexpected legacy runtime"),
             })
             .inspect_err(|_| {
-                let _ = crate::syscall!(fcntl(fd, libc::F_SETFL, libc::O_NONBLOCK));
+                let _ = crate::syscall!(fcntl@RAW(fd, libc::F_SETFL, libc::O_NONBLOCK));
             })?;
         *self = State::Uring(UringState::Init);
         Ok(())

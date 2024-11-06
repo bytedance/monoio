@@ -2,6 +2,8 @@ use std::{ffi::CString, path::Path};
 
 use libc::mode_t;
 
+#[cfg(any(feature = "legacy", feature = "poll-io"))]
+use super::MaybeFd;
 use super::{Op, OpAble};
 use crate::driver::util::cstr;
 
@@ -34,14 +36,16 @@ impl OpAble for MkDir {
     }
 
     #[cfg(all(any(feature = "legacy", feature = "poll-io"), unix))]
-    fn legacy_call(&mut self) -> std::io::Result<u32> {
-        use crate::syscall_u32;
-
-        syscall_u32!(mkdirat(libc::AT_FDCWD, self.path.as_ptr(), self.mode))
+    fn legacy_call(&mut self) -> std::io::Result<MaybeFd> {
+        crate::syscall!(mkdirat@NON_FD(
+            libc::AT_FDCWD,
+            self.path.as_ptr(),
+            self.mode
+        ))
     }
 
     #[cfg(all(any(feature = "legacy", feature = "poll-io"), windows))]
-    fn legacy_call(&mut self) -> io::Result<u32> {
+    fn legacy_call(&mut self) -> io::Result<MaybeFd> {
         unimplemented!()
     }
 }

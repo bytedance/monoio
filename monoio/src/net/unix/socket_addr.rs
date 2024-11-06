@@ -233,15 +233,15 @@ where
     };
 
     let mut fds = [-1; 2];
-    crate::syscall!(socketpair(libc::AF_UNIX, flags, 0, fds.as_mut_ptr()))?;
+    crate::syscall!(socketpair@RAW(libc::AF_UNIX, flags, 0, fds.as_mut_ptr()))?;
     let pair = unsafe { (T::from_raw_fd(fds[0]), T::from_raw_fd(fds[1])) };
     Ok(pair)
 }
 
 pub(crate) fn local_addr(socket: RawFd) -> io::Result<SocketAddr> {
-    SocketAddr::new(|sockaddr, socklen| crate::syscall!(getsockname(socket, sockaddr, socklen)))
+    SocketAddr::new(|sockaddr, socklen| crate::syscall!(getsockname@RAW(socket, sockaddr, socklen)))
 }
 
 pub(crate) fn peer_addr(socket: RawFd) -> io::Result<SocketAddr> {
-    SocketAddr::new(|sockaddr, socklen| crate::syscall!(getpeername(socket, sockaddr, socklen)))
+    SocketAddr::new(|sockaddr, socklen| crate::syscall!(getpeername@RAW(socket, sockaddr, socklen)))
 }

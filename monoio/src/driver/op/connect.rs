@@ -10,7 +10,7 @@ use windows_sys::Win32::Networking::WinSock::{
 
 use super::{super::shared_fd::SharedFd, Op, OpAble};
 #[cfg(any(feature = "legacy", feature = "poll-io"))]
-use crate::driver::ready::Direction;
+use super::{driver::ready::Direction, MaybeFd};
 
 pub(crate) struct Connect {
     pub(crate) fd: SharedFd,
@@ -59,7 +59,7 @@ impl OpAble for Connect {
     }
 
     #[cfg(any(feature = "legacy", feature = "poll-io"))]
-    fn legacy_call(&mut self) -> io::Result<u32> {
+    fn legacy_call(&mut self) -> io::Result<MaybeFd> {
         // For ios/macos, if tfo is enabled, we will
         // call connectx here.
         // For linux/android, we have already set socket
@@ -70,7 +70,7 @@ impl OpAble for Connect {
             endpoints.sae_dstaddr = self.socket_addr.as_ptr();
             endpoints.sae_dstaddrlen = self.socket_addr_len;
 
-            return match crate::syscall_u32!(connectx(
+            return match crate::syscall!(connectx@RAW(
                 self.fd.raw_fd(),
                 &endpoints as *const _,
                 libc::SAE_ASSOCID_ANY,
@@ -81,18 +81,18 @@ impl OpAble for Connect {
                 std::ptr::null_mut(),
             )) {
                 Err(err) if err.raw_os_error() != Some(libc::EINPROGRESS) => Err(err),
-                _ => Ok(self.fd.raw_fd() as u32),
+                _ => Ok(MaybeFd::zero()),
             };
         }
 
         #[cfg(unix)]
-        match crate::syscall_u32!(connect(
+        match crate::syscall!(connect@RAW(
             self.fd.raw_fd(),
             self.socket_addr.as_ptr(),
             self.socket_addr_len,
         )) {
             Err(err) if err.raw_os_error() != Some(libc::EINPROGRESS) => Err(err),
-            _ => Ok(self.fd.raw_fd() as u32),
+            _ => Ok(MaybeFd::zero()),
         }
 
         #[cfg(windows)]
@@ -110,8 +110,7 @@ impl OpAble for Connect {
                     return Err(err);
                 }
             }
-            #[allow(clippy::unnecessary_cast)]
-            Ok(self.fd.raw_socket() as u32)
+            Ok(MaybeFd::zero())
         }
     }
 }
@@ -158,14 +157,14 @@ impl OpAble for ConnectUnix {
     }
 
     #[cfg(any(feature = "legacy", feature = "poll-io"))]
-    fn legacy_call(&mut self) -> io::Result<u32> {
-        match crate::syscall_u32!(connect(
+    fn legacy_call(&mut self) -> io::Result<MaybeFd> {
+        match crate::syscall!(connect@RAW(
             self.fd.raw_fd(),
             &self.socket_addr.0 as *const _ as *const _,
             self.socket_addr.1
         )) {
             Err(err) if err.raw_os_error() != Some(libc::EINPROGRESS) => Err(err),
-            _ => Ok(self.fd.raw_fd() as u32),
+            _ => Ok(MaybeFd::zero()),
         }
     }
 }

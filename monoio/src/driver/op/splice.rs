@@ -6,7 +6,7 @@ use std::io;
 use io_uring::{opcode, types};
 #[cfg(all(unix, feature = "legacy"))]
 use {
-    crate::{driver::ready::Direction, syscall_u32},
+    crate::driver::{op::MaybeFd, ready::Direction},
     std::os::unix::prelude::AsRawFd,
 };
 
@@ -53,7 +53,7 @@ impl Op<Splice> {
 
     pub(crate) async fn splice(self) -> io::Result<u32> {
         let complete = self.await;
-        complete.meta.result
+        complete.meta.result.map(|v| v.into_inner())
     }
 }
 
@@ -88,13 +88,13 @@ impl OpAble for Splice {
     }
 
     #[cfg(all(unix, feature = "legacy"))]
-    fn legacy_call(&mut self) -> io::Result<u32> {
+    fn legacy_call(&mut self) -> io::Result<MaybeFd> {
         const FLAG: u32 = libc::SPLICE_F_MOVE | libc::SPLICE_F_NONBLOCK;
         let fd_in = self.fd_in.as_raw_fd();
         let fd_out = self.fd_out.as_raw_fd();
         let off_in = std::ptr::null_mut::<libc::loff_t>();
         let off_out = std::ptr::null_mut::<libc::loff_t>();
-        syscall_u32!(splice(
+        crate::syscall!(splice@NON_FD(
             fd_in,
             off_in,
             fd_out,

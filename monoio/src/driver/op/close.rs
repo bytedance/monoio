@@ -5,11 +5,10 @@ use std::os::unix::io::RawFd;
 #[cfg(all(target_os = "linux", feature = "iouring"))]
 use io_uring::{opcode, types};
 #[cfg(windows)]
-use {
-    crate::syscall, std::os::windows::io::RawSocket,
-    windows_sys::Win32::Networking::WinSock::closesocket,
-};
+use {std::os::windows::io::RawSocket, windows_sys::Win32::Networking::WinSock::closesocket};
 
+#[cfg(any(feature = "legacy", feature = "poll-io"))]
+use super::MaybeFd;
 use super::{Op, OpAble};
 
 pub(crate) struct Close {
@@ -34,6 +33,9 @@ impl Op<Close> {
 
 impl OpAble for Close {
     #[cfg(all(target_os = "linux", feature = "iouring"))]
+    const SKIP_CANCEL: bool = true;
+
+    #[cfg(all(target_os = "linux", feature = "iouring"))]
     fn uring_op(&mut self) -> io_uring::squeue::Entry {
         opcode::Close::new(types::Fd(self.fd)).build()
     }
@@ -45,11 +47,11 @@ impl OpAble for Close {
     }
 
     #[cfg(any(feature = "legacy", feature = "poll-io"))]
-    fn legacy_call(&mut self) -> io::Result<u32> {
+    fn legacy_call(&mut self) -> io::Result<MaybeFd> {
         #[cfg(unix)]
-        return crate::syscall_u32!(close(self.fd));
+        return crate::syscall!(close@NON_FD(self.fd));
 
         #[cfg(windows)]
-        return syscall!(closesocket(self.fd as _), PartialEq::ne, 0);
+        return crate::syscall!(closesocket@NON_FD(self.fd as _), PartialEq::ne, 0);
     }
 }
