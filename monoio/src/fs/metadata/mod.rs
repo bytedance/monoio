@@ -345,7 +345,7 @@ impl MetadataExt for Metadata {
 
     #[cfg(not(any(target_arch = "aarch64", target_arch = "riscv64")))]
     fn nlink(&self) -> u64 {
-        self.0.stat.st_nlink
+        self.0.stat.st_nlink.into()
     }
 
     fn uid(&self) -> u32 {
