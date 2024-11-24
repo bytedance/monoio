@@ -37,7 +37,8 @@ if [ "${NO_RUN}" != "1" ] && [ "${NO_RUN}" != "true" ]; then
     fi
 
     if [ "${TARGET}" != "aarch64-unknown-linux-gnu" ] && [ "${TARGET}" != "armv7-unknown-linux-gnueabihf" ] &&
-        [ "${TARGET}" != "riscv64gc-unknown-linux-gnu" ] && [ "${TARGET}" != "s390x-unknown-linux-gnu" ]; then
+        [ "${TARGET}" != "riscv64gc-unknown-linux-gnu" ] && [ "${TARGET}" != "s390x-unknown-linux-gnu" ] &&
+        [ "${TARGET}" != "loongarch64-unknown-linux-gnu" ]; then
         # enable uring+legacy driver
         "${CARGO}" test --target "${TARGET}"
         "${CARGO}" test --target "${TARGET}" --release
