@@ -343,6 +343,8 @@ impl MetadataExt for Metadata {
         self.0.stat.st_nlink.into()
     }
 
+    /// longarch64 need the `into` convert.
+    #[allow(clippy::useless_conversion)]
     #[cfg(not(any(target_arch = "aarch64", target_arch = "riscv64")))]
     fn nlink(&self) -> u64 {
         self.0.stat.st_nlink.into()
