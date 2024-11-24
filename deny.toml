@@ -6,7 +6,7 @@ allow = [
   "Zlib",
   "BSD-3-Clause",
   "Unlicense",
-  "Unicode-DFS-2016",
+  "Unicode-3.0",
 ]
 confidence-threshold = 0.95
 copyleft = "deny"
