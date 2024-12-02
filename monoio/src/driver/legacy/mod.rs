@@ -182,7 +182,7 @@ impl LegacyDriver {
         interest: mio::Interest,
     ) -> io::Result<usize> {
         let inner = unsafe { &mut *this.get() };
-        let io = ScheduledIo::default();
+        let io = ScheduledIo::new(state.inner.clone());
         let token = inner.io_dispatch.insert(io);
 
         match inner.poll.register(state, mio::Token(token), interest) {
@@ -303,6 +303,23 @@ impl LegacyInner {
                 flags: 0,
             }),
             Err(ref e) if e.kind() == io::ErrorKind::WouldBlock => {
+                #[cfg(windows)]
+                {
+                    if let Some((sock_state, token, interest)) = {
+                        let socket_state_lock = ref_mut.state.lock().unwrap();
+                        socket_state_lock.inner.clone().map(|inner| {
+                            (inner, socket_state_lock.token, socket_state_lock.interest)
+                        })
+                    } {
+                        if let Err(e) = inner.poll.reregister(sock_state, token, interest) {
+                            return Poll::Ready(CompletionMeta {
+                                result: Err(e),
+                                flags: 0,
+                            });
+                        }
+                    }
+                }
+
                 ref_mut.clear_readiness(direction.mask());
                 ref_mut.set_waker(cx, direction);
                 Poll::Pending

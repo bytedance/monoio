@@ -9,8 +9,12 @@ pub(crate) struct ScheduledIo {
     reader: Option<Waker>,
     /// Waker used for AsyncWrite.
     writer: Option<Waker>,
+
+    #[cfg(windows)]
+    pub state: std::sync::Arc<std::sync::Mutex<super::legacy::iocp::SocketStateInner>>,
 }
 
+#[cfg(not(windows))]
 impl Default for ScheduledIo {
     #[inline]
     fn default() -> Self {
@@ -19,11 +23,17 @@ impl Default for ScheduledIo {
 }
 
 impl ScheduledIo {
-    pub(crate) const fn new() -> Self {
+    pub(crate) const fn new(
+        #[cfg(windows)] state: std::sync::Arc<
+            std::sync::Mutex<super::legacy::iocp::SocketStateInner>,
+        >,
+    ) -> Self {
         Self {
             readiness: Ready::EMPTY,
             reader: None,
             writer: None,
+            #[cfg(windows)]
+            state,
         }
     }
 
