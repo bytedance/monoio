@@ -34,6 +34,7 @@ impl OpAble for Rename {
         .build()
     }
 
+    #[cfg(any(feature = "legacy", feature = "poll-io"))]
     fn legacy_interest(&self) -> Option<(crate::driver::ready::Direction, usize)> {
         None
     }
