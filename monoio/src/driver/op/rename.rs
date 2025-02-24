@@ -50,7 +50,29 @@ impl OpAble for Rename {
     }
 
     #[cfg(all(any(feature = "legacy", feature = "poll-io"), windows))]
-    fn legacy_call(&mut self) -> io::Result<MaybeFd> {
-        unimplemented!()
+    fn legacy_call(&mut self) -> std::io::Result<MaybeFd> {
+        use std::io::{Error, ErrorKind};
+
+        use windows_sys::Win32::Storage::FileSystem::{MoveFileExW, MOVEFILE_REPLACE_EXISTING};
+
+        use crate::driver::util::to_wide_string;
+
+        let from = to_wide_string(
+            self.from
+                .to_str()
+                .map_err(|e| Error::new(ErrorKind::InvalidData, e))?,
+        );
+
+        let to = to_wide_string(
+            self.to
+                .to_str()
+                .map_err(|e| Error::new(ErrorKind::InvalidData, e))?,
+        );
+
+        crate::syscall!(
+            MoveFileExW@NON_FD(from.as_ptr(), to.as_ptr(), MOVEFILE_REPLACE_EXISTING),
+            PartialEq::eq,
+            0
+        )
     }
 }

@@ -1,4 +1,4 @@
-#![cfg(all(unix, feature = "unlinkat", feature = "mkdirat"))]
+#![cfg(all(feature = "unlinkat", feature = "mkdirat"))]
 
 use std::{io, path::PathBuf};
 

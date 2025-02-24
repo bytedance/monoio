@@ -21,13 +21,13 @@ mod send;
 #[cfg(unix)]
 mod statx;
 
-#[cfg(all(unix, feature = "mkdirat"))]
+#[cfg(feature = "mkdirat")]
 mod mkdir;
 
-#[cfg(all(unix, feature = "unlinkat"))]
+#[cfg(feature = "unlinkat")]
 mod unlink;
 
-#[cfg(all(unix, feature = "renameat"))]
+#[cfg(feature = "renameat")]
 mod rename;
 
 #[cfg(all(unix, feature = "symlinkat"))]

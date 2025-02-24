@@ -1,7 +1,5 @@
 #![cfg(feature = "sync")]
 use std::io::prelude::*;
-#[cfg(windows)]
-use std::os::windows::io::{AsRawHandle, FromRawHandle, RawHandle as RawFd};
 
 use monoio::{
     blocking::DefaultThreadPool, buf::VecBuf, fs::File, io::AsyncReadRent, LegacyDriver, Runtime,

@@ -102,3 +102,10 @@ macro_rules! syscall {
 pub(crate) fn feature_panic() -> ! {
     panic!("one of iouring and legacy features must be enabled");
 }
+
+#[cfg(all(windows, feature = "renameat"))]
+pub(crate) fn to_wide_string(str: &str) -> Vec<u16> {
+    use std::{ffi::OsStr, iter::once, os::windows::ffi::OsStrExt};
+
+    OsStr::new(str).encode_wide().chain(once(0)).collect()
+}

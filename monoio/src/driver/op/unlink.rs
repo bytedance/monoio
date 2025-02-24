@@ -5,10 +5,10 @@ use io_uring::{opcode, squeue::Entry, types::Fd};
 #[cfg(all(target_os = "linux", feature = "iouring"))]
 use libc::{AT_FDCWD, AT_REMOVEDIR};
 
-use super::{Op, OpAble};
-use crate::driver::util::cstr;
+use super::{MaybeFd, Op, OpAble};
 #[cfg(any(feature = "legacy", feature = "poll-io"))]
-use crate::driver::{op::MaybeFd, ready::Direction};
+use crate::driver::ready::Direction;
+use crate::driver::util::cstr;
 
 pub(crate) struct Unlink {
     path: CString,
@@ -46,12 +46,33 @@ impl OpAble for Unlink {
         None
     }
 
-    #[cfg(any(feature = "legacy", feature = "poll-io"))]
+    #[cfg(all(unix, any(feature = "legacy", feature = "poll-io")))]
     fn legacy_call(&mut self) -> io::Result<MaybeFd> {
         if self.remove_dir {
             crate::syscall!(rmdir@NON_FD(self.path.as_c_str().as_ptr()))
         } else {
             crate::syscall!(unlink@NON_FD(self.path.as_c_str().as_ptr()))
+        }
+    }
+
+    #[cfg(all(windows, any(feature = "legacy", feature = "poll-io")))]
+    fn legacy_call(&mut self) -> std::io::Result<MaybeFd> {
+        use std::io::{Error, ErrorKind};
+
+        use windows_sys::Win32::Storage::FileSystem::{DeleteFileW, RemoveDirectoryW};
+
+        use crate::driver::util::to_wide_string;
+
+        let path = to_wide_string(
+            self.path
+                .to_str()
+                .map_err(|e| Error::new(ErrorKind::InvalidData, e))?,
+        );
+
+        if self.remove_dir {
+            crate::syscall!(RemoveDirectoryW@NON_FD(path.as_ptr()), PartialEq::eq, 0)
+        } else {
+            crate::syscall!(DeleteFileW@NON_FD(path.as_ptr()), PartialEq::eq, 0)
         }
     }
 }
