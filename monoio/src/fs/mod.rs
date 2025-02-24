@@ -5,8 +5,6 @@ use std::{io, path::Path};
 
 pub use file::File;
 
-use crate::driver::op::Op;
-
 #[cfg(feature = "mkdirat")]
 mod dir_builder;
 #[cfg(feature = "mkdirat")]
