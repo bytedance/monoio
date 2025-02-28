@@ -40,7 +40,6 @@ impl<T> Default for RuntimeBuilder<T> {
     /// [monoio::blocking::BlockingStrategy] is to execute tasks on the local thread. In other
     /// words, there is no thread pool involved—all blocking I/O operations and heavy computations
     /// will block the current thread.
-    #[must_use]
     fn default() -> Self {
         RuntimeBuilder::<T>::new()
     }

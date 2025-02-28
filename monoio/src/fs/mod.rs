@@ -5,14 +5,14 @@ use std::{io, path::Path};
 
 pub use file::File;
 
-#[cfg(all(unix, feature = "mkdirat"))]
+#[cfg(feature = "mkdirat")]
 mod dir_builder;
-#[cfg(all(unix, feature = "mkdirat"))]
+#[cfg(feature = "mkdirat")]
 pub use dir_builder::DirBuilder;
 
-#[cfg(all(unix, feature = "mkdirat"))]
+#[cfg(feature = "mkdirat")]
 mod create_dir;
-#[cfg(all(unix, feature = "mkdirat"))]
+#[cfg(feature = "mkdirat")]
 pub use create_dir::*;
 
 #[cfg(all(unix, feature = "symlinkat"))]
@@ -42,8 +42,6 @@ use std::os::windows::io::{AsRawHandle, FromRawHandle};
 pub use permissions::Permissions;
 
 use crate::buf::IoBuf;
-#[cfg(all(unix, feature = "unlinkat"))]
-use crate::driver::op::Op;
 
 /// Executes a blocking operation asynchronously on a separate thread.
 ///
@@ -219,7 +217,7 @@ pub async fn write<P: AsRef<Path>, C: IoBuf>(path: P, contents: C) -> (io::Resul
 ///     Ok(())
 /// }
 /// ```
-#[cfg(all(unix, feature = "unlinkat"))]
+#[cfg(feature = "unlinkat")]
 pub async fn remove_file<P: AsRef<Path>>(path: P) -> io::Result<()> {
     Op::unlink(path)?.await.meta.result?;
     Ok(())
@@ -250,7 +248,7 @@ pub async fn remove_file<P: AsRef<Path>>(path: P) -> io::Result<()> {
 ///     Ok(())
 /// }
 /// ```
-#[cfg(all(unix, feature = "unlinkat"))]
+#[cfg(feature = "unlinkat")]
 pub async fn remove_dir<P: AsRef<Path>>(path: P) -> io::Result<()> {
     Op::rmdir(path)?.await.meta.result?;
     Ok(())
@@ -281,7 +279,7 @@ pub async fn remove_dir<P: AsRef<Path>>(path: P) -> io::Result<()> {
 ///     Ok(())
 /// }
 /// ```
-#[cfg(all(unix, feature = "renameat"))]
+#[cfg(feature = "renameat")]
 pub async fn rename<P: AsRef<Path>, Q: AsRef<Path>>(from: P, to: Q) -> io::Result<()> {
     Op::rename(from.as_ref(), to.as_ref())?.await.meta.result?;
     Ok(())

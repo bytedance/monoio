@@ -259,11 +259,10 @@ impl<T: IoBuf> Op<SendMsgUnix<T>> {
         buf: T,
         socket_addr: Option<UnixSocketAddr>,
     ) -> io::Result<Self> {
-        let mut info: Box<(Option<UnixSocketAddr>, IoVecMeta, libc::msghdr)> = Box::new((
-            socket_addr.map(Into::into),
-            IoVecMeta::from(&buf),
-            unsafe { std::mem::zeroed() },
-        ));
+        let mut info: Box<(Option<UnixSocketAddr>, IoVecMeta, libc::msghdr)> =
+            Box::new((socket_addr, IoVecMeta::from(&buf), unsafe {
+                std::mem::zeroed()
+            }));
 
         info.2.msg_iov = info.1.write_iovec_ptr();
         info.2.msg_iovlen = info.1.write_iovec_len() as _;
