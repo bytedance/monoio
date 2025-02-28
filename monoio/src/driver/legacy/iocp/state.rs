@@ -25,20 +25,27 @@ pub enum SockPollStatus {
 }
 
 #[derive(Debug)]
-pub struct SocketState {
-    pub socket: RawSocket,
+pub struct SocketStateInner {
     pub inner: Option<Pin<Arc<Mutex<SockState>>>>,
     pub token: mio::Token,
     pub interest: mio::Interest,
+}
+
+#[derive(Debug)]
+pub struct SocketState {
+    pub socket: RawSocket,
+    pub inner: Arc<Mutex<SocketStateInner>>,
 }
 
 impl SocketState {
     pub fn new(socket: RawSocket) -> Self {
         Self {
             socket,
-            inner: None,
-            token: mio::Token(0),
-            interest: mio::Interest::READABLE,
+            inner: Arc::new(Mutex::new(SocketStateInner {
+                inner: None,
+                token: mio::Token(0),
+                interest: mio::Interest::READABLE,
+            })),
         }
     }
 }
