@@ -46,7 +46,7 @@ impl Ready {
     pub(crate) const WRITE_ALL: Ready = Ready(WRITABLE | WRITE_CLOSED | WRITE_CANCELED);
 
     #[cfg(windows)]
-    pub(crate) fn from_mio(event: &super::legacy::iocp::Event) -> Ready {
+    pub(crate) fn from_mio(event: &crate::driver::iocp::Event) -> Ready {
         let mut ready = Ready::EMPTY;
 
         if event.is_readable() {

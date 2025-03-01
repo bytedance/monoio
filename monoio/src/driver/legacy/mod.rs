@@ -16,10 +16,6 @@ use super::{
 };
 use crate::utils::slab::Slab;
 
-#[allow(missing_docs, unreachable_pub, dead_code, unused_imports)]
-#[cfg(windows)]
-pub(super) mod iocp;
-
 #[cfg(feature = "sync")]
 mod waker;
 #[cfg(feature = "sync")]
@@ -32,9 +28,9 @@ pub(crate) struct LegacyInner {
     #[cfg(unix)]
     poll: mio::Poll,
     #[cfg(windows)]
-    events: iocp::Events,
+    events: crate::driver::iocp::Events,
     #[cfg(windows)]
-    poll: iocp::Poller,
+    poll: crate::driver::iocp::Poller,
 
     #[cfg(feature = "sync")]
     shared_waker: std::sync::Arc<waker::EventWaker>,
@@ -69,7 +65,7 @@ impl LegacyDriver {
         #[cfg(unix)]
         let poll = mio::Poll::new()?;
         #[cfg(windows)]
-        let poll = iocp::Poller::new()?;
+        let poll = crate::driver::iocp::Poller::new()?;
 
         #[cfg(all(unix, feature = "sync"))]
         let shared_waker = std::sync::Arc::new(waker::EventWaker::new(mio::Waker::new(
@@ -77,10 +73,9 @@ impl LegacyDriver {
             TOKEN_WAKEUP,
         )?));
         #[cfg(all(windows, feature = "sync"))]
-        let shared_waker = std::sync::Arc::new(waker::EventWaker::new(iocp::Waker::new(
-            &poll,
-            TOKEN_WAKEUP,
-        )?));
+        let shared_waker = std::sync::Arc::new(waker::EventWaker::new(
+            crate::driver::iocp::Waker::new(&poll, TOKEN_WAKEUP)?,
+        ));
         #[cfg(feature = "sync")]
         let (waker_sender, waker_receiver) = flume::unbounded::<std::task::Waker>();
         #[cfg(feature = "sync")]
@@ -93,7 +88,7 @@ impl LegacyDriver {
             #[cfg(unix)]
             poll,
             #[cfg(windows)]
-            events: iocp::Events::with_capacity(entries as usize),
+            events: crate::driver::iocp::Events::with_capacity(entries as usize),
             #[cfg(windows)]
             poll,
             #[cfg(feature = "sync")]
@@ -178,7 +173,7 @@ impl LegacyDriver {
     #[cfg(windows)]
     pub(crate) fn register(
         this: &Rc<UnsafeCell<LegacyInner>>,
-        state: &mut iocp::SocketState,
+        state: &mut crate::driver::iocp::SocketState,
         interest: mio::Interest,
     ) -> io::Result<usize> {
         let inner = unsafe { &mut *this.get() };
@@ -198,7 +193,7 @@ impl LegacyDriver {
     pub(crate) fn deregister(
         this: &Rc<UnsafeCell<LegacyInner>>,
         token: usize,
-        state: &mut iocp::SocketState,
+        state: &mut crate::driver::iocp::SocketState,
     ) -> io::Result<()> {
         let inner = unsafe { &mut *this.get() };
 

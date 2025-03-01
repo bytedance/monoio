@@ -219,7 +219,7 @@ pub async fn write<P: AsRef<Path>, C: IoBuf>(path: P, contents: C) -> (io::Resul
 /// ```
 #[cfg(feature = "unlinkat")]
 pub async fn remove_file<P: AsRef<Path>>(path: P) -> io::Result<()> {
-    Op::unlink(path)?.await.meta.result?;
+    crate::driver::op::Op::unlink(path)?.await.meta.result?;
     Ok(())
 }
 
@@ -250,7 +250,7 @@ pub async fn remove_file<P: AsRef<Path>>(path: P) -> io::Result<()> {
 /// ```
 #[cfg(feature = "unlinkat")]
 pub async fn remove_dir<P: AsRef<Path>>(path: P) -> io::Result<()> {
-    Op::rmdir(path)?.await.meta.result?;
+    crate::driver::op::Op::rmdir(path)?.await.meta.result?;
     Ok(())
 }
 
@@ -281,6 +281,9 @@ pub async fn remove_dir<P: AsRef<Path>>(path: P) -> io::Result<()> {
 /// ```
 #[cfg(feature = "renameat")]
 pub async fn rename<P: AsRef<Path>, Q: AsRef<Path>>(from: P, to: Q) -> io::Result<()> {
-    Op::rename(from.as_ref(), to.as_ref())?.await.meta.result?;
+    crate::driver::op::Op::rename(from.as_ref(), to.as_ref())?
+        .await
+        .meta
+        .result?;
     Ok(())
 }
