@@ -6,9 +6,9 @@ use std::os::windows::io::{
 };
 use std::{cell::UnsafeCell, io, rc::Rc};
 
-#[cfg(windows)]
-use super::legacy::iocp::SocketState as RawFd;
 use super::CURRENT;
+#[cfg(windows)]
+use crate::driver::iocp::SocketState as RawFd;
 
 // Tracks in-flight operations on a file descriptor. Ensures all in-flight
 // operations complete before submitting the close.

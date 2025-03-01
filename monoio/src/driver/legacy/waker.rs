@@ -3,7 +3,7 @@ use crate::driver::unpark::Unpark;
 pub(crate) struct EventWaker {
     // raw waker
     #[cfg(windows)]
-    waker: super::iocp::Waker,
+    waker: crate::driver::iocp::Waker,
     #[cfg(unix)]
     waker: mio::Waker,
     // Atomic awake status
@@ -20,7 +20,7 @@ impl EventWaker {
     }
 
     #[cfg(windows)]
-    pub(crate) fn new(waker: super::iocp::Waker) -> Self {
+    pub(crate) fn new(waker: crate::driver::iocp::Waker) -> Self {
         Self {
             waker,
             awake: std::sync::atomic::AtomicBool::new(true),

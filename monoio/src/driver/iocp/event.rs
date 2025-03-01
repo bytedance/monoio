@@ -1,3 +1,5 @@
+use std::slice::{Iter, IterMut};
+
 use mio::Token;
 use windows_sys::Win32::System::IO::OVERLAPPED_ENTRY;
 
@@ -116,5 +118,31 @@ impl Events {
         for status in self.statuses.iter_mut() {
             *status = unsafe { std::mem::zeroed() };
         }
+    }
+
+    pub fn iter(&self) -> Iter<'_, Event> {
+        self.events.iter()
+    }
+
+    pub fn iter_mut(&mut self) -> IterMut<'_, Event> {
+        self.events.iter_mut()
+    }
+}
+
+impl<'a> IntoIterator for &'a Events {
+    type Item = &'a Event;
+    type IntoIter = Iter<'a, Event>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
+    }
+}
+
+impl<'a> IntoIterator for &'a mut Events {
+    type Item = &'a mut Event;
+    type IntoIter = IterMut<'a, Event>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter_mut()
     }
 }
