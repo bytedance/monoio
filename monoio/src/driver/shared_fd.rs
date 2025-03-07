@@ -62,10 +62,7 @@ impl State {
                 })?;
             *state = UringState::Legacy(Some(reg));
         } else {
-            return Err(io::Error::new(
-                io::ErrorKind::Other,
-                "not clear uring state",
-            ));
+            return Err(io::Error::other("not clear uring state"));
         }
         Ok(())
     }
@@ -83,7 +80,7 @@ impl State {
             _ => return Ok(()),
         };
         let Some(token) = inner else {
-            return Err(io::Error::new(io::ErrorKind::Other, "empty token"));
+            return Err(io::Error::other("empty token"));
         };
         let mut source = mio::unix::SourceFd(&fd);
         crate::syscall!(fcntl@RAW(fd, libc::F_SETFL, 0))?;

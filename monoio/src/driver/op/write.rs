@@ -265,8 +265,8 @@ pub(crate) mod impls {
         len: usize,
         offset: u64,
     ) -> io::Result<MaybeFd> {
-        let offset = libc::off_t::try_from(offset)
-            .map_err(|_| io::Error::new(io::ErrorKind::Other, "offset too big"))?;
+        let offset =
+            libc::off_t::try_from(offset).map_err(|_| io::Error::other("offset too big"))?;
 
         crate::syscall!(pwrite@NON_FD(fd, buf as _, len, offset))
     }
@@ -287,8 +287,8 @@ pub(crate) mod impls {
         len: usize,
         offset: u64,
     ) -> io::Result<MaybeFd> {
-        let offset = libc::off_t::try_from(offset)
-            .map_err(|_| io::Error::new(io::ErrorKind::Other, "offset too big"))?;
+        let offset =
+            libc::off_t::try_from(offset).map_err(|_| io::Error::other("offset too big"))?;
 
         crate::syscall!(pwritev@NON_FD(fd, buf_vec as _, len as _, offset))
     }

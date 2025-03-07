@@ -52,7 +52,7 @@ impl UdpSocket {
         let addr = addr
             .to_socket_addrs()?
             .next()
-            .ok_or_else(|| io::Error::new(io::ErrorKind::Other, "empty address"))?;
+            .ok_or_else(|| io::Error::other("empty address"))?;
         let domain = if addr.is_ipv6() {
             socket2::Domain::IPV6
         } else {
