@@ -97,7 +97,7 @@ impl TcpStream {
         let addr = addr
             .to_socket_addrs()?
             .next()
-            .ok_or_else(|| io::Error::new(io::ErrorKind::Other, "empty address"))?;
+            .ok_or_else(|| io::Error::other("empty address"))?;
 
         Self::connect_addr(addr).await
     }

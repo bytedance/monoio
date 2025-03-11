@@ -122,12 +122,7 @@ impl DirBuilder {
                     need_create.push(inexist_path);
                     inexist_path = p;
                 }
-                None => {
-                    return Err(io::Error::new(
-                        io::ErrorKind::Other,
-                        "failed to create whole tree",
-                    ))
-                }
+                None => return Err(io::Error::other("failed to create whole tree")),
             }
         }
 

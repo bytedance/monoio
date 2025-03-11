@@ -248,17 +248,11 @@ impl Metadata {
 
                 Ok(SystemTime::UNIX_EPOCH + std::time::Duration::new(btime as u64, btime_nsec))
             } else {
-                Err(std::io::Error::new(
-                    std::io::ErrorKind::Other,
-                    "Creation time is not available",
-                ))
+                Err(std::io::Error::other("Creation time is not available"))
             };
         }
 
-        Err(std::io::Error::new(
-            std::io::ErrorKind::Other,
-            "Creation time is not available",
-        ))
+        Err(std::io::Error::other("Creation time is not available"))
     }
 
     /// Returns the permissions of the file this metadata is for.
