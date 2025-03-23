@@ -27,7 +27,6 @@ mod legacy;
 pub(crate) mod lifecycle;
 #[cfg(all(target_os = "linux", feature = "iouring"))]
 mod uring;
-
 mod util;
 
 use std::{
@@ -36,6 +35,8 @@ use std::{
     time::Duration,
 };
 
+#[cfg(all(windows, feature = "iocp"))]
+pub use self::iocp::IocpDriver;
 #[cfg(all(windows, feature = "iocp"))]
 use self::iocp::IocpInner;
 #[allow(unreachable_pub)]
