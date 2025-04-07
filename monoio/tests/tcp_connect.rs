@@ -1,4 +1,10 @@
-use std::net::{IpAddr, SocketAddr};
+use std::{
+    io::Write,
+    net::{IpAddr, SocketAddr},
+    sync::LazyLock,
+    thread::sleep,
+    time::Duration,
+};
 
 use monoio::net::{TcpListener, TcpStream};
 
@@ -53,7 +59,6 @@ macro_rules! test_connect {
             #[monoio::test_all]
             async fn $ident() {
                 let listener = TcpListener::bind("127.0.0.1:0").unwrap();
-                #[allow(clippy::redundant_closure_call)]
                 let addr = $mapping(&listener);
 
                 let server = async {
@@ -105,7 +110,10 @@ async fn connect_timeout_dst() {
         };
 
         let res = monoio::select! {
-            _ = connect => { false }
+            a = connect => {
+                println!("{:?}", a);
+                false
+             }
             _ = monoio::time::sleep(std::time::Duration::from_secs(1)) => { true }
         };
         assert!(res);
@@ -118,11 +126,33 @@ async fn connect_invalid_dst() {
     assert!(TcpStream::connect("127.0.0.1:1").await.is_err());
 }
 
+static TEST_SERVER_PORT: LazyLock<u16> = LazyLock::new(|| {
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("Failed to bind test server");
+    let addr = listener.local_addr().unwrap();
+
+    // The listener will not be closed until the test is done
+    std::thread::spawn(move || {
+        for stream in listener.incoming() {
+            match stream {
+                Ok(mut stream) => {
+                    sleep(Duration::from_millis(200));
+                    let _ = stream.write_all(b"Test server response");
+                }
+                Err(e) => eprintln!("Connection failed: {}", e),
+            }
+        }
+    });
+
+    addr.port()
+});
+
 #[monoio::test_all(timer_enabled = true)]
 async fn cancel_read() {
     use monoio::io::CancelableAsyncReadRent;
 
-    let mut s = TcpStream::connect("rsproxy.cn:80").await.unwrap();
+    let mut s = TcpStream::connect(format!("127.0.0.1:{}", *TEST_SERVER_PORT))
+        .await
+        .unwrap();
     let buf = vec![0; 20];
 
     let canceler = monoio::io::Canceller::new();
@@ -141,7 +171,9 @@ async fn cancel_select() {
 
     use monoio::io::CancelableAsyncReadRent;
 
-    let mut s = TcpStream::connect("rsproxy.cn:80").await.unwrap();
+    let mut s = TcpStream::connect(format!("127.0.0.1:{}", *TEST_SERVER_PORT))
+        .await
+        .unwrap();
     let buf = vec![0; 20];
 
     let canceler = monoio::io::Canceller::new();
