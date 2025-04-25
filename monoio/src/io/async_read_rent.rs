@@ -128,6 +128,66 @@ impl AsyncReadRent for &[u8] {
     }
 }
 
+impl AsyncReadRent for &mut [u8] {
+    fn read<T: IoBufMut>(&mut self, mut buf: T) -> impl Future<Output = BufResult<usize, T>> {
+        let amt = std::cmp::min(self.len(), buf.bytes_total());
+        let (a_ptr, b_ptr, b_len) = {
+            let ptr = self.as_mut_ptr();
+            let len = self.len();
+            (ptr, unsafe { ptr.add(amt) }, len - amt)
+        };
+        unsafe {
+            buf.write_ptr().copy_from_nonoverlapping(a_ptr, amt);
+            buf.set_init(amt);
+            *self = std::slice::from_raw_parts_mut(b_ptr, b_len);
+        }
+        std::future::ready((Ok(amt), buf))
+    }
+
+    fn readv<T: IoVecBufMut>(&mut self, mut buf: T) -> impl Future<Output = BufResult<usize, T>> {
+        let mut sum = 0;
+        {
+            #[cfg(windows)]
+            let buf_slice = unsafe {
+                std::slice::from_raw_parts_mut(buf.write_wsabuf_ptr(), buf.write_wsabuf_len())
+            };
+            #[cfg(unix)]
+            let buf_slice = unsafe {
+                std::slice::from_raw_parts_mut(buf.write_iovec_ptr(), buf.write_iovec_len())
+            };
+            for buf in buf_slice {
+                #[cfg(windows)]
+                let amt = std::cmp::min(self.len(), buf.len as usize);
+                #[cfg(unix)]
+                let amt = std::cmp::min(self.len(), buf.iov_len);
+
+                let (a_ptr, b_ptr, b_len) = {
+                    let ptr = self.as_mut_ptr();
+                    let len = self.len();
+                    (ptr, unsafe { ptr.add(amt) }, len - amt)
+                };
+                unsafe {
+                    #[cfg(windows)]
+                    buf.buf.cast::<u8>().copy_from_nonoverlapping(a_ptr, amt);
+                    #[cfg(unix)]
+                    buf.iov_base
+                        .cast::<u8>()
+                        .copy_from_nonoverlapping(a_ptr, amt);
+                    *self = std::slice::from_raw_parts_mut(b_ptr, b_len);
+                }
+                sum += amt;
+
+                if self.is_empty() {
+                    break;
+                }
+            }
+        }
+
+        unsafe { buf.set_init(sum) };
+        std::future::ready((Ok(sum), buf))
+    }
+}
+
 impl<T: AsRef<[u8]>> AsyncReadRent for Cursor<T> {
     async fn read<B: IoBufMut>(&mut self, buf: B) -> BufResult<usize, B> {
         let pos = self.position();
