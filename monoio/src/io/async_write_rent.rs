@@ -118,55 +118,67 @@ impl<A: ?Sized + AsyncWriteRent> AsyncWriteRent for &mut A {
     }
 }
 
-#[cfg(unix)]
-fn iovecs_to_slices(iov_ptr: *const libc::iovec, iov_len: usize) -> Vec<&'static [u8]> {
-    unsafe {
-        std::slice::from_raw_parts(iov_ptr, iov_len)
-            .iter()
-            .map(|iov| std::slice::from_raw_parts(iov.iov_base as *const u8, iov.iov_len))
-            .collect()
-    }
-}
-
-#[cfg(windows)]
-fn wsabufs_to_slices(
-    wsabuf_ptr: *const windows_sys::Win32::Networking::WinSock::WSABUF,
-    wsabuf_len: usize,
-) -> Vec<&'static [u8]> {
-    unsafe {
-        std::slice::from_raw_parts(wsabuf_ptr, wsabuf_len)
-            .iter()
-            .map(|wsabuf| std::slice::from_raw_parts(wsabuf.buf as *const u8, wsabuf.len as usize))
-            .collect()
-    }
-}
-
 // Helper function for cursor writev logic
-fn cursor_writev_logic<C, T>(writer: &mut C, buf_vec: T) -> BufResult<usize, T>
-where
-    C: std::io::Write + ?Sized, // The writer needs to implement std::io::Write
-    T: IoVecBuf,
-{
+#[inline]
+fn write_vectored_logic<C: std::io::Write + ?Sized, T: IoVecBuf>(
+    writer: &mut C,
+    buf_vec: T,
+) -> BufResult<usize, T> {
+    let bufs: &[std::io::IoSlice<'_>];
     #[cfg(unix)]
     {
-        let iovecs = iovecs_to_slices(buf_vec.read_iovec_ptr(), buf_vec.read_iovec_len());
-        let iovec_refs: Vec<std::io::IoSlice<'_>> =
-            iovecs.iter().map(|s| std::io::IoSlice::new(s)).collect();
-        match std::io::Write::write_vectored(writer, &iovec_refs) {
-            Ok(n) => (Ok(n), buf_vec),
-            Err(e) => (Err(e), buf_vec),
-        }
+        // SAFETY: IoSlice<'_> is repr(transparent) over libc::iovec
+        bufs = unsafe {
+            std::slice::from_raw_parts(
+                buf_vec.read_iovec_ptr() as *const std::io::IoSlice<'_>,
+                buf_vec.read_iovec_len(),
+            )
+        };
     }
     #[cfg(windows)]
     {
-        let wsabufs = wsabufs_to_slices(buf_vec.read_wsabuf_ptr(), buf_vec.read_wsabuf_len());
-        let iovec_refs: Vec<std::io::IoSlice<'_>> =
-            wsabufs.iter().map(|s| std::io::IoSlice::new(s)).collect();
-        match std::io::Write::write_vectored(writer, &iovec_refs) {
-            Ok(n) => (Ok(n), buf_vec),
-            Err(e) => (Err(e), buf_vec),
+        // SAFETY: IoSlice<'_> is repr(transparent) over WSABUF
+        let bufs = unsafe {
+            std::slice::from_raw_parts(
+                buf_vec.read_wsabuf_ptr() as *const std::io::IoSlice<'_>,
+                buf_vec.read_wsabuf_len(),
+            )
+        };
+    }
+    let res = std::io::Write::write_vectored(writer, bufs);
+    return match res {
+        Ok(n) => (Ok(n), buf_vec),
+        Err(e) => (Err(e), buf_vec),
+    };
+}
+
+// Helper function to extend a Vec<u8> from platform-specific buffer slices
+#[inline]
+fn extend_vec_from_platform_bufs<P>(
+    vec: &mut Vec<u8>,
+    platform_bufs: &[P],
+    get_ptr: fn(&P) -> *const u8,
+    get_len: fn(&P) -> usize,
+) -> usize {
+    let mut total_bytes_to_write = 0;
+    for buf_part in platform_bufs.iter() {
+        total_bytes_to_write += get_len(buf_part);
+    }
+
+    if total_bytes_to_write == 0 {
+        return 0;
+    }
+    vec.reserve(total_bytes_to_write);
+
+    for buf_part in platform_bufs.iter() {
+        let buffer_ptr = get_ptr(buf_part);
+        let buffer_len = get_len(buf_part);
+        if buffer_len > 0 {
+            let buffer_data_slice = unsafe { std::slice::from_raw_parts(buffer_ptr, buffer_len) };
+            vec.extend_from_slice(buffer_data_slice);
         }
     }
+    total_bytes_to_write
 }
 
 impl AsyncWriteRent for Vec<u8> {
@@ -177,35 +189,41 @@ impl AsyncWriteRent for Vec<u8> {
         std::future::ready((Ok(len), buf))
     }
 
+    #[inline]
     fn writev<T: IoVecBuf>(&mut self, buf_vec: T) -> impl Future<Output = BufResult<usize, T>> {
+        let total_bytes_to_write: usize;
         #[cfg(unix)]
         {
-            let iovecs = unsafe {
-                std::slice::from_raw_parts(buf_vec.read_iovec_ptr(), buf_vec.read_iovec_len())
-            };
-            let total_len: usize = iovecs.iter().map(|iov| iov.iov_len).sum();
-            self.reserve(total_len);
-            let mut written = 0;
-            for slice in iovecs_to_slices(buf_vec.read_iovec_ptr(), buf_vec.read_iovec_len()) {
-                self.extend_from_slice(slice);
-                written += slice.len();
-            }
-            std::future::ready((Ok(written), buf_vec))
+            // SAFETY: IoVecBuf guarantees valid iovec array
+            let iovec_array_ptr = buf_vec.read_iovec_ptr();
+            let iovec_count = buf_vec.read_iovec_len();
+            let iovec_slice = unsafe { std::slice::from_raw_parts(iovec_array_ptr, iovec_count) };
+            total_bytes_to_write = extend_vec_from_platform_bufs(
+                self,
+                iovec_slice,
+                |iovec: &libc::iovec| iovec.iov_base as *const u8,
+                |iovec: &libc::iovec| iovec.iov_len,
+            );
         }
         #[cfg(windows)]
         {
-            let wsabufs = unsafe {
-                std::slice::from_raw_parts(buf_vec.read_wsabuf_ptr(), buf_vec.read_wsabuf_len())
+            // SAFETY: IoVecBuf guarantees valid WSABUF array
+            let wsabuf_array_ptr = buf_vec.read_wsabuf_ptr();
+            let wsabuf_count = buf_vec.read_wsabuf_len();
+            let wsabuf_slice = unsafe {
+                std::slice::from_raw_parts(
+                    wsabuf_array_ptr as *const windows_sys::Win32::Networking::WinSock::WSABUF,
+                    wsabuf_count,
+                )
             };
-            let total_len: usize = wsabufs.iter().map(|wsabuf| wsabuf.len as usize).sum();
-            self.reserve(total_len);
-            let mut written = 0;
-            for slice in wsabufs_to_slices(buf_vec.read_wsabuf_ptr(), buf_vec.read_wsabuf_len()) {
-                self.extend_from_slice(slice);
-                written += slice.len();
-            }
-            std::future::ready((Ok(written), buf_vec))
+            total_bytes_to_write = extend_vec_from_platform_bufs(
+                self,
+                wsabuf_slice,
+                |wsabuf: &windows_sys::Win32::Networking::WinSock::WSABUF| wsabuf.buf as *const u8,
+                |wsabuf: &windows_sys::Win32::Networking::WinSock::WSABUF| wsabuf.len as usize,
+            );
         }
+        std::future::ready((Ok(total_bytes_to_write), buf_vec))
     }
 
     #[inline]
@@ -219,92 +237,19 @@ impl AsyncWriteRent for Vec<u8> {
     }
 }
 
-impl AsyncWriteRent for Cursor<&mut Vec<u8>> {
-    async fn write<T: IoBuf>(&mut self, buf: T) -> BufResult<usize, T> {
+impl<W> AsyncWriteRent for Cursor<W>
+where
+    Cursor<W>: Write + Unpin,
+{
+    #[inline]
+    fn write<T: IoBuf>(&mut self, buf: T) -> impl Future<Output = BufResult<usize, T>> {
         let slice = buf.as_slice();
-        match Write::write(self, slice) {
-            Ok(n) => (Ok(n), buf),
-            Err(e) => (Err(e), buf),
-        }
+        std::future::ready((Write::write(self, slice), buf))
     }
 
+    #[inline]
     fn writev<T: IoVecBuf>(&mut self, buf_vec: T) -> impl Future<Output = BufResult<usize, T>> {
-        std::future::ready(cursor_writev_logic(self, buf_vec))
-    }
-
-    #[inline]
-    fn flush(&mut self) -> impl Future<Output = std::io::Result<()>> {
-        std::future::ready(Write::flush(self))
-    }
-
-    #[inline]
-    fn shutdown(&mut self) -> impl Future<Output = std::io::Result<()>> {
-        // Cursor is in-memory, flush is a no-op, so shutdown is also a no-op.
-        std::future::ready(Ok(()))
-    }
-}
-
-impl AsyncWriteRent for Cursor<&mut [u8]> {
-    async fn write<T: IoBuf>(&mut self, buf: T) -> BufResult<usize, T> {
-        let slice = buf.as_slice();
-        match Write::write(self, slice) {
-            Ok(n) => (Ok(n), buf),
-            Err(e) => (Err(e), buf),
-        }
-    }
-
-    fn writev<T: IoVecBuf>(&mut self, buf_vec: T) -> impl Future<Output = BufResult<usize, T>> {
-        std::future::ready(cursor_writev_logic(self, buf_vec))
-    }
-
-    #[inline]
-    fn flush(&mut self) -> impl Future<Output = std::io::Result<()>> {
-        std::future::ready(Write::flush(self))
-    }
-
-    #[inline]
-    fn shutdown(&mut self) -> impl Future<Output = std::io::Result<()>> {
-        // Cursor is in-memory, flush is a no-op, so shutdown is also a no-op.
-        std::future::ready(Ok(()))
-    }
-}
-
-impl AsyncWriteRent for Cursor<Box<[u8]>> {
-    async fn write<T: IoBuf>(&mut self, buf: T) -> BufResult<usize, T> {
-        let slice = buf.as_slice();
-        match Write::write(self, slice) {
-            Ok(n) => (Ok(n), buf),
-            Err(e) => (Err(e), buf),
-        }
-    }
-
-    fn writev<T: IoVecBuf>(&mut self, buf_vec: T) -> impl Future<Output = BufResult<usize, T>> {
-        std::future::ready(cursor_writev_logic(self, buf_vec))
-    }
-
-    #[inline]
-    fn flush(&mut self) -> impl Future<Output = std::io::Result<()>> {
-        std::future::ready(Write::flush(self))
-    }
-
-    #[inline]
-    fn shutdown(&mut self) -> impl Future<Output = std::io::Result<()>> {
-        // Cursor is in-memory, flush is a no-op, so shutdown is also a no-op.
-        std::future::ready(Ok(()))
-    }
-}
-
-impl AsyncWriteRent for Cursor<Vec<u8>> {
-    async fn write<T: IoBuf>(&mut self, buf: T) -> BufResult<usize, T> {
-        let slice = buf.as_slice();
-        match Write::write(self, slice) {
-            Ok(n) => (Ok(n), buf),
-            Err(e) => (Err(e), buf),
-        }
-    }
-
-    fn writev<T: IoVecBuf>(&mut self, buf_vec: T) -> impl Future<Output = BufResult<usize, T>> {
-        std::future::ready(cursor_writev_logic(self, buf_vec))
+        std::future::ready(write_vectored_logic(self, buf_vec))
     }
 
     #[inline]
