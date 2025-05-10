@@ -1,8 +1,9 @@
+use std::io::Cursor;
+
 use monoio::{
     buf::VecBuf,
     io::{AsyncWriteRent, AsyncWriteRentExt},
 };
-use std::io::Cursor;
 
 const TEST_DATA: &[u8] = b"Hello, Monoio!";
 const LARGE_TEST_DATA: &[u8] =

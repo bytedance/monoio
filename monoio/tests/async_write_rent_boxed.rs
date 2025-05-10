@@ -1,6 +1,9 @@
-use monoio::buf::VecBuf;
-use monoio::io::{AsyncWriteRent, AsyncWriteRentExt, BufWriter};
 use std::io::Cursor;
+
+use monoio::{
+    buf::VecBuf,
+    io::{AsyncWriteRent, AsyncWriteRentExt, BufWriter},
+};
 
 const TEST_DATA: &[u8] = b"Hello, Boxed AsyncWriteRent!";
 const LARGE_TEST_DATA: &[u8] = b"This is a larger test string to ensure proper handling of multiple writes in boxed AsyncWriteRent...";

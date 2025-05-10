@@ -1,5 +1,4 @@
-use monoio::buf::VecBuf;
-use monoio::io::AsyncReadRent;
+use monoio::{buf::VecBuf, io::AsyncReadRent};
 
 #[monoio::test_all]
 async fn test_async_read_rent_for_mut_slice() {

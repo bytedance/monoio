@@ -1,6 +1,7 @@
-use std::future::Future;
-use std::io::Cursor;
-use std::io::Write;
+use std::{
+    future::Future,
+    io::{Cursor, Write},
+};
 
 use crate::{
     buf::{IoBuf, IoVecBuf},
