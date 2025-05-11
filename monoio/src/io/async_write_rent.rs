@@ -147,10 +147,10 @@ fn write_vectored_logic<C: std::io::Write + ?Sized, T: IoVecBuf>(
         };
     }
     let res = std::io::Write::write_vectored(writer, bufs);
-    return match res {
+    match res {
         Ok(n) => (Ok(n), buf_vec),
         Err(e) => (Err(e), buf_vec),
-    };
+    }
 }
 
 // Helper function to extend a Vec<u8> from platform-specific buffer slices
