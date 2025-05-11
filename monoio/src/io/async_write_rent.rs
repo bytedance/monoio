@@ -139,7 +139,7 @@ fn write_vectored_logic<C: std::io::Write + ?Sized, T: IoVecBuf>(
     #[cfg(windows)]
     {
         // SAFETY: IoSlice<'_> is repr(transparent) over WSABUF
-        let bufs = unsafe {
+        bufs = unsafe {
             std::slice::from_raw_parts(
                 buf_vec.read_wsabuf_ptr() as *const std::io::IoSlice<'_>,
                 buf_vec.read_wsabuf_len(),
