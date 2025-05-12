@@ -211,12 +211,8 @@ impl AsyncWriteRent for Vec<u8> {
             // SAFETY: IoVecBuf guarantees valid WSABUF array
             let wsabuf_array_ptr = buf_vec.read_wsabuf_ptr();
             let wsabuf_count = buf_vec.read_wsabuf_len();
-            let wsabuf_slice = unsafe {
-                std::slice::from_raw_parts(
-                    wsabuf_array_ptr as *const windows_sys::Win32::Networking::WinSock::WSABUF,
-                    wsabuf_count,
-                )
-            };
+            let wsabuf_slice =
+                unsafe { std::slice::from_raw_parts(wsabuf_array_ptr, wsabuf_count) };
             total_bytes_to_write = extend_vec_from_platform_bufs(
                 self,
                 wsabuf_slice,
