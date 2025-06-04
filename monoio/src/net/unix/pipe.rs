@@ -1,6 +1,16 @@
-use std::{io, os::unix::prelude::RawFd};
+use std::{
+    io,
+    os::{
+        fd::{AsRawFd, FromRawFd, IntoRawFd},
+        unix::prelude::RawFd,
+    },
+    process::Stdio,
+};
 
-use crate::driver::shared_fd::SharedFd;
+use crate::{
+    driver::shared_fd::SharedFd,
+    io::as_fd::{AsReadFd, AsWriteFd, SharedFdWrapper},
+};
 
 /// Unix pipe.
 pub struct Pipe {
@@ -34,4 +44,42 @@ pub fn new_pipe() -> io::Result<(Pipe, Pipe)> {
     #[cfg(not(target_os = "linux"))]
     crate::syscall!(pipe@RAW(pipes.as_mut_ptr() as _))?;
     Ok((Pipe::from_raw_fd(pipes[0]), Pipe::from_raw_fd(pipes[1])))
+}
+
+impl AsReadFd for Pipe {
+    #[inline]
+    fn as_reader_fd(&mut self) -> &SharedFdWrapper {
+        SharedFdWrapper::new(&self.fd)
+    }
+}
+
+impl AsWriteFd for Pipe {
+    #[inline]
+    fn as_writer_fd(&mut self) -> &SharedFdWrapper {
+        SharedFdWrapper::new(&self.fd)
+    }
+}
+
+impl IntoRawFd for Pipe {
+    #[inline]
+    fn into_raw_fd(self) -> RawFd {
+        self.fd
+            .try_unwrap()
+            .expect("unexpected multiple reference to rawfd")
+    }
+}
+
+impl AsRawFd for Pipe {
+    #[inline]
+    fn as_raw_fd(&self) -> RawFd {
+        self.fd.raw_fd()
+    }
+}
+
+impl From<Pipe> for Stdio {
+    #[inline]
+    fn from(pipe: Pipe) -> Self {
+        let rawfd = pipe.fd.try_unwrap().unwrap();
+        unsafe { Stdio::from_raw_fd(rawfd) }
+    }
 }
