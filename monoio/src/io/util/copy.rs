@@ -6,7 +6,7 @@ use crate::io::{AsyncReadRent, AsyncWriteRent, AsyncWriteRentExt};
 #[cfg(unix)]
 use crate::net::unix::new_pipe;
 
-const BUF_SIZE: usize = 4 * 1024;
+const BUF_SIZE: usize = 64 * 1024;
 
 /// Copy data from reader to writer.
 pub async fn copy<'a, R, W>(reader: &'a mut R, writer: &'a mut W) -> io::Result<u64>
