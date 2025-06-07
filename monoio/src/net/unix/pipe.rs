@@ -1,4 +1,5 @@
 use std::{
+    future::Future,
     io,
     os::{
         fd::{AsRawFd, FromRawFd, IntoRawFd},
@@ -8,8 +9,13 @@ use std::{
 };
 
 use crate::{
-    driver::shared_fd::SharedFd,
-    io::as_fd::{AsReadFd, AsWriteFd, SharedFdWrapper},
+    buf::{IoBufMut, IoVecBufMut},
+    driver::{op::Op, shared_fd::SharedFd},
+    io::{
+        as_fd::{AsReadFd, AsWriteFd, SharedFdWrapper},
+        AsyncReadRent,
+    },
+    BufResult,
 };
 
 /// Unix pipe.
@@ -81,5 +87,21 @@ impl From<Pipe> for Stdio {
     fn from(pipe: Pipe) -> Self {
         let rawfd = pipe.fd.try_unwrap().unwrap();
         unsafe { Stdio::from_raw_fd(rawfd) }
+    }
+}
+
+impl AsyncReadRent for Pipe {
+    #[inline]
+    fn read<T: IoBufMut>(&mut self, buf: T) -> impl Future<Output = BufResult<usize, T>> {
+        // Submit the read operation
+        let op = Op::read(self.fd.clone(), buf).unwrap();
+        op.result()
+    }
+
+    #[inline]
+    fn readv<T: IoVecBufMut>(&mut self, buf: T) -> impl Future<Output = BufResult<usize, T>> {
+        // Submit the read operation
+        let op = Op::readv(self.fd.clone(), buf).unwrap();
+        op.result()
     }
 }
