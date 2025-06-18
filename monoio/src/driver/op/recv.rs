@@ -257,6 +257,7 @@ impl<T: IoBufMut> OpAble for RecvMsg<T> {
                 std::ptr::null_mut(),
                 None,
             );
+            #[allow(clippy::unnecessary_unwrap)]
             if r == SOCKET_ERROR || wsa_recv_msg.is_none() {
                 panic!(
                     "init WSARecvMsg failed with {}",
