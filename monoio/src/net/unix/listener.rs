@@ -38,7 +38,15 @@ impl UnixListener {
         let addr = socket2::SockAddr::unix(path)?;
 
         if config.reuse_port {
-            sys_listener.set_reuse_port(true)?;
+            // Ignore unsupported error for UNIX domain sockets
+            sys_listener.set_reuse_port(true).or_else(|e| {
+                if e.raw_os_error().is_some_and(|code| code == libc::ENOTSUP) {
+                    eprintln!("[listener] set_reuse_port failed: {e}");
+                    Ok(())
+                } else {
+                    Err(e)
+                }
+            })?;
         }
         if config.reuse_addr {
             sys_listener.set_reuse_address(true)?;
