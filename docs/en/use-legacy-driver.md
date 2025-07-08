@@ -16,7 +16,8 @@ async fn main() { // todo }
 ```
 In this way, you can pass `fusion`, `legacy` or `uring` as the `driver` parameter. Among them, `legacy` and `uring` will force the use of Legacy and Uring as the IO driver. You can use this method when you know exactly what platform the compiled binary will run on.
 
-Using `fusion` as the `driver` parameter will dynamically detect the platform's io_uring support at runtime (startup), and prefer io_uring as the IO driver(If you do not specify the driver, fusion mode will be used by default).
+Using `fusion` as the `driver` parameter will detect the platform's io_uring support at runtime (on startup), and prefer io_uring as the IO driver.
+Note that if you do not specify the driver, `fusion` mode will be used by default.
 
 The second way is to specify by code:
 ```rust
