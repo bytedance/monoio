@@ -38,6 +38,7 @@ impl UnixListener {
         let addr = socket2::SockAddr::unix(path)?;
 
         if config.reuse_port {
+            // TODO: properly handle this. Warn?
             // this seems to cause an error on current (>6.x) kernels:
             // sys_listener.set_reuse_port(true)?;
         }

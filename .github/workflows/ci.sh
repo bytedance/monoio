@@ -29,7 +29,8 @@ if [ "${NO_RUN}" != "1" ] && [ "${NO_RUN}" != "true" ]; then
     # enable legacy and sync
     "${CARGO}" test --target "${TARGET}" --no-default-features --features "async-cancel,bytes,legacy,macros,utils,sync"
 
-    # enable legacy and sync, linker error on loongarch64
+    # enable legacy and sync
+    # TODO: fix linker error on loongarch64
     if [ "${TARGET}" != "loongarch64-unknown-linux-gnu" ]; then
         "${CARGO}" test --target "${TARGET}" --no-default-features --features "async-cancel,bytes,legacy,macros,utils,sync" --release
     fi
