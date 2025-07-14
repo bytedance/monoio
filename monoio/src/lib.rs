@@ -45,7 +45,7 @@ pub use driver::IoUringDriver;
 pub use driver::LegacyDriver;
 #[cfg(feature = "macros")]
 pub use monoio_macros::{main, test, test_all};
-pub use runtime::{spawn, Runtime};
+pub use runtime::{spawn, spawn_catch_unwind, Runtime};
 #[cfg(any(all(target_os = "linux", feature = "iouring"), feature = "legacy"))]
 pub use {builder::FusionDriver, runtime::FusionRuntime};
 
