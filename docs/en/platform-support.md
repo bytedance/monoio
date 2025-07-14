@@ -8,7 +8,7 @@ author: ihciah
 
 Linux and macOS are currently supported. On the Linux platform, we can use io_uring or epoll as the IO driver; on the macOS platform, we will use kqueue as the IO driver.
 
-How to use Legacy driver can refer to [here](/docs/en/use-legacy-driver.md).
+The use of the Legacy driver is explained on [this page](/docs/en/use-legacy-driver.md).
 
 ## Future Plans
 🚧Experimental windows support is on the way.
