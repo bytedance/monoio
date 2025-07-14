@@ -105,7 +105,7 @@ impl<T> Slab<T> {
     pub(crate) fn mark_remove(&mut self) {
         // compact
         self.generation = self.generation.wrapping_add(1);
-        if self.generation % COMPACT_INTERVAL == 0 {
+        if self.generation.is_multiple_of(COMPACT_INTERVAL) {
             // reset write page index
             self.w_page_id = 0;
             // find the last allocated page and try to drop

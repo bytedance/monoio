@@ -42,7 +42,7 @@ use self::uring::UringInner;
 
 /// Unpark a runtime of another thread.
 pub(crate) mod unpark {
-    #[allow(unreachable_pub)]
+    #[allow(unreachable_pub, dead_code)]
     pub trait Unpark: Sync + Send + 'static {
         /// Unblocks a thread that is blocked by the associated `Park` handle.
         ///
