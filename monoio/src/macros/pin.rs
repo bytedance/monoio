@@ -11,13 +11,14 @@
 /// The following will **fail to compile**:
 ///
 /// ```compile_fail
+/// use monoio::pin;
 /// async fn my_async_fn() {
 ///     // async logic here
 /// }
 ///
 /// #[monoio::main]
 /// async fn main() {
-///     let mut future = my_async_fn();
+///     let mut future = pin!(my_async_fn());
 ///     (&mut future).await;
 /// }
 /// ```
@@ -54,6 +55,7 @@
 /// The following does not compile as an expression is passed to `pin!`.
 ///
 /// ```compile_fail
+/// use monoio::pin;
 /// async fn my_async_fn() {
 ///     // async logic here
 /// }
