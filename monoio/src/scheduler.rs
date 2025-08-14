@@ -10,7 +10,7 @@ impl Schedule for LocalScheduler {
     }
 
     fn yield_now(&self, task: Task<Self>) {
-        crate::runtime::CURRENT.with(|cx| cx.tasks.push_front(task));
+        self.schedule(task);
     }
 }
 
@@ -59,12 +59,6 @@ impl TaskQueue {
     pub(crate) fn push(&self, runnable: Task<LocalScheduler>) {
         unsafe {
             (*self.queue.get()).push_back(runnable);
-        }
-    }
-
-    pub(crate) fn push_front(&self, runnable: Task<LocalScheduler>) {
-        unsafe {
-            (*self.queue.get()).push_front(runnable);
         }
     }
 
