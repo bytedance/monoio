@@ -70,7 +70,7 @@ impl<W> BufWriter<W> {
 
 impl<W: AsyncWriteRent> BufWriter<W> {
     async fn flush_buf(&mut self) -> io::Result<()> {
-        if self.cap > 0 {
+        if self.cap != 0 {
             // there is some data left inside internal buf
             let buf = self
                 .buf
