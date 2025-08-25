@@ -12,7 +12,6 @@ use crate::{
 pub struct BufWriter<W> {
     inner: W,
     buf: Option<Box<[u8]>>,
-    pos: usize,
     cap: usize,
 }
 
@@ -32,7 +31,6 @@ impl<W> BufWriter<W> {
         Self {
             inner,
             buf: Some(buffer.into_boxed_slice()),
-            pos: 0,
             cap: 0,
         }
     }
@@ -60,27 +58,26 @@ impl<W> BufWriter<W> {
     /// Returns a reference to the internally buffered data.
     #[inline]
     pub fn buffer(&self) -> &[u8] {
-        &self.buf.as_ref().expect("unable to take buffer")[self.pos..self.cap]
+        &self.buf.as_ref().expect("unable to take buffer")[..self.cap]
     }
 
     /// Invalidates all data in the internal buffer.
     #[inline]
     fn discard_buffer(&mut self) {
-        self.pos = 0;
         self.cap = 0;
     }
 }
 
 impl<W: AsyncWriteRent> BufWriter<W> {
     async fn flush_buf(&mut self) -> io::Result<()> {
-        if self.pos != self.cap {
+        if self.cap != 0 {
             // there is some data left inside internal buf
             let buf = self
                 .buf
                 .take()
                 .expect("no buffer available, generated future must be awaited");
             // move buf to slice and write_all
-            let slice = Slice::new(buf, self.pos, self.cap);
+            let slice = Slice::new(buf, 0, self.cap);
             let (ret, slice) = self.inner.write_all(slice).await;
             // move it back and return
             self.buf = Some(slice.into_inner());
@@ -97,7 +94,7 @@ impl<W: AsyncWriteRent> AsyncWriteRent for BufWriter<W> {
         let owned_len = owned_buf.len();
         let amt = buf.bytes_init();
 
-        if self.pos + amt > owned_len {
+        if self.cap + amt > owned_len {
             // Buf can not be copied directly into OwnedBuf,
             // we must flush OwnedBuf first.
             match self.flush_buf().await {
@@ -109,7 +106,7 @@ impl<W: AsyncWriteRent> AsyncWriteRent for BufWriter<W> {
         }
 
         // Now there are two situations here:
-        // 1. OwnedBuf has data, and self.pos + amt <= owned_len,
+        // 1. OwnedBuf has data, and self.cap + amt <= owned_len,
         // which means the data can be copied into OwnedBuf.
         // 2. OwnedBuf is empty. If we can copy buf into OwnedBuf,
         // we will copy it, otherwise we will send it directly(in
