@@ -54,6 +54,7 @@ jobs:
           OS: ${{ matrix.os }}
           PROJECT_DIR: ${{ github.workspace }}
           NO_RUN: ${{ matrix.no_run }}
+          RUSTFLAGS: ${{ matrix.io_uring_skip_arch_check && '--cfg=io_uring_skip_arch_check' || '' }}
         run: sh .github/workflows/ci.sh
 
     strategy:
@@ -88,10 +89,12 @@ jobs:
             os: ubuntu-latest
           - target: armv7-unknown-linux-gnueabihf
             os: ubuntu-latest
+            io_uring_skip_arch_check: true
           - target: riscv64gc-unknown-linux-gnu 
             os: ubuntu-latest
           - target: s390x-unknown-linux-gnu
             os: ubuntu-latest
+            io_uring_skip_arch_check: true
           - target: loongarch64-unknown-linux-gnu
             os: ubuntu-latest
 #          - target: mips64-unknown-linux-muslabi64
