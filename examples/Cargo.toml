@@ -42,6 +42,7 @@ tokio = { version = "1", default-features = false, features = ["io-util"] }
 tower-service = "0.3"
 
 futures = "0.3"
+futures-lite = "2.6"
 local-sync = "0.1"
 pin-project-lite = "0.2"
 

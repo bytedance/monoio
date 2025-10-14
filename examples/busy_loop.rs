@@ -1,6 +1,6 @@
 use std::time::{Duration, Instant};
 
-use monoio::task::yield_now;
+use futures_lite::future::yield_now;
 
 #[monoio::main(enable_timer = true)]
 async fn main() {
