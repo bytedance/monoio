@@ -22,6 +22,9 @@ mod state;
 
 mod waker;
 
+mod yield_now;
+pub use yield_now::{yield_now, YieldNow};
+
 use std::{future::Future, marker::PhantomData, ptr::NonNull};
 
 /// An owned handle to the task, tracked by ref count, not sendable

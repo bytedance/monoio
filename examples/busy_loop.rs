@@ -1,12 +1,6 @@
-use std::{
-    future::Future,
-    pin::Pin,
-    task::{
-        Context,
-        Poll::{self, Ready},
-    },
-    time::{Duration, Instant},
-};
+use std::time::{Duration, Instant};
+
+use monoio::task::yield_now;
 
 #[monoio::main(enable_timer = true)]
 async fn main() {
@@ -35,26 +29,4 @@ async fn main() {
     });
 
     std::future::pending().await
-}
-
-pub fn yield_now() -> YieldNow {
-    YieldNow { yielded: false }
-}
-
-pub struct YieldNow {
-    yielded: bool,
-}
-
-impl Future for YieldNow {
-    type Output = ();
-
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        if self.yielded {
-            Ready(())
-        } else {
-            self.yielded = true;
-            cx.waker().wake_by_ref();
-            Poll::Pending
-        }
-    }
 }
