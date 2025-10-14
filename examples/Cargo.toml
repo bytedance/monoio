@@ -18,6 +18,7 @@ monoio = { path = "../monoio", default-features = false, features = [
     "macros",
     "utils",
     "poll-io",      # experimental
+    "busy-loop",
 ] }
 
 # Enable tracing and tracing-subscriber for print out runtime debug
@@ -41,7 +42,7 @@ tokio = { version = "1", default-features = false, features = ["io-util"] }
 tower-service = "0.3"
 
 futures = "0.3"
-local-sync = "0.0.5"
+local-sync = "0.1"
 pin-project-lite = "0.2"
 
 [[example]]
@@ -115,3 +116,7 @@ path = "h2_server.rs"
 [[example]]
 name = "h2-client"
 path = "h2_client.rs"
+
+[[example]]
+name = "busy-loop"
+path = "busy_loop.rs"

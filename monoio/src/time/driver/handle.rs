@@ -51,6 +51,14 @@ impl Handle {
             )
         })
     }
+
+    /// Process all timers that are ready.
+    ///
+    /// This function should be called periodically to ensure that timers
+    /// are processed in a timely manner.
+    pub(crate) fn process_timer(&self) {
+        super::Handle::process(self);
+    }
 }
 
 impl fmt::Debug for Handle {

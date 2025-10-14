@@ -180,6 +180,12 @@ impl<D> Runtime<D> {
 
                         // Cold path
                         let _ = self.driver.submit();
+
+                        // Process pending timers after waking up
+                        #[cfg(feature = "busy-loop")]
+                        if let Some(time_handle) = &self.context.time_handle {
+                            time_handle.process_timer();
+                        }
                     }
 
                     // Wait and Process CQ(the error is ignored for not debug mode)
