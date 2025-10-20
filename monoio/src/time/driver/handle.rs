@@ -56,6 +56,7 @@ impl Handle {
     ///
     /// This function should be called periodically to ensure that timers
     /// are processed in a timely manner.
+    #[cfg(feature = "busy-loop")]
     pub(crate) fn process_timer(&self) {
         super::Handle::process(self);
     }
