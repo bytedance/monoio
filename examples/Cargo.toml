@@ -18,7 +18,7 @@ monoio = { path = "../monoio", default-features = false, features = [
     "macros",
     "utils",
     "poll-io",      # experimental
-    "busy-loop",
+    "busy-polling",
 ] }
 
 # Enable tracing and tracing-subscriber for print out runtime debug
@@ -119,5 +119,5 @@ name = "h2-client"
 path = "h2_client.rs"
 
 [[example]]
-name = "busy-loop"
-path = "busy_loop.rs"
+name = "busy-polling"
+path = "busy_polling.rs"

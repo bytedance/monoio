@@ -65,8 +65,8 @@ unstable = []
 # async-cancel will push a async-cancel entry into sq when op is canceled
 # strongly recommend to enable this feature
 async-cancel = []
-# enable busy loop when no io event is ready
-busy-loop = []
+# enable busy polling when no io event is ready
+busy-polling = []
 # enanle zero copy(enable SOCK_ZEROCOPY + MSG_ZEROCOPY flag)
 # WARNING: this feature may cause performance degradation
 zero-copy = []

@@ -182,7 +182,7 @@ impl<D> Runtime<D> {
                         let _ = self.driver.submit();
 
                         // Process pending timers after waking up
-                        #[cfg(feature = "busy-loop")]
+                        #[cfg(feature = "busy-polling")]
                         if let Some(time_handle) = &self.context.time_handle {
                             time_handle.process_timer();
                         }
