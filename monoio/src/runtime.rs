@@ -21,8 +21,8 @@ use crate::{
 thread_local! {
     pub(crate) static DEFAULT_CTX: Context = Context {
         thread_id: crate::utils::thread_id::DEFAULT_THREAD_ID,
-        unpark_cache: std::cell::RefCell::new(fxhash::FxHashMap::default()),
-        waker_sender_cache: std::cell::RefCell::new(fxhash::FxHashMap::default()),
+        unpark_cache: std::cell::RefCell::new(rustc_hash::FxHashMap::default()),
+        waker_sender_cache: std::cell::RefCell::new(rustc_hash::FxHashMap::default()),
         tasks: Default::default(),
         time_handle: None,
         blocking_handle: crate::blocking::BlockingHandle::Empty(crate::blocking::BlockingStrategy::Panic),
@@ -41,12 +41,12 @@ pub(crate) struct Context {
     /// Thread unpark handles
     #[cfg(feature = "sync")]
     pub(crate) unpark_cache:
-        std::cell::RefCell<fxhash::FxHashMap<usize, crate::driver::UnparkHandle>>,
+        std::cell::RefCell<rustc_hash::FxHashMap<usize, crate::driver::UnparkHandle>>,
 
     /// Waker sender cache
     #[cfg(feature = "sync")]
     pub(crate) waker_sender_cache:
-        std::cell::RefCell<fxhash::FxHashMap<usize, flume::Sender<std::task::Waker>>>,
+        std::cell::RefCell<rustc_hash::FxHashMap<usize, flume::Sender<std::task::Waker>>>,
 
     /// Time Handle
     pub(crate) time_handle: Option<TimeHandle>,
@@ -63,8 +63,8 @@ impl Context {
 
         Self {
             thread_id,
-            unpark_cache: std::cell::RefCell::new(fxhash::FxHashMap::default()),
-            waker_sender_cache: std::cell::RefCell::new(fxhash::FxHashMap::default()),
+            unpark_cache: std::cell::RefCell::new(rustc_hash::FxHashMap::default()),
+            waker_sender_cache: std::cell::RefCell::new(rustc_hash::FxHashMap::default()),
             tasks: TaskQueue::default(),
             time_handle: None,
             blocking_handle,
