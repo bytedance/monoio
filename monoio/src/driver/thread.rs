@@ -3,9 +3,9 @@ use std::sync::LazyLock;
 use std::{sync::Mutex, task::Waker};
 
 use flume::Sender;
-use fxhash::FxHashMap;
 #[cfg(not(feature = "unstable"))]
 use once_cell::sync::Lazy as LazyLock;
+use rustc_hash::FxHashMap;
 
 use crate::driver::UnparkHandle;
 
