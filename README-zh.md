@@ -97,9 +97,6 @@ async fn echo(mut stream: TcpStream) -> std::io::Result<()> {
 
 在此表示感谢！
 
-## 社区
-Monoio 是 [CloudWego](https://www.cloudwego.io/) 的子项目，我们致力于建设云原生生态系统。
-
 ## 关联项目
 - [local-sync](https://github.com/monoio-rs/local-sync)：一个线程内的 channel 实现
 - [monoio-tls](https://github.com/monoio-rs/monoio-tls)：Monoio TLS 支持
