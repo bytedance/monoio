@@ -1,10 +1,4 @@
-use std::{
-    future::Future,
-    pin::Pin,
-    task::{Context, Poll},
-};
-
-use futures::pin_mut;
+use std::future::Future;
 
 use super::{assert_stream, Stream};
 
@@ -43,14 +37,6 @@ pub trait StreamExt: Stream {
                 (f)(item).await;
             }
         }
-    }
-
-    /// Convert `Stream` to `LegacyStream` for compatibility with `futures::Stream` trait.
-    fn into_legacy_stream(self) -> LegacyStream<Self>
-    where
-        Self: Sized,
-    {
-        LegacyStream::new(self)
     }
 }
 
@@ -106,36 +92,5 @@ where
     async fn next(&mut self) -> Option<Self::Item> {
         let item = self.stream.next().await?;
         Some((self.f)(item).await)
-    }
-}
-
-#[must_use = "streams do nothing unless polled"]
-pub struct LegacyStream<St> {
-    stream: St,
-}
-
-impl<St> LegacyStream<St>
-where
-    St: Stream,
-{
-    pub(super) fn new(stream: St) -> Self {
-        Self { stream }
-    }
-}
-
-impl<St> futures::Stream for LegacyStream<St>
-where
-    St: Stream + Unpin,
-{
-    type Item = St::Item;
-
-    fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        let future = self.get_mut().stream.next();
-        pin_mut!(future);
-        future.poll(cx)
-    }
-
-    fn size_hint(&self) -> (usize, Option<usize>) {
-        self.stream.size_hint()
     }
 }

@@ -29,7 +29,6 @@ mio = { version = "1", features = [
     "os-ext",
 ], optional = true }
 threadpool = { version = "1", optional = true }
-futures = "0.3"
 tokio = { version = "1", default-features = false, optional = true }
 tracing = { version = "0.1", default-features = false, features = [
     "std",
@@ -60,6 +59,7 @@ nix = { version = "0.30", features = [
 io-uring = { version = "0.7", optional = true }
 
 [dev-dependencies]
+futures = "0.3"
 local-sync = "0.1"
 tempfile = "3.2"
 
