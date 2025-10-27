@@ -92,9 +92,6 @@ You can find more example code in `examples` of this repository.
 
 Thanks for their contributions!
 
-## Community
-Monoio is a subproject of [CloudWeGo](https://www.cloudwego.io/). We are committed to building a cloud native ecosystem.
-
 ## Associated Projects
 - [local-sync](https://github.com/monoio-rs/local-sync): A thread local channel.
 - [monoio-tls](https://github.com/monoio-rs/monoio-tls): TLS wrapper for Monoio.
