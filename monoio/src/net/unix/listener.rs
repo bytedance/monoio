@@ -29,18 +29,22 @@ impl UnixListener {
 
     /// Creates a new `UnixListener` bound to the specified socket with custom
     /// config.
-    pub fn bind_with_config<P: AsRef<Path>>(
+    pub async fn bind_with_config<P: AsRef<Path>>(
         path: P,
         config: &ListenerOpts,
     ) -> io::Result<UnixListener> {
-        let sys_listener =
-            socket2::Socket::new(socket2::Domain::UNIX, socket2::Type::STREAM, None)?;
+        let sys_listener = {
+            let completion = Op::socket(socket2::Domain::UNIX, socket2::Type::STREAM, None)?.await;
+            let fd = completion.meta.result?.into_inner();
+            unsafe { socket2::Socket::from_raw_fd(fd as _) }
+        };
         let addr = socket2::SockAddr::unix(path)?;
 
         if config.reuse_port {
             // TODO: properly handle this. Warn?
             // this seems to cause an error on current (>6.x) kernels:
             // sys_listener.set_reuse_port(true)?;
+            panic!("Unix sock does not support reuse port!")
         }
         if config.reuse_addr {
             sys_listener.set_reuse_address(true)?;
@@ -52,7 +56,24 @@ impl UnixListener {
             sys_listener.set_recv_buffer_size(recv_buf_size)?;
         }
 
+        #[cfg(feature = "bind")]
+        let sys_listener = {
+            let completion = Op::bind(sys_listener, addr)?.await;
+            completion.meta.result?;
+            completion.data.socket
+        };
+
+        #[cfg(not(feature = "bind"))]
         sys_listener.bind(&addr)?;
+
+        #[cfg(feature = "listen")]
+        let sys_listener = {
+            let completion = Op::listen(sys_listener, config.backlog)?.await;
+            completion.meta.result?;
+            completion.data.socket
+        };
+
+        #[cfg(not(feature = "listen"))]
         sys_listener.listen(config.backlog)?;
 
         let fd = SharedFd::new::<false>(sys_listener.into_raw_fd())?;
@@ -62,8 +83,8 @@ impl UnixListener {
 
     /// Creates a new `UnixListener` bound to the specified socket with default
     /// config.
-    pub fn bind<P: AsRef<Path>>(path: P) -> io::Result<UnixListener> {
-        Self::bind_with_config(path, &ListenerOpts::default())
+    pub async fn bind<P: AsRef<Path>>(path: P) -> io::Result<UnixListener> {
+        Self::bind_with_config(path, &ListenerOpts::default().reuse_port(false)).await
     }
 
     /// Accept

@@ -56,7 +56,7 @@ nix = { version = "0.29", features = [
 ], optional = true }
 
 [target.'cfg(target_os = "linux")'.dependencies]
-io-uring = { version = "0.6", optional = true }
+io-uring = { version = "0.7", optional = true }
 
 [dev-dependencies]
 futures = "0.3"
@@ -82,6 +82,10 @@ unlinkat = []
 renameat = []
 # symlinkat op(requires kernel 5.15+)
 symlinkat = []
+# listen op(requires kernel 6.11+)
+listen = []
+# bind op(requires kernel 6.11+)
+bind = []
 # enable `async main` macros support
 macros = ["monoio-macros"]
 # allow waker to be sent across threads

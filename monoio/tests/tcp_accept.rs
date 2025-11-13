@@ -7,7 +7,7 @@ macro_rules! test_accept {
         $(
             #[monoio::test_all]
             async fn $ident() {
-                let listener = TcpListener::bind($target).unwrap();
+                let listener = TcpListener::bind($target).await.unwrap();
                 let addr = listener.local_addr().unwrap();
                 let (tx, rx) = local_sync::oneshot::channel();
                 monoio::spawn(async move {
