@@ -6,9 +6,9 @@ use std::{
 };
 
 use crossbeam_queue::SegQueue;
-use fxhash::FxHashMap;
 #[cfg(not(feature = "unstable"))]
 use once_cell::sync::Lazy as LazyLock;
+use rustc_hash::FxHashMap;
 
 use crate::driver::UnparkHandle;
 
