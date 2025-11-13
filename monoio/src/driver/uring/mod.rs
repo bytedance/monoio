@@ -1,5 +1,7 @@
 //! Monoio Uring Driver.
 
+#[cfg(feature = "sync")]
+use std::sync::Arc;
 use std::{
     cell::UnsafeCell,
     io,
@@ -10,17 +12,15 @@ use std::{
     time::Duration,
 };
 
+#[cfg(feature = "sync")]
+use crossbeam_queue::SegQueue;
 use io_uring::{cqueue, opcode, types::Timespec, IoUring};
 use lifecycle::MaybeFdLifecycle;
 
 use super::{
     op::{CompletionMeta, Op, OpAble},
-    // ready::Ready,
-    // scheduled_io::ScheduledIo,
     util::timespec,
-    Driver,
-    Inner,
-    CURRENT,
+    Driver, Inner, CURRENT,
 };
 use crate::utils::slab::Slab;
 
@@ -78,7 +78,7 @@ pub(crate) struct UringInner {
 
     // Waker receiver
     #[cfg(feature = "sync")]
-    waker_receiver: flume::Receiver<std::task::Waker>,
+    waker_queue: Arc<SegQueue<std::task::Waker>>,
 
     // Uring support ext_arg
     ext_arg: bool,
@@ -116,7 +116,8 @@ impl IoUringDriver {
 
         Ok(IoUringDriver {
             inner,
-            timespec: Box::leak(Box::new(Timespec::new())) as *mut Timespec,
+            timespec: UnsafeCell::new(Timespec::new()),
+            _pinned: std::marker::PhantomPinned,
         })
     }
 
@@ -125,6 +126,10 @@ impl IoUringDriver {
         urb: &io_uring::Builder,
         entries: u32,
     ) -> io::Result<IoUringDriver> {
+        use std::sync::Arc;
+
+        use crossbeam_queue::SegQueue;
+
         let uring = ManuallyDrop::new(urb.build(entries)?);
 
         // Create eventfd and register it to the ring.
@@ -136,7 +141,7 @@ impl IoUringDriver {
             }
         };
 
-        let (waker_sender, waker_receiver) = flume::unbounded::<std::task::Waker>();
+        let waker_queue = Arc::new(SegQueue::new());
 
         let inner = Rc::new(UnsafeCell::new(UringInner {
             #[cfg(feature = "poll-io")]
@@ -148,7 +153,7 @@ impl IoUringDriver {
             uring,
             shared_waker: std::sync::Arc::new(waker::EventWaker::new(waker)),
             eventfd_installed: false,
-            waker_receiver,
+            waker_queue: waker_queue.clone(),
         }));
 
         let thread_id = crate::builder::BUILD_THREAD_ID.with(|id| *id);
@@ -161,7 +166,7 @@ impl IoUringDriver {
 
         // Register unpark handle
         super::thread::register_unpark_handle(thread_id, driver.unpark().into());
-        super::thread::register_waker_sender(thread_id, waker_sender);
+        super::thread::register_waker_queue(thread_id, waker_queue);
         Ok(driver)
     }
 
@@ -205,11 +210,10 @@ impl IoUringDriver {
     }
 
     fn install_timeout(&self, inner: &mut UringInner, duration: Duration) {
-        let timespec = timespec(duration);
         unsafe {
-            std::ptr::replace(self.timespec, timespec);
+            std::ptr::replace(self.timespec, timespec(duration));
         }
-        let entry = opcode::Timeout::new(self.timespec as *const Timespec)
+        let entry = opcode::Timeout::new(self.timespec)
             .build()
             .user_data(TIMEOUT_USERDATA);
 
@@ -226,7 +230,7 @@ impl IoUringDriver {
         #[cfg(feature = "sync")]
         {
             // Process foreign wakers
-            while let Ok(w) = inner.waker_receiver.try_recv() {
+            while let Some(w) = inner.waker_queue.pop() {
                 w.wake();
                 need_wait = false;
             }
@@ -240,7 +244,7 @@ impl IoUringDriver {
             }
 
             // Process foreign wakers left
-            while let Ok(w) = inner.waker_receiver.try_recv() {
+            while let Some(w) = inner.waker_queue.pop() {
                 w.wake();
                 need_wait = false;
             }
@@ -577,9 +581,9 @@ impl Drop for IoUringDriver {
         // Deregister thread id
         #[cfg(feature = "sync")]
         {
-            use crate::driver::thread::{unregister_unpark_handle, unregister_waker_sender};
+            use crate::driver::thread::{unregister_unpark_handle, unregister_waker_queue};
             unregister_unpark_handle(self.thread_id);
-            unregister_waker_sender(self.thread_id);
+            unregister_waker_queue(self.thread_id);
         }
     }
 }
