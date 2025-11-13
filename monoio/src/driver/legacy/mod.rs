@@ -1,5 +1,7 @@
 //! Monoio Legacy Driver.
 
+#[cfg(feature = "sync")]
+use std::sync::Arc;
 use std::{
     cell::UnsafeCell,
     io,
@@ -19,6 +21,8 @@ use crate::utils::slab::Slab;
 #[cfg(feature = "sync")]
 mod waker;
 #[cfg(feature = "sync")]
+use crossbeam_queue::SegQueue;
+#[cfg(feature = "sync")]
 pub(crate) use waker::UnparkHandle;
 
 pub(crate) struct LegacyInner {
@@ -37,7 +41,7 @@ pub(crate) struct LegacyInner {
 
     // Waker receiver
     #[cfg(feature = "sync")]
-    waker_receiver: flume::Receiver<std::task::Waker>,
+    waker_queue: Arc<SegQueue<std::task::Waker>>,
 }
 
 /// Driver with Poll-like syscall.
@@ -77,7 +81,7 @@ impl LegacyDriver {
             crate::driver::iocp::Waker::new(&poll, TOKEN_WAKEUP)?,
         ));
         #[cfg(feature = "sync")]
-        let (waker_sender, waker_receiver) = flume::unbounded::<std::task::Waker>();
+        let waker_queue = Arc::new(SegQueue::new());
         #[cfg(feature = "sync")]
         let thread_id = crate::builder::BUILD_THREAD_ID.with(|id| *id);
 
@@ -94,7 +98,7 @@ impl LegacyDriver {
             #[cfg(feature = "sync")]
             shared_waker,
             #[cfg(feature = "sync")]
-            waker_receiver,
+            waker_queue: waker_queue.clone(),
         };
         let driver = Self {
             inner: Rc::new(UnsafeCell::new(inner)),
@@ -107,7 +111,7 @@ impl LegacyDriver {
         {
             let unpark = driver.unpark();
             super::thread::register_unpark_handle(thread_id, unpark.into());
-            super::thread::register_waker_sender(thread_id, waker_sender);
+            super::thread::register_waker_queue(thread_id, waker_queue);
         }
 
         Ok(driver)
@@ -121,7 +125,7 @@ impl LegacyDriver {
         #[cfg(feature = "sync")]
         {
             // Process foreign wakers
-            while let Ok(w) = inner.waker_receiver.try_recv() {
+            while let Some(w) = inner.waker_queue.pop() {
                 w.wake();
                 need_wait = false;
             }
@@ -135,7 +139,7 @@ impl LegacyDriver {
             }
 
             // Process foreign wakers left
-            while let Ok(w) = inner.waker_receiver.try_recv() {
+            while let Some(w) = inner.waker_queue.pop() {
                 w.wake();
                 need_wait = false;
             }
@@ -378,9 +382,9 @@ impl Drop for LegacyDriver {
         // Deregister thread id
         #[cfg(feature = "sync")]
         {
-            use crate::driver::thread::{unregister_unpark_handle, unregister_waker_sender};
+            use crate::driver::thread::{unregister_unpark_handle, unregister_waker_queue};
             unregister_unpark_handle(self.thread_id);
-            unregister_waker_sender(self.thread_id);
+            unregister_waker_queue(self.thread_id);
         }
     }
 }

@@ -1,4 +1,9 @@
 use std::future::Future;
+#[cfg(feature = "sync")]
+use std::sync::Arc;
+
+#[cfg(feature = "sync")]
+use crossbeam_queue::SegQueue;
 
 #[cfg(any(all(target_os = "linux", feature = "iouring"), feature = "legacy"))]
 use crate::time::TimeDriver;
@@ -22,7 +27,7 @@ thread_local! {
     pub(crate) static DEFAULT_CTX: Context = Context {
         thread_id: crate::utils::thread_id::DEFAULT_THREAD_ID,
         unpark_cache: std::cell::RefCell::new(rustc_hash::FxHashMap::default()),
-        waker_sender_cache: std::cell::RefCell::new(rustc_hash::FxHashMap::default()),
+        waker_queue_cache: std::cell::RefCell::new(rustc_hash::FxHashMap::default()),
         tasks: Default::default(),
         time_handle: None,
         blocking_handle: crate::blocking::BlockingHandle::Empty(crate::blocking::BlockingStrategy::Panic),
@@ -45,8 +50,8 @@ pub(crate) struct Context {
 
     /// Waker sender cache
     #[cfg(feature = "sync")]
-    pub(crate) waker_sender_cache:
-        std::cell::RefCell<rustc_hash::FxHashMap<usize, flume::Sender<std::task::Waker>>>,
+    pub(crate) waker_queue_cache:
+        std::cell::RefCell<rustc_hash::FxHashMap<usize, Arc<SegQueue<std::task::Waker>>>>,
 
     /// Time Handle
     pub(crate) time_handle: Option<TimeHandle>,
@@ -64,7 +69,7 @@ impl Context {
         Self {
             thread_id,
             unpark_cache: std::cell::RefCell::new(rustc_hash::FxHashMap::default()),
-            waker_sender_cache: std::cell::RefCell::new(rustc_hash::FxHashMap::default()),
+            waker_queue_cache: std::cell::RefCell::new(rustc_hash::FxHashMap::default()),
             tasks: TaskQueue::default(),
             time_handle: None,
             blocking_handle,
@@ -102,16 +107,16 @@ impl Context {
     #[allow(unused)]
     #[cfg(feature = "sync")]
     pub(crate) fn send_waker(&self, id: usize, w: std::task::Waker) {
-        use crate::driver::thread::get_waker_sender;
-        if let Some(sender) = self.waker_sender_cache.borrow().get(&id) {
-            let _ = sender.send(w);
+        use crate::driver::thread::get_waker_queue;
+        if let Some(sender) = self.waker_queue_cache.borrow().get(&id) {
+            let _ = sender.push(w);
             return;
         }
 
-        if let Some(s) = get_waker_sender(id) {
+        if let Some(s) = get_waker_queue(id) {
             // Write back to local cache
-            let _ = s.send(w);
-            self.waker_sender_cache.borrow_mut().insert(id, s);
+            let _ = s.push(w);
+            self.waker_queue_cache.borrow_mut().insert(id, s);
         }
     }
 }

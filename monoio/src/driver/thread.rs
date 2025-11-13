@@ -1,8 +1,11 @@
 #[cfg(feature = "unstable")]
 use std::sync::LazyLock;
-use std::{sync::Mutex, task::Waker};
+use std::{
+    sync::{Arc, Mutex},
+    task::Waker,
+};
 
-use flume::Sender;
+use crossbeam_queue::SegQueue;
 #[cfg(not(feature = "unstable"))]
 use once_cell::sync::Lazy as LazyLock;
 use rustc_hash::FxHashMap;
@@ -13,7 +16,7 @@ static UNPARK: LazyLock<Mutex<FxHashMap<usize, UnparkHandle>>> =
     LazyLock::new(|| Mutex::new(FxHashMap::default()));
 
 // Global waker sender map
-static WAKER_SENDER: LazyLock<Mutex<FxHashMap<usize, Sender<Waker>>>> =
+static WAKER_QUEUE: LazyLock<Mutex<FxHashMap<usize, Arc<SegQueue<Waker>>>>> =
     LazyLock::new(|| Mutex::new(FxHashMap::default()));
 
 macro_rules! lock {
@@ -35,14 +38,14 @@ pub(crate) fn get_unpark_handle(id: usize) -> Option<UnparkHandle> {
     lock!(UNPARK).get(&id).cloned()
 }
 
-pub(crate) fn register_waker_sender(id: usize, sender: Sender<Waker>) {
-    lock!(WAKER_SENDER).insert(id, sender);
+pub(crate) fn register_waker_queue(id: usize, sender: Arc<SegQueue<Waker>>) {
+    lock!(WAKER_QUEUE).insert(id, sender);
 }
 
-pub(crate) fn unregister_waker_sender(id: usize) {
-    lock!(WAKER_SENDER).remove(&id);
+pub(crate) fn unregister_waker_queue(id: usize) {
+    lock!(WAKER_QUEUE).remove(&id);
 }
 
-pub(crate) fn get_waker_sender(id: usize) -> Option<Sender<Waker>> {
-    lock!(WAKER_SENDER).get(&id).cloned()
+pub(crate) fn get_waker_queue(id: usize) -> Option<Arc<SegQueue<Waker>>> {
+    lock!(WAKER_QUEUE).get(&id).cloned()
 }

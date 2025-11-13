@@ -1,7 +1,6 @@
 use std::{
     io::Write,
     net::{IpAddr, SocketAddr},
-    sync::LazyLock,
     thread::sleep,
     time::Duration,
 };
