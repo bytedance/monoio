@@ -28,7 +28,6 @@ impl UnixSeqpacketListener {
         backlog: libc::c_int,
     ) -> io::Result<Self> {
         let addr = socket2::SockAddr::unix(path)?;
-        // let (addr, addr_len) = socket_addr(path.as_ref())?;
         let socket = new_socket(socket2::Domain::UNIX, socket2::Type::SEQPACKET).await?;
         let socket = unsafe { socket2::Socket::from_raw_fd(socket) };
 

@@ -37,6 +37,7 @@ where
     let server_thread = std::thread::spawn(|| {
         monoio::start::<D, _>(async move {
             let listener = TcpListener::bind(ADDRESS)
+                .await
                 .unwrap_or_else(|_| panic!("[Server] Unable to bind to {ADDRESS}"));
             println!("[Server] Bind ready");
             drop(rx);

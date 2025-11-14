@@ -79,18 +79,8 @@ impl UdpSocket {
         #[cfg(feature = "bind")]
         let socket = {
             let completion = Op::bind(socket, addr)?.await;
-            match completion.meta.result {
-                Ok(_) => completion.data.socket,
-                // Kernal may not support io_uring bind operation, in this case, we will fallback to
-                // the raw bind.
-                Err(ref err) if err.raw_os_error() == Some(libc::EINVAL) => {
-                    let socket = completion.data.socket;
-                    let addr = completion.data.address;
-                    socket.bind(&addr)?;
-                    socket
-                }
-                Err(err) => return Err(err),
-            }
+            completion.meta.result?;
+            completion.data.socket
         };
 
         #[cfg(not(feature = "bind"))]

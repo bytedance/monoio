@@ -44,7 +44,10 @@ impl UnixListener {
             // TODO: properly handle this. Warn?
             // this seems to cause an error on current (>6.x) kernels:
             // sys_listener.set_reuse_port(true)?;
-            panic!("Unix sock does not support reuse port!")
+            return Err(io::Error::new(
+                io::ErrorKind::Unsupported,
+                "Unix sockets do not support SO_REUSEPORT",
+            ));
         }
         if config.reuse_addr {
             sys_listener.set_reuse_address(true)?;
