@@ -46,7 +46,10 @@ impl TcpListener {
     }
 
     /// Bind to address with config
-    pub fn bind_with_config<A: ToSocketAddrs>(addr: A, opts: &ListenerOpts) -> io::Result<Self> {
+    pub async fn bind_with_config<A: ToSocketAddrs>(
+        addr: A,
+        opts: &ListenerOpts,
+    ) -> io::Result<Self> {
         let addr = addr
             .to_socket_addrs()?
             .next()
@@ -57,6 +60,18 @@ impl TcpListener {
         } else {
             socket2::Domain::IPV4
         };
+
+        #[cfg(unix)]
+        let sys_listener = {
+            let completion =
+                Op::socket(domain, socket2::Type::STREAM, Some(socket2::Protocol::TCP))?.await;
+            let socket_fd = completion.meta.result?;
+            let socket = socket_fd.into_inner() as i32;
+
+            unsafe { socket2::Socket::from_raw_fd(socket) }
+        };
+
+        #[cfg(windows)]
         let sys_listener =
             socket2::Socket::new(domain, socket2::Type::STREAM, Some(socket2::Protocol::TCP))?;
 
@@ -83,7 +98,25 @@ impl TcpListener {
             #[cfg(any(target_os = "ios", target_os = "macos"))]
             let _ = super::tfo::set_tcp_fastopen_force_enable(&sys_listener);
         }
+
+        #[cfg(feature = "bind")]
+        let sys_listener = {
+            let completion = Op::bind(sys_listener, addr)?.await;
+            completion.meta.result?;
+            completion.data.socket
+        };
+
+        #[cfg(not(feature = "bind"))]
         sys_listener.bind(&addr)?;
+
+        #[cfg(feature = "listen")]
+        let sys_listener = {
+            let completion = Op::listen(sys_listener, opts.backlog)?.await;
+            completion.meta.result?;
+            completion.data.socket
+        };
+
+        #[cfg(not(feature = "listen"))]
         sys_listener.listen(opts.backlog)?;
 
         #[cfg(any(target_os = "ios", target_os = "macos"))]
@@ -101,9 +134,9 @@ impl TcpListener {
     }
 
     /// Bind to address
-    pub fn bind<A: ToSocketAddrs>(addr: A) -> io::Result<Self> {
+    pub async fn bind<A: ToSocketAddrs>(addr: A) -> io::Result<Self> {
         const DEFAULT_CFG: ListenerOpts = ListenerOpts::new();
-        Self::bind_with_config(addr, &DEFAULT_CFG)
+        Self::bind_with_config(addr, &DEFAULT_CFG).await
     }
 
     /// Accept

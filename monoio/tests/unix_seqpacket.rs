@@ -9,7 +9,7 @@ async fn test_seqpacket() -> std::io::Result<()> {
         .unwrap();
     let sock_path = dir.path().join("seqpacket.sock");
 
-    let listener = UnixSeqpacketListener::bind(&sock_path).unwrap();
+    let listener = UnixSeqpacketListener::bind(&sock_path).await.unwrap();
     monoio::spawn(async move {
         let (conn, _addr) = listener.accept().await.unwrap();
         let (res, buf) = conn.recv(vec![0; 100]).await;

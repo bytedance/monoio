@@ -48,7 +48,7 @@ impl UdpSocket {
     }
 
     /// Creates a UDP socket from the given address.
-    pub fn bind<A: ToSocketAddrs>(addr: A) -> io::Result<Self> {
+    pub async fn bind<A: ToSocketAddrs>(addr: A) -> io::Result<Self> {
         let addr = addr
             .to_socket_addrs()?
             .next()
@@ -58,12 +58,32 @@ impl UdpSocket {
         } else {
             socket2::Domain::IPV4
         };
+
+        #[cfg(unix)]
+        let socket = {
+            let completion =
+                Op::socket(domain, socket2::Type::DGRAM, Some(socket2::Protocol::UDP))?.await;
+            let fd = completion.meta.result?.into_inner();
+            unsafe { socket2::Socket::from_raw_fd(fd as _) }
+        };
+
+        #[cfg(windows)]
         let socket =
             socket2::Socket::new(domain, socket2::Type::DGRAM, Some(socket2::Protocol::UDP))?;
+
         #[cfg(feature = "legacy")]
         Self::set_non_blocking(&socket)?;
 
         let addr = socket2::SockAddr::from(addr);
+
+        #[cfg(feature = "bind")]
+        let socket = {
+            let completion = Op::bind(socket, addr)?.await;
+            completion.meta.result?;
+            completion.data.socket
+        };
+
+        #[cfg(not(feature = "bind"))]
         socket.bind(&addr)?;
 
         #[cfg(unix)]
