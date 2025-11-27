@@ -116,8 +116,7 @@ impl IoUringDriver {
 
         Ok(IoUringDriver {
             inner,
-            timespec: UnsafeCell::new(Timespec::new()),
-            _pinned: std::marker::PhantomPinned,
+            timespec: Box::leak(Box::new(Timespec::new())) as *mut Timespec,
         })
     }
 
